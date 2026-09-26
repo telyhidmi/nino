@@ -30,7 +30,7 @@ export function GlobeMark({ size = 48 }: { size?: number }) {
 
 /** Nino wordmark: glossy white→turquoise letters, globe as the "o". */
 export function Wordmark({ height = 56 }: { height?: number }) {
-  const w = height * 3.05;
+  const w = height * 2.60;
   return (
     <View style={{ width: w, height, flexDirection: 'row', alignItems: 'center', direction: 'ltr' }}>
       <Svg width={height * 2.2} height={height} viewBox="0 0 220 100">
@@ -44,7 +44,7 @@ export function Wordmark({ height = 56 }: { height?: number }) {
         <SvgText x="0" y="84" fontSize="98" fontFamily="Poppins_700Bold" fontWeight="700" fill="#0E6D74" opacity={0.55} dx={2} dy={3}>Nin</SvgText>
         <SvgText x="0" y="84" fontSize="98" fontFamily="Poppins_700Bold" fontWeight="700" fill="url(#wg)">Nin</SvgText>
       </Svg>
-      <View style={{ marginLeft: -height * 0.06, marginTop: height * 0.16 }}>
+      <View style={{ marginLeft: -height * 0.38, marginTop: height * 0.16 }}>
         <GlobeMark size={height * 0.78} />
       </View>
     </View>
