@@ -1,7 +1,7 @@
 import { useSignUp } from '@clerk/expo';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
-import { View } from 'react-native';
+import { Platform, View } from 'react-native';
 import { AuthHeader, LinkRow, TextLink } from '@/components/AuthBits';
 import { Shell } from '@/components/Shell';
 import { Banner, Card, Field, PillButton, Title } from '@/components/ui';
@@ -28,11 +28,15 @@ export default function SignUpScreen() {
   const submit = async () => {
     setError(null); setInfo(null);
     if (!email || !password) return setError(t('missingFields'));
+    try {
     const { error: e } = await signUp.password({ emailAddress: email.trim(), password });
     if (e) return setError(clerkErrorMessage(e, t('genericError')));
     if (signUp.status === 'complete') return finish();
     const { error: e2 } = await signUp.verifications.sendEmailCode();
     if (e2) setError(clerkErrorMessage(e2, t('genericError')));
+    } catch (err) {
+      setError(clerkErrorMessage(err, t('genericError')));
+    }
   };
 
   const verify = async () => {
@@ -75,10 +79,16 @@ export default function SignUpScreen() {
         <Field testID="email" label={t('email')} value={email} onChangeText={setEmail} autoCapitalize="none" autoComplete="email" keyboardType="email-address" placeholder={t('emailPh')} error={errors.fields.emailAddress?.message} />
         <Field testID="password" label={t('password')} value={password} onChangeText={setPassword} secureTextEntry autoComplete="new-password" placeholder={t('passwordPh')} error={errors.fields.password?.message} />
         <Banner text={error} />
+        {Platform.OS === 'web' && (
+          <View style={{ gap: 8 }} testID="human-verification">
+            <Banner text={t('humanVerification')} tone="info" />
+            <View nativeID="clerk-captcha" />
+          </View>
+        )}
         <PillButton testID="sign-up" label={t('signUp')} onPress={submit} loading={busy} disabled={!email || !password} />
       </Card>
       <LinkRow testID="to-sign-in" prompt={t('alreadyAccount')} action={t('signIn')} href="/sign-in" />
-      <View nativeID="clerk-captcha" />
+      {Platform.OS !== 'web' && <View nativeID="clerk-captcha" />}
     </Shell>
   );
 }
