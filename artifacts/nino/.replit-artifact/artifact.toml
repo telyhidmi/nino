@@ -1,0 +1,24 @@
+kind = "mobile"
+previewPath = "/"
+title = "Nino"
+description = "Nino — One World, One Voice. Native iOS and Android social app, starting with multilingual onboarding and profile setup."
+version = "1.0.0"
+id = "artifacts/nino"
+router = "expo-domain"
+
+[[services]]
+name = "expo"
+ensurePreviewReachable = "/status"
+paths = [ "/" ]
+localPort = 25718
+
+[services.development]
+run = "pnpm --filter @workspace/nino run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/nino", "run", "build" ]
+run = [ "pnpm", "--filter", "@workspace/nino", "run", "serve" ]
+
+[services.env]
+PORT = "25718"
+BASE_PATH = "/"

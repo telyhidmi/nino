@@ -1,6 +1,6 @@
-# [Project name]
+# Nino — One World, One Voice
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+Native iOS and Android social app for connecting across countries and languages.
 
 ## Run & Operate
 
@@ -34,7 +34,10 @@ _Describe the high-level user-facing capabilities of this app once they exist._
 
 ## User preferences
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
+- Follow the uploaded Nino references closely; do not invent a different visual style. Use dark teal surfaces, luminous turquoise accents, Poppins/Cairo typography, and Arabic RTL.
+- Deliver Phase 1 (welcome, language, authentication, profile setup) for review before continuing to feed, translation, messaging, or live-room phases.
+- Three reference composites were supplied; the Google Doc mentions five. The separate onboarding reference was not supplied, so do not claim a pixel-exact onboarding match.
+- Google Doc description was read before the conversation moved; its exact-reference requirement and five-tab navigation take precedence over the PDF's looser design guidance.
 
 ## Gotchas
 
