@@ -154,7 +154,7 @@ export function EarthGlobe({ size }: { size: number }) {
   rotRef.current = rot;
   const dragging = useRef(false);
   const [reduceMotion, setReduceMotion] = useState(false);
-  const [active, setActive] = useState(AppState.currentState === 'active');
+  const [active, setActive] = useState(AppState.currentState == null || AppState.currentState === 'active');
 
   useEffect(() => {
     AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion).catch(() => {});
@@ -163,14 +163,14 @@ export function EarthGlobe({ size }: { size: number }) {
     return () => { a.remove(); b.remove(); };
   }, []);
 
-  // Slow auto-rotation (~6°/s), ~30fps, stops when backgrounded, reduced motion, or unmounted.
+  // One turn every 20 seconds, ~30fps; respect reduced motion and background state.
   useEffect(() => {
     if (reduceMotion || !active) return;
     let raf = 0, last = 0;
     const tick = (t: number) => {
       if (last && !dragging.current && t - last >= 33) {
         const dt = Math.min(t - last, 100);
-        setRot((r) => ({ lon: (r.lon + dt * 0.006) % 360, lat: r.lat }));
+        setRot((r) => ({ lon: (r.lon + dt * 0.018) % 360, lat: r.lat }));
         last = t;
       } else if (!last || dragging.current) last = t;
       raf = requestAnimationFrame(tick);
