@@ -1,9 +1,9 @@
 ---
 name: Earth logo rendering
-description: Why the photographic interactive logo avoids a native GL renderer.
+description: Why the interactive logo uses spherical SVG projection rather than a native GL renderer.
 ---
-Use bundled photographic sphere-view frames for the small interactive Earth logo.
+Use lightweight spherical projection for the small interactive Earth logo.
 
-**Why:** The user rejected illustrated SVG terrain in favor of a satellite-photo appearance. Pre-rendered sphere views preserve that appearance and rotation while remaining compatible with Expo Go and web without native GL dependencies.
+**Why:** The globe must work in Expo Go on iOS and Android as well as the web preview without adding native GL dependencies for a tiny decorative element.
 
-**How to apply:** Preserve photographic terrain and cross-platform compatibility when improving its appearance. Do not revert to illustrated polygons or rotate a single flat photo like a wheel. Prefer individually sized image frames over negative-offset sprite-sheet clipping: the latter appeared in web preview but the user reported no Earth on their device, so web screenshots alone do not establish native visibility. Reconsider the renderer if a larger 3D experience is requested.
+**How to apply:** Preserve this compatibility when improving its appearance. Reconsider the renderer only if a larger, more detailed 3D experience is requested.
