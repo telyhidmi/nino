@@ -40,25 +40,75 @@ const ICE: number[][] = [
   [-73, 78, -60, 82, -30, 83, -20, 78, -22, 72, -30, 68, -42, 62, -48, 62, -52, 68, -56, 74, -66, 77],
   [-100, 76, -80, 80, -70, 83, -90, 82],
 ];
-// Wispy cloud streaks as open (lon,lat) polylines; drawn as thin, soft strokes.
-const CLOUDS: number[][] = [
-  [-40, 48, -25, 52, -10, 55, 5, 58, 18, 60],
-  [-60, 42, -45, 45, -32, 44, -22, 40],
-  [140, 44, 158, 47, 175, 50, -170, 52, -155, 50],
-  [-170, -46, -140, -50, -110, -52, -80, -50, -60, -47],
-  [20, -42, 45, -46, 70, -48, 95, -47, 115, -44],
-  [-150, 8, -120, 7, -95, 6, -70, 5, -40, 6, -15, 7, 10, 5, 40, 4, 70, 6, 100, 7, 130, 6, 160, 8],
-  [-130, 30, -118, 34, -112, 38],
-  [60, 30, 75, 34, 88, 36, 100, 35],
-  [-20, -12, 0, -16, 15, -22, 22, -30],
-  [120, -30, 135, -35, 150, -38, 168, -40],
-  [-100, 58, -80, 62, -65, 60],
-  [80, -20, 70, -12, 60, -8],
-  [-5, 20, 10, 24, 25, 26],
-  [150, 18, 165, 24, 178, 30],
-];
-
+// Procedural cloud field: deterministic puffs (irregular lon/lat rings) arranged into
+// swirling cyclones, ITCZ convection and scattered cumulus. Rendered in stacked
+// translucent layers (halo / body / core) for soft, natural edges.
 const D2R = Math.PI / 180;
+type Puff = { lon: number; lat: number; r: number };
+function rng(seed: number) {
+  let s = seed >>> 0;
+  return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
+}
+const CLOUD_PUFFS: Puff[] = (() => {
+  const rnd = rng(7331);
+  const out: Puff[] = [];
+  // Cyclones: [lon, lat, size, spin(+1 NH ccw / -1 SH)]
+  const storms: number[][] = [
+    [-32, 52, 1, 1], [165, 46, 0.9, 1], [-150, 40, 0.7, 1], [60, 58, 0.6, 1],
+    [-95, -52, 1, -1], [40, -48, 0.9, -1], [140, -44, 0.8, -1], [-10, -38, 0.55, -1],
+  ];
+  for (const [lon, lat, k, spin] of storms) {
+    out.push({ lon, lat, r: 3.2 * k });
+    for (let arm = 0; arm < 2; arm++) {
+      const off = arm * Math.PI + rnd();
+      for (let t = 0.3; t < 3.4; t += 0.22) {
+        const rad = 2.2 * k * Math.exp(0.42 * t) * (0.9 + rnd() * 0.2);
+        const ang = off + spin * t * 1.15;
+        const la = lat + Math.sin(ang) * rad * 0.8;
+        out.push({ lon: lon + (Math.cos(ang) * rad) / Math.cos(la * D2R), lat: la, r: k * (2.6 - t * 0.45 + rnd() * 1.2) });
+      }
+    }
+    // trailing frontal band sweeping toward the tropics
+    for (let i = 0; i < 9; i++) {
+      const f = i / 8;
+      out.push({ lon: lon - 6 * k - f * 22 * k, lat: lat - spin * (4 + f * 16) * k + (rnd() - 0.5) * 3, r: (1.8 - f) * k + rnd() * 0.8 });
+    }
+  }
+  // ITCZ: clumpy convective clusters near the equator
+  for (let lon = -180; lon < 180; lon += 7 + rnd() * 9) {
+    if (rnd() < 0.3) continue;
+    const lat = 5 + Math.sin(lon * 0.04) * 3 + (rnd() - 0.5) * 6;
+    const n = 1 + Math.floor(rnd() * 3);
+    for (let j = 0; j < n; j++) out.push({ lon: lon + (rnd() - 0.5) * 6, lat: lat + (rnd() - 0.5) * 4, r: 0.9 + rnd() * 1.8 });
+  }
+  // Scattered small cumulus
+  for (let i = 0; i < 70; i++) {
+    const lat = (rnd() * 2 - 1) * 62;
+    out.push({ lon: rnd() * 360 - 180, lat, r: 0.5 + rnd() * 1.1 });
+  }
+  return out;
+})();
+function puffRings(scale: number, jitter: number, seed: number, filter: (i: number) => boolean): number[][] {
+  const rnd = rng(seed);
+  const rings: number[][] = [];
+  CLOUD_PUFFS.forEach((p, i) => {
+    const ph = rnd() * 6.28, ph2 = rnd() * 6.28, stretch = 1.2 + rnd() * 0.5;
+    if (!filter(i)) return;
+    const ring: number[] = [];
+    const cl = Math.max(0.25, Math.cos(p.lat * D2R));
+    for (let v = 0; v < 12; v++) {
+      const a = (v / 12) * Math.PI * 2;
+      const rr = p.r * scale * (1 + jitter * (0.55 * Math.sin(3 * a + ph) + 0.45 * Math.sin(5 * a + ph2)));
+      ring.push(p.lon + (Math.cos(a) * rr * stretch) / cl, Math.max(-85, Math.min(85, p.lat + Math.sin(a) * rr)));
+    }
+    rings.push(ring);
+  });
+  return rings;
+}
+const CLOUD_HALO = puffRings(1.7, 0.3, 11, () => true);
+const CLOUD_BODY = puffRings(1.05, 0.35, 23, () => true);
+const CLOUD_CORE = puffRings(0.55, 0.4, 37, (i) => CLOUD_PUFFS[i].r > 1.4);
+
 
 /** Orthographic projection with horizon clipping. Hidden vertices are replaced by
  *  exact horizon crossings and radially clamped onto the limb, so no backface shows. */
@@ -94,30 +144,6 @@ function ringsToPath(rings: number[][], lon0: number, lat0: number, R: number, c
       }
     }
     d += `M${pts.join('L')}Z`;
-  }
-  return d;
-}
-
-/** Open polyline projection: keeps only visible (front hemisphere) segments. */
-function linesToPath(lines: number[][], lon0: number, lat0: number, R: number, c: number): string {
-  const sl = Math.sin(lat0), cl = Math.cos(lat0);
-  let d = '';
-  for (const ln of lines) {
-    let pen = false, pv: number[] | null = null;
-    for (let i = 0; i < ln.length / 2; i++) {
-      const lam = ln[i * 2] * D2R - lon0, phi = ln[i * 2 + 1] * D2R, cp = Math.cos(phi);
-      const x = cp * Math.sin(lam), y0 = Math.sin(phi), z0 = cp * Math.cos(lam);
-      const p = [x, y0 * cl - z0 * sl, y0 * sl + z0 * cl];
-      if (pv && (pv[2] > 0) !== (p[2] > 0)) {
-        const t = pv[2] / (pv[2] - p[2]);
-        const hx = pv[0] + (p[0] - pv[0]) * t, hy = pv[1] + (p[1] - pv[1]) * t;
-        d += `${pen ? 'L' : 'M'}${(c + hx * R).toFixed(1)} ${(c - hy * R).toFixed(1)}`;
-        pen = p[2] > 0;
-      }
-      if (p[2] > 0) { d += `${pen ? 'L' : 'M'}${(c + p[0] * R).toFixed(1)} ${(c - p[1] * R).toFixed(1)}`; pen = true; }
-      else pen = false;
-      pv = p;
-    }
   }
   return d;
 }
@@ -179,7 +205,10 @@ export function EarthGlobe({ size }: { size: number }) {
   const P = (r: number[][]) => ringsToPath(r, lon0, lat0, R, c);
   const land = P(LAND), savanna = P(SAVANNA), forest = P(FOREST), desert = P(DESERTS), mtn = P(MOUNTAINS), ice = P(ICE);
   // Clouds drift slowly relative to the surface as the globe turns.
-  const clouds = linesToPath(CLOUDS, lon0 - rot.lon * 0.12 * D2R, lat0, R, c);
+  const clon = lon0 - rot.lon * 0.12 * D2R;
+  const cHalo = ringsToPath(CLOUD_HALO, clon, lat0, R, c);
+  const cBody = ringsToPath(CLOUD_BODY, clon, lat0, R, c);
+  const cCore = ringsToPath(CLOUD_CORE, clon, lat0, R, c);
   const slop = Math.max(0, (44 - size) / 2);
 
   return (
@@ -229,8 +258,9 @@ export function EarthGlobe({ size }: { size: number }) {
           <Path d={mtn} fill="#7A6A55" opacity={0.7} />
           <Path d={ice} fill="#E8EEF2" opacity={0.92} />
         </G>
-        <Path d={clouds} fill="none" stroke="#FFFFFF" strokeOpacity={0.22} strokeWidth={3.2} strokeLinecap="round" strokeLinejoin="round" />
-        <Path d={clouds} fill="none" stroke="#FFFFFF" strokeOpacity={0.45} strokeWidth={1} strokeLinecap="round" strokeLinejoin="round" />
+        <Path d={cHalo} fill="#F4F8FC" opacity={0.13} />
+        <Path d={cBody} fill="#F7FAFD" opacity={0.2} />
+        <Path d={cCore} fill="#FFFFFF" opacity={0.26} />
         <Circle cx={c} cy={c} r={R} fill="url(#eg-limb)" />
         <Circle cx={c} cy={c} r={R} fill="url(#eg-night)" />
         <Circle cx={c} cy={c} r={R} fill="none" stroke="rgba(160,200,240,0.35)" strokeWidth={0.5} />
