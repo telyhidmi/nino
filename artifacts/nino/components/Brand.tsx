@@ -1,30 +1,18 @@
 import React, { useEffect } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Image, StyleSheet, Text, View } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withDelay, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import Svg, { Circle, Defs, Ellipse, G, LinearGradient, Path, RadialGradient, Stop, Text as SvgText } from 'react-native-svg';
 import { useColors } from '@/hooks/useColors';
 
-/** Glossy globe used as the "o" of the wordmark and as a standalone mark. */
+/** Earth used as the "o" of the wordmark and as a standalone mark. */
 export function GlobeMark({ size = 48 }: { size?: number }) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 100 100">
-      <Defs>
-        <RadialGradient id="gm" cx="35%" cy="30%" r="75%">
-          <Stop offset="0" stopColor="#BCE8FF" />
-          <Stop offset="0.35" stopColor="#279DDF" />
-          <Stop offset="1" stopColor="#1253A0" />
-        </RadialGradient>
-      </Defs>
-      <Circle cx="50" cy="50" r="46" fill="url(#gm)" />
-      <G fill="#63B64B" opacity={1}>
-        <Path d="M22 34c6-6 14-8 20-6 3 1 2 6-2 7-4 1-4 5-1 7 3 3 1 8-4 8-5 0-6 5-9 7-4-4-7-13-4-23z" />
-        <Path d="M52 20c8-1 17 3 22 9-3 2-7 1-9 4-2 3 2 6 0 9-3 3-8 0-10 3-2 3 1 8-2 10-4 2-7-3-6-8 1-5-4-6-4-11 0-6 6-6 9-9-3-3-2-6 0-7z" />
-        <Path d="M60 62c5-2 11 0 14 4-2 7-7 13-14 16-2-5 0-8-2-12-1-3 0-7 2-8z" />
-        <Path d="M36 64c4 0 7 3 6 7-1 5-2 10-5 13-3-4-4-9-4-13 0-4 1-7 3-7z" />
-      </G>
-      <Ellipse cx="36" cy="26" rx="18" ry="9" fill="#FFFFFF" opacity={0.45} />
-      <Circle cx="50" cy="50" r="46" fill="none" stroke="#BCE8FF" strokeWidth={1.5} opacity={0.7} />
-    </Svg>
+    <Image
+      source={require('../assets/images/earth-logo.png')}
+      style={{ width: size, height: size }}
+      resizeMode="contain"
+      accessibilityLabel="Earth"
+    />
   );
 }
 
