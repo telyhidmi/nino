@@ -1,19 +1,13 @@
 import React, { useEffect } from 'react';
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withDelay, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import Svg, { Circle, Defs, Ellipse, G, LinearGradient, Path, RadialGradient, Stop, Text as SvgText } from 'react-native-svg';
 import { useColors } from '@/hooks/useColors';
+import { EarthGlobe } from '@/components/EarthGlobe';
 
 /** Earth used as the "o" of the wordmark and as a standalone mark. */
 export function GlobeMark({ size = 48 }: { size?: number }) {
-  return (
-    <Image
-      source={require('../assets/images/earth-logo.png')}
-      style={{ width: size, height: size }}
-      resizeMode="contain"
-      accessibilityLabel="Earth"
-    />
-  );
+  return <EarthGlobe size={size} />;
 }
 
 /** Nino wordmark: glossy white→turquoise letters, globe as the "o". */
