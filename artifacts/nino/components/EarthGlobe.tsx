@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { AccessibilityInfo, AppState, PanResponder, Platform, View, type AccessibilityActionEvent } from 'react-native';
+import { AppState, PanResponder, Platform, View, type AccessibilityActionEvent } from 'react-native';
 import Svg, { Circle, Defs, G, Path, RadialGradient, Stop } from 'react-native-svg';
 import { LAND } from '@/constants/earthLand';
 
@@ -153,19 +153,17 @@ export function EarthGlobe({ size }: { size: number }) {
   const rotRef = useRef(rot);
   rotRef.current = rot;
   const dragging = useRef(false);
-  const [reduceMotion, setReduceMotion] = useState(false);
+  const [paused, setPaused] = useState(false);
   const [active, setActive] = useState(AppState.currentState == null || AppState.currentState === 'active');
 
   useEffect(() => {
-    AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion).catch(() => {});
-    const a = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduceMotion);
     const b = AppState.addEventListener('change', (s) => setActive(s === 'active'));
-    return () => { a.remove(); b.remove(); };
+    return () => { b.remove(); };
   }, []);
 
-  // One turn every 20 seconds, ~30fps; respect reduced motion and background state.
+  // Explicitly requested automatic rotation; tapping provides a pause control.
   useEffect(() => {
-    if (reduceMotion || !active) return;
+    if (paused || !active) return;
     let raf = 0, last = 0;
     const tick = (t: number) => {
       if (last && !dragging.current && t - last >= 33) {
@@ -177,7 +175,7 @@ export function EarthGlobe({ size }: { size: number }) {
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [reduceMotion, active]);
+  }, [paused, active]);
 
   const pan = useMemo(() => {
     let start = { lon: 0, lat: 0 };
@@ -190,12 +188,16 @@ export function EarthGlobe({ size }: { size: number }) {
         const k = 180 / Math.max(size, 30);
         setRot({ lon: start.lon - g.dx * k, lat: Math.max(-80, Math.min(80, start.lat + g.dy * k)) });
       },
-      onPanResponderRelease: () => { dragging.current = false; },
+      onPanResponderRelease: (_e, g) => {
+        dragging.current = false;
+        if (Math.abs(g.dx) + Math.abs(g.dy) < 5) setPaused((value) => !value);
+      },
       onPanResponderTerminate: () => { dragging.current = false; },
     });
   }, [size]);
 
   const onAction = (e: AccessibilityActionEvent) => {
+    if (e.nativeEvent.actionName === 'activate') setPaused((value) => !value);
     const step = e.nativeEvent.actionName === 'increment' ? 30 : e.nativeEvent.actionName === 'decrement' ? -30 : 0;
     if (step) setRot((r) => ({ ...r, lon: r.lon - step }));
   };
@@ -218,8 +220,9 @@ export function EarthGlobe({ size }: { size: number }) {
       accessible
       accessibilityRole="adjustable"
       accessibilityLabel="Earth globe"
-      accessibilityHint="Drag to rotate the globe"
-      accessibilityActions={[{ name: 'increment', label: 'Rotate east' }, { name: 'decrement', label: 'Rotate west' }]}
+      accessibilityHint="Tap to pause or resume automatic rotation. Drag to rotate the globe."
+      accessibilityValue={{ text: paused ? 'Rotation paused' : 'Rotating automatically' }}
+      accessibilityActions={[{ name: 'activate', label: paused ? 'Resume rotation' : 'Pause rotation' }, { name: 'increment', label: 'Rotate east' }, { name: 'decrement', label: 'Rotate west' }]}
       onAccessibilityAction={onAction}
       style={[{ width: size, height: size }, Platform.OS === 'web' ? ({ touchAction: 'none', cursor: 'grab' } as object) : null]}
     >
