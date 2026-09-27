@@ -4,6 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { AppState, FlatList, Linking, Platform, Pressable, Share, StyleSheet, Text, TextInput, View } from 'react-native';
+import { DiscoverScreen } from '@/components/discover/DiscoverScreen';
 import { EarthGlobe } from '@/components/EarthGlobe';
 import { useInsets } from '@/components/ui';
 import { useColors } from '@/hooks/useColors';
@@ -93,7 +94,7 @@ function PostView({ post, height, active, onOpen, viewerComments, liked, followi
   );
 }
 
-export function FeedScreen({ viewer, onProfile, preview, onExitDemo }: { viewer: FeedViewer; onProfile: () => void; preview?: boolean; onExitDemo?: () => void }) {
+export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSection = 'home' }: { viewer: FeedViewer; onProfile: () => void; preview?: boolean; onExitDemo?: () => void; initialSection?: 'home' | 'discover' }) {
   const c = useColors();
   const ins = useInsets();
   const [tab, setTab] = useState<Tab>('foryou');
@@ -109,6 +110,7 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo }: { viewer:
   const [focused, setFocused] = useState(false);
   const [foreground, setForeground] = useState(AppState.currentState === 'active');
   const [webVisible, setWebVisible] = useState(true);
+  const [section, setSection] = useState<'home' | 'discover'>(initialSection);
 
   useFocusEffect(useCallback(() => {
     setFocused(true);
@@ -140,10 +142,15 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo }: { viewer:
     if (tab === 'following') { setIndex(0); setListStart(0); }
   };
 
+  const openPost = (postId: string) => {
+    const target = Math.max(0, SAMPLE_POSTS.findIndex((item) => item.id === postId));
+    setTab('foryou'); setIndex(target); setListStart(target); setListVersion((v) => v + 1); setOpen(null); setSection('home');
+  };
+
   const NAV_H = 64;
   return (
     <View style={{ flex: 1, backgroundColor: c.bgTop }}>
-      <View style={{ flex: 1 }} onLayout={(e) => setH(e.nativeEvent.layout.height)}>
+      <View style={{ flex: 1, display: section === 'home' ? 'flex' : 'none' }} onLayout={(e) => { if (e.nativeEvent.layout.height > 0) setH(e.nativeEvent.layout.height); }}>
         {h > 0 && posts.length > 0 ? (
           <FlatList
             key={`${tab}-${listVersion}-${tab === 'following' ? posts.map((p) => p.id).join(',') : ''}`}
@@ -159,7 +166,7 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo }: { viewer:
             })}
             scrollEventThrottle={16}
             onMomentumScrollEnd={(e) => setIndex(Math.max(0, Math.min(posts.length - 1, Math.round(e.nativeEvent.contentOffset.y / h))))}
-            renderItem={({ item, index: itemIndex }) => <PostView post={item} height={h} active={itemIndex === index && focused && foreground && webVisible && open === null}
+            renderItem={({ item, index: itemIndex }) => <PostView post={item} height={h} active={itemIndex === index && focused && foreground && webVisible && open === null && section === 'home'}
               onOpen={setOpen} viewerComments={(local[item.id] ?? []).length}
               liked={!!likes[item.id]} following={follows[item.id] ?? item.following}
               onLike={() => setLikes((old) => ({ ...old, [item.id]: !old[item.id] }))}
@@ -217,9 +224,10 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo }: { viewer:
         </Pressable>
       </View>
 
+      <View style={{ flex: 1, display: section === 'discover' ? 'flex' : 'none' }}><DiscoverScreen onOpenPost={openPost} /></View>
       <View style={[st.nav, { height: NAV_H + ins.bottom, paddingBottom: ins.bottom, borderTopColor: 'rgba(31,224,232,0.12)' }]}>
-        <NavItem testID="nav-home" icon="home" label="Home" active onPress={() => changeTab('foryou')} />
-        <NavItem testID="nav-discover" icon="globe" label="Discover" onPress={() => setOpen('search')} />
+        <NavItem testID="nav-home" icon="home" label="Home" active={section === 'home'} onPress={() => { if (section === 'home') changeTab('foryou'); else setSection('home'); }} />
+        <NavItem testID="nav-discover" icon="globe" label="Discover" active={section === 'discover'} onPress={() => setSection('discover')} />
         <Pressable testID="nav-create" onPress={() => setOpen('create')} accessibilityRole="button" accessibilityLabel="Create post" style={st.navItem}>
           <View style={[st.create, { borderColor: c.accent }]}><Feather name="plus" size={26} color={c.text} /></View>
         </Pressable>
