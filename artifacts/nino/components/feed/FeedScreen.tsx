@@ -7,13 +7,15 @@ import { AppState, FlatList, Linking, Platform, Pressable, Share, StyleSheet, Te
 import { DiscoverScreen } from '@/components/discover/DiscoverScreen';
 import { EarthGlobe } from '@/components/EarthGlobe';
 import { useInsets } from '@/components/ui';
+import { DemoProfile } from '@/components/profile/DemoProfile';
+import type { ProfileCtx } from '@/components/profile/profileCtx';
 import { useColors } from '@/hooks/useColors';
 import { compact, SampleComment, SAMPLE_POSTS, SamplePost } from './data';
 import { FeedVideo } from './FeedVideo';
 import { CommentsSheet, PreviewTag, Sheet, SoonSheet, TranslateSheet } from './Sheets';
 
 type Tab = 'foryou' | 'following' | 'live';
-type Open = null | 'comments' | 'translate' | 'search' | 'create' | 'messages' | 'more' | 'profile';
+type Open = null | 'comments' | 'translate' | 'search' | 'create' | 'messages' | 'more';
 
 export type FeedViewer = { name?: string; imageUrl?: string | null } | null;
 
@@ -94,7 +96,7 @@ function PostView({ post, height, active, onOpen, viewerComments, liked, followi
   );
 }
 
-export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSection = 'home' }: { viewer: FeedViewer; onProfile: () => void; preview?: boolean; onExitDemo?: () => void; initialSection?: 'home' | 'discover' }) {
+export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSection = 'home', renderProfile }: { viewer: FeedViewer; onProfile: () => void; renderProfile?: (ctx: ProfileCtx) => React.ReactNode; preview?: boolean; onExitDemo?: () => void; initialSection?: 'home' | 'discover' | 'profile' }) {
   const c = useColors();
   const ins = useInsets();
   const [tab, setTab] = useState<Tab>('foryou');
@@ -110,7 +112,7 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
   const [focused, setFocused] = useState(false);
   const [foreground, setForeground] = useState(AppState.currentState === 'active');
   const [webVisible, setWebVisible] = useState(true);
-  const [section, setSection] = useState<'home' | 'discover'>(initialSection);
+  const [section, setSection] = useState<'home' | 'discover' | 'profile'>(initialSection);
 
   useFocusEffect(useCallback(() => {
     setFocused(true);
@@ -146,6 +148,13 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
     const target = Math.max(0, SAMPLE_POSTS.findIndex((item) => item.id === postId));
     setTab('foryou'); setIndex(target); setListStart(target); setListVersion((v) => v + 1); setOpen(null); setSection('home');
   };
+
+  const profileCtx: ProfileCtx = {
+    following: SAMPLE_POSTS.filter((p) => follows[p.id] ?? p.following).map((p) => ({ id: p.id, name: p.author, handle: p.handle, flag: p.flag, image: p.image })),
+    liked: SAMPLE_POSTS.filter((p) => likes[p.id]).map((p) => ({ id: `liked-${p.id}`, kind: p.video ? 'video' as const : 'photo' as const, image: p.image, video: p.video, label: `${p.author} · ${p.location}`, caption: p.translation, views: p.likes + 1, tag: 'LIKED · SAMPLE' })),
+    onUnfollow: (id) => { setFollows((old) => ({ ...old, [id]: false })); if (tab === 'following') { setIndex(0); setListStart(0); } },
+  };
+  const hasProfile = preview || !!renderProfile;
 
   const NAV_H = 64;
   return (
@@ -234,6 +243,11 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
       </View>
 
       <View style={{ flex: 1, display: section === 'discover' ? 'flex' : 'none' }}><DiscoverScreen onOpenPost={openPost} /></View>
+      {hasProfile ? (
+        <View style={{ flex: 1, display: section === 'profile' ? 'flex' : 'none' }}>
+          {preview ? <DemoProfile name={viewer?.name ?? 'Alex Morgan'} ctx={profileCtx} onExitDemo={onExitDemo} /> : renderProfile?.(profileCtx)}
+        </View>
+      ) : null}
       <View style={[st.nav, { height: NAV_H + ins.bottom, paddingBottom: ins.bottom, borderTopColor: 'rgba(31,224,232,0.12)' }]}>
         <NavItem testID="nav-home" icon="home" label="Home" active={section === 'home'} onPress={() => { if (section === 'home') changeTab('foryou'); else setSection('home'); }} />
         <NavItem testID="nav-discover" icon="globe" label="Discover" active={section === 'discover'} onPress={() => setSection('discover')} />
@@ -241,11 +255,11 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
           <View style={[st.create, { borderColor: c.accent }]}><Feather name="plus" size={26} color={c.text} /></View>
         </Pressable>
         <NavItem testID="nav-messages" icon="message-square" label="Messages" onPress={() => setOpen('messages')} />
-        <Pressable testID="nav-profile" onPress={preview ? () => setOpen('profile') : onProfile} accessibilityRole="button" accessibilityLabel="Profile" style={st.navItem}>
-          <View style={[st.navAv, { borderColor: c.border }]}>
+        <Pressable testID="nav-profile" onPress={hasProfile ? () => setSection('profile') : onProfile} accessibilityRole="button" accessibilityLabel="Profile" style={st.navItem}>
+          <View style={[st.navAv, { borderColor: section === 'profile' ? c.accent : c.border }]}>
             {viewer?.imageUrl ? <Image source={{ uri: viewer.imageUrl }} style={{ width: 26, height: 26, borderRadius: 13 }} /> : <Initials name={viewer?.name} size={26} />}
           </View>
-          <Text style={[st.navLabel, { color: c.secondary }]}>Profile</Text>
+          <Text style={[st.navLabel, { color: section === 'profile' ? c.accent : c.secondary }]}>Profile</Text>
         </Pressable>
       </View>
 
@@ -264,27 +278,6 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
           </Pressable>
         ) : null}
       </Sheet>
-      {preview ? (
-        <Sheet visible={open === 'profile'} onClose={() => setOpen(null)} title="Demo profile" testID="demo-profile">
-          <PreviewTag text="Simulated account · no email required" />
-          <View style={[st.demoProfile, { backgroundColor: c.cardSoft, borderColor: c.border }]}>
-            <Initials name={viewer?.name} size={64} />
-            <View style={{ flex: 1 }}>
-              <Text style={{ color: c.text, fontFamily: 'Poppins_700Bold', fontSize: 20 }}>{viewer?.name ?? 'Alex Morgan'}</Text>
-              <Text style={{ color: c.secondary, fontFamily: 'Poppins_400Regular', fontSize: 13 }}>🇨🇦 Canada · Fictional demo viewer</Text>
-            </View>
-          </View>
-          <Text style={{ color: c.text, fontFamily: 'Poppins_400Regular', fontSize: 14, lineHeight: 22, marginVertical: 16 }}>
-            Exploring the world one story and one language at a time. Loves city walks, local food, and meeting new people.
-          </Text>
-          <Text style={{ color: c.secondary, fontFamily: 'Poppins_400Regular', fontSize: 13, lineHeight: 20, marginBottom: 12 }}>
-            This is a simulated account. Likes, follows and comments are local to this demo session; nothing is posted or saved to a real account.
-          </Text>
-          <Pressable testID="profile-exit-demo" onPress={onExitDemo} accessibilityRole="button" style={[st.emptyButton, { borderColor: c.accent, marginBottom: 12 }]}>
-            <Text style={{ color: c.accent, fontFamily: 'Poppins_600SemiBold' }}>Exit demo to welcome</Text>
-          </Pressable>
-        </Sheet>
-      ) : null}
       <Sheet visible={open === 'search'} onClose={() => setOpen(null)} title="Discover" testID="search-sheet">
         <PreviewTag text="Browsing fictional sample posts" />
         <View style={[st.searchInput, { borderColor: c.border, backgroundColor: c.cardSoft }]}>
