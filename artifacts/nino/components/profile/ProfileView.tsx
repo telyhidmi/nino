@@ -43,14 +43,15 @@ function Initials({ name, size }: { name: string; size: number }) {
 }
 
 export function ProfileView(props: {
-  name: string; handle: string; imageUrl?: string | null; flag?: string; countryCode?: string;
+  name: string; handle: string; imageUrl?: string | null; imageSource?: ImageSourcePropType; flag?: string; countryCode?: string;
   badge?: string; speaks?: string; understands?: string[]; bio: string;
-  stats: { following: number; followers: number | null; likes: number | null };
+  stats: { following: number | null; followers: number | null; likes: number | null };
   statsNote?: string;
   tabs: Record<ProfileTabKey, ProfileTab>;
   following: FollowedCreator[]; followingEmpty: string;
   onUnfollow?: (id: string) => void;
   onEdit?: () => void; onShare: () => void; onMenu?: () => void; onBack?: () => void;
+  onFollow?: () => void; isFollowing?: boolean; postsOnly?: boolean; onOpenItem?: (item: ProfileItem) => void;
   onAdd?: () => void; addLabel?: string; uploadNote?: string;
   onRemove?: (item: ProfileItem) => void;
   topInset?: boolean; bottomPad?: number; testID?: string; active?: boolean;
@@ -88,7 +89,7 @@ export function ProfileView(props: {
 
         <View style={{ alignItems: 'center', marginTop: 0 }}>
           <View style={[s.ring, { borderColor: c.accent, shadowColor: c.accent }]}>
-            {props.imageUrl ? <Image source={{ uri: props.imageUrl }} style={{ width: 88, height: 88, borderRadius: 44 }} contentFit="cover" accessibilityLabel="Profile photo" /> : <Initials name={props.name} size={88} />}
+             {props.imageUrl || props.imageSource ? <Image source={props.imageUrl ? { uri: props.imageUrl } : props.imageSource} style={{ width: 88, height: 88, borderRadius: 44 }} contentFit="cover" accessibilityLabel={props.imageSource ? 'Illustrative sample photo' : 'Profile photo'} /> : <Initials name={props.name} size={88} />}
           </View>
           {props.flag ? (
             <View style={[s.flagPill, { backgroundColor: c.card, borderColor: c.border }]}>
@@ -111,7 +112,7 @@ export function ProfileView(props: {
         </View>
 
         <View style={s.stats}>
-          <Pressable testID="open-following" onPress={() => setShowFollowing(true)} accessibilityRole="button" accessibilityLabel={`Following ${props.stats.following}. Show list`} style={s.stat}>
+          <Pressable testID="open-following" disabled={props.stats.following === null} onPress={() => setShowFollowing(true)} accessibilityRole="button" accessibilityLabel={props.stats.following === null ? 'Following count unavailable' : `Following ${props.stats.following}. Show list`} style={s.stat}>
             <Text style={[s.statNum, { color: c.text }]}>{fmt(props.stats.following)}</Text>
             <Text style={[s.statLabel, { color: c.accent }]}>Following</Text>
           </Pressable>
@@ -123,6 +124,11 @@ export function ProfileView(props: {
         {props.statsNote ? <Text numberOfLines={1} style={[s.note, { color: c.muted }]}>{props.statsNote}</Text> : null}
 
         <View style={s.actions}>
+          {props.onFollow ? (
+            <Pressable testID="creator-follow" onPress={props.onFollow} accessibilityRole="button" accessibilityLabel={props.isFollowing ? `Unfollow ${props.name}` : `Follow ${props.name}`} style={[s.action, { backgroundColor: props.isFollowing ? c.card : c.accent, borderColor: props.isFollowing ? c.border : c.accent }]}>
+              <Text style={[s.actionText, { color: props.isFollowing ? c.text : c.onAccent }]}>{props.isFollowing ? 'Following' : 'Follow'}</Text>
+            </Pressable>
+          ) : null}
           {props.onEdit ? (
             <Pressable testID="edit-profile" onPress={props.onEdit} accessibilityRole="button" style={[s.action, { backgroundColor: c.card, borderColor: c.border }]}>
               <Text style={[s.actionText, { color: c.text }]}>Edit Profile</Text>
@@ -147,7 +153,7 @@ export function ProfileView(props: {
         ) : null}
 
         <View style={[s.tabs, { borderBottomColor: c.border }]}>
-          {(Object.keys(icons) as ProfileTabKey[]).map((k) => (
+          {(props.postsOnly ? ['posts'] as ProfileTabKey[] : Object.keys(icons) as ProfileTabKey[]).map((k) => (
             <Pressable key={k} testID={`profile-tab-${k}`} onPress={() => setTab(k)} accessibilityRole="tab" accessibilityLabel={k} accessibilityState={{ selected: tab === k }} style={s.tab}>
               <Feather name={icons[k]} size={20} color={tab === k ? c.text : c.muted} />
               <View style={[s.tabBar, { backgroundColor: tab === k ? c.accent : 'transparent' }]} />
@@ -164,7 +170,7 @@ export function ProfileView(props: {
         ) : (
           <View style={s.grid}>
             {current.items.map((it) => (
-              <Pressable key={it.id} testID={`tile-${it.id}`} onPress={() => setOpenItem(it)} accessibilityRole="button" accessibilityLabel={`Open ${it.label}`} style={s.tile}>
+              <Pressable key={it.id} testID={`tile-${it.id}`} onPress={() => props.onOpenItem ? props.onOpenItem(it) : setOpenItem(it)} accessibilityRole="button" accessibilityLabel={`Open ${it.label}`} style={s.tile}>
                 {it.image ? <Image source={it.image} style={StyleSheet.absoluteFill} contentFit="cover" /> : <View style={[StyleSheet.absoluteFill, { backgroundColor: c.card, alignItems: 'center', justifyContent: 'center' }]}><Feather name="film" size={24} color={c.accent} /></View>}
                 <View style={s.tileTop}>
                   {it.pinned ? <View style={[s.chip, { backgroundColor: c.danger }]}><Text style={s.chipText}>PINNED</Text></View> : null}

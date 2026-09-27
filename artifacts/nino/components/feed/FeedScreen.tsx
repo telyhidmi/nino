@@ -3,11 +3,12 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { AppState, FlatList, Linking, Platform, Pressable, Share, StyleSheet, Text, TextInput, View } from 'react-native';
+import { AppState, BackHandler, FlatList, Linking, Platform, Pressable, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 import { DiscoverScreen } from '@/components/discover/DiscoverScreen';
 import { EarthGlobe } from '@/components/EarthGlobe';
 import { useInsets } from '@/components/ui';
 import { DemoProfile } from '@/components/profile/DemoProfile';
+import { CreatorProfile } from '@/components/profile/CreatorProfile';
 import type { ProfileCtx } from '@/components/profile/profileCtx';
 import { useColors } from '@/hooks/useColors';
 import { compact, SampleComment, SAMPLE_POSTS, SamplePost } from './data';
@@ -41,9 +42,9 @@ function RailButton({ icon, label, onPress, active, testID, a11y, compactLayout 
   );
 }
 
-function PostView({ post, height, active, onOpen, viewerComments, liked, following, onLike, onFollow }: {
+function PostView({ post, height, active, onOpen, onCreator, viewerComments, liked, following, onLike, onFollow }: {
   post: SamplePost; height: number; onOpen: (o: Open) => void; viewerComments: number;
-  active: boolean; liked: boolean; following: boolean; onLike: () => void; onFollow: () => void;
+  active: boolean; liked: boolean; following: boolean; onLike: () => void; onFollow: () => void; onCreator: () => void;
 }) {
   const c = useColors();
   const compactLayout = height < 600;
@@ -58,14 +59,14 @@ function PostView({ post, height, active, onOpen, viewerComments, liked, followi
       <LinearGradient colors={['rgba(6,18,22,0.55)', 'transparent', 'transparent', 'rgba(6,18,22,0.92)']} locations={[0, 0.22, 0.5, 1]} style={StyleSheet.absoluteFill} pointerEvents="none" />
 
       <View style={[st.rail, compactLayout && st.smallRail]}>
-        <Pressable testID="rail-follow" onPress={onFollow} accessibilityRole="button" accessibilityLabel={following ? `Unfollow ${post.author}` : `Follow ${post.author}`} style={st.railItem}>
-          <View style={[st.railAvatar, compactLayout && st.smallRailAvatar, { borderColor: c.accent }]}>
+        <View style={st.railItem}>
+          <Pressable testID="rail-author" onPress={onCreator} accessibilityRole="button" accessibilityLabel={`View ${post.author}'s profile`} style={[st.railAvatar, compactLayout && st.smallRailAvatar, { borderColor: c.accent }]}>
             <Image source={post.image} style={{ width: compactLayout ? 40 : 50, height: compactLayout ? 40 : 50, borderRadius: 25 }} contentFit="cover" contentPosition={{ top: '32%', left: '50%' }} />
-          </View>
-          <View style={[st.plus, { backgroundColor: following ? c.accent : c.danger }]}>
+          </Pressable>
+          <Pressable testID="rail-follow" onPress={onFollow} accessibilityRole="button" accessibilityLabel={following ? `Unfollow ${post.author}` : `Follow ${post.author}`} hitSlop={4} style={[st.plus, { backgroundColor: following ? c.accent : c.danger }]}>
             <Feather name={following ? 'check' : 'plus'} size={12} color={following ? c.onAccent : '#FFF'} />
-          </View>
-        </Pressable>
+          </Pressable>
+        </View>
         <RailButton compactLayout={compactLayout} testID="rail-like" icon="heart" active={liked} a11y={liked ? 'Unlike' : 'Like'} label={compact(post.likes + (liked ? 1 : 0))} onPress={onLike} />
         <RailButton compactLayout={compactLayout} testID="rail-comments" icon="message-square" a11y="Comments" label={compact(post.commentCount + viewerComments)} onPress={() => onOpen('comments')} />
         <RailButton compactLayout={compactLayout} testID="rail-share" icon="corner-up-left" a11y="Share" label={compact(post.shares)} onPress={share} />
@@ -76,7 +77,9 @@ function PostView({ post, height, active, onOpen, viewerComments, liked, followi
       <View style={st.caption}>
         <View style={st.authorRow}>
           <View style={st.cc}><Text style={{ fontSize: 11 }}>{post.flag}</Text><Text style={st.ccText}>{post.countryCode}</Text></View>
-          <Text style={st.author} numberOfLines={1}>{post.author}</Text>
+          <Pressable testID="caption-author" onPress={onCreator} accessibilityRole="button" accessibilityLabel={`View ${post.author}'s profile`} style={{ flexShrink: 1, minHeight: 36, justifyContent: 'center' }}>
+            <Text style={st.author} numberOfLines={1}>{post.author}</Text>
+          </Pressable>
           <Pressable testID="caption-follow" onPress={onFollow} accessibilityRole="button" accessibilityLabel={following ? 'Following' : 'Follow'} hitSlop={8}
             style={[st.follow, { borderColor: c.accent, backgroundColor: following ? c.accent : 'rgba(31,224,232,0.12)' }]}>
             <Text style={{ color: following ? c.onAccent : c.accent, fontFamily: 'Poppins_600SemiBold', fontSize: 12 }}>{following ? 'Following' : 'Follow'}</Text>
@@ -113,7 +116,8 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
   const [focused, setFocused] = useState(false);
   const [foreground, setForeground] = useState(AppState.currentState === 'active');
   const [webVisible, setWebVisible] = useState(true);
-  const [section, setSection] = useState<'home' | 'discover' | 'profile'>(initialSection);
+  const [section, setSection] = useState<'home' | 'discover' | 'profile' | 'creator'>(initialSection);
+  const [creatorHandle, setCreatorHandle] = useState<string | null>(null);
 
   useFocusEffect(useCallback(() => {
     setFocused(true);
@@ -130,8 +134,14 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
     document.addEventListener('visibilitychange', update);
     return () => document.removeEventListener('visibilitychange', update);
   }, []);
+  useEffect(() => {
+    if (section !== 'creator') return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => { setSection('home'); return true; });
+    return () => sub.remove();
+  }, [section]);
 
-  const posts = tab === 'live' ? [] : tab === 'following' ? SAMPLE_POSTS.filter((p) => follows[p.id] ?? p.following) : SAMPLE_POSTS;
+  const isFollowing = (post: SamplePost) => follows[post.handle] ?? SAMPLE_POSTS.find((p) => p.handle === post.handle)?.following ?? false;
+  const posts = tab === 'live' ? [] : tab === 'following' ? SAMPLE_POSTS.filter(isFollowing) : SAMPLE_POSTS;
   const current = posts[Math.max(0, Math.min(index, posts.length - 1))] ?? SAMPLE_POSTS[0];
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -141,8 +151,18 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
   const addComment = (text: string) => setLocal((m) => ({ ...m, [current.id]: [...(m[current.id] ?? []), { id: `me-${Date.now()}`, author: viewer?.name ? `${viewer.name} (you)` : 'You', flag: '💬', text }] }));
   const changeTab = (next: Tab) => { setOpen(null); setTab(next); setIndex(0); setListStart(0); setListVersion((v) => v + 1); };
   const toggleFollow = (post: SamplePost) => {
-    setFollows((old) => ({ ...old, [post.id]: !(old[post.id] ?? post.following) }));
-    if (tab === 'following') { setOpen(null); setIndex(0); setListStart(0); setListVersion((v) => v + 1); }
+    setFollows((old) => ({ ...old, [post.handle]: !(old[post.handle] ?? SAMPLE_POSTS.find((p) => p.handle === post.handle)?.following ?? false) }));
+    if (tab === 'following') {
+      setOpen(null);
+      if (section === 'creator' && isFollowing(post)) {
+        // The current post leaves Following; keep it selected in For You on return.
+        const target = SAMPLE_POSTS.findIndex((p) => p.id === post.id);
+        setTab('foryou'); setIndex(target); setListStart(target);
+      } else if (section !== 'creator') {
+        setIndex(0); setListStart(0);
+      }
+      setListVersion((v) => v + 1);
+    }
   };
   const changeSection = (next: 'home' | 'discover' | 'profile') => {
     setOpen(null);
@@ -154,11 +174,18 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
     const target = Math.max(0, SAMPLE_POSTS.findIndex((item) => item.id === postId));
     setTab('foryou'); setIndex(target); setListStart(target); setListVersion((v) => v + 1); setOpen(null); setSection('home');
   };
+  const openCreator = (post: SamplePost) => {
+    setOpen(null);
+    setListStart(index);
+    setCreatorHandle(post.handle);
+    setSection('creator');
+  };
+  const creator = SAMPLE_POSTS.find((post) => post.handle === creatorHandle);
 
   const profileCtx: ProfileCtx = {
-    following: SAMPLE_POSTS.filter((p) => follows[p.id] ?? p.following).map((p) => ({ id: p.id, name: p.author, handle: p.handle, flag: p.flag, image: p.image })),
+    following: SAMPLE_POSTS.filter((p, i) => SAMPLE_POSTS.findIndex((other) => other.handle === p.handle) === i && isFollowing(p)).map((p) => ({ id: p.handle, name: p.author, handle: p.handle, flag: p.flag, image: p.image })),
     liked: SAMPLE_POSTS.filter((p) => likes[p.id]).map((p) => ({ id: `liked-${p.id}`, kind: p.video ? 'video' as const : 'photo' as const, image: p.image, video: p.video, label: `${p.author} · ${p.location}`, caption: p.translation, views: p.likes + 1, tag: 'LIKED · SAMPLE' })),
-    onUnfollow: (id) => { setFollows((old) => ({ ...old, [id]: false })); if (tab === 'following') { setIndex(0); setListStart(0); setListVersion((v) => v + 1); } },
+    onUnfollow: (handle) => { setFollows((old) => ({ ...old, [handle]: false })); if (tab === 'following') { setIndex(0); setListStart(0); setListVersion((v) => v + 1); } },
   };
   const hasProfile = preview || !!renderProfile;
 
@@ -181,9 +208,9 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
             })}
             scrollEventThrottle={16}
             onMomentumScrollEnd={(e) => setIndex(Math.max(0, Math.min(posts.length - 1, Math.round(e.nativeEvent.contentOffset.y / h))))}
-            renderItem={({ item, index: itemIndex }) => <PostView post={item} height={h} active={itemIndex === index && focused && foreground && webVisible && open === null && section === 'home'}
+             renderItem={({ item, index: itemIndex }) => <PostView post={item} height={h} active={itemIndex === index && focused && foreground && webVisible && open === null && section === 'home'}
               onOpen={setOpen} viewerComments={(local[item.id] ?? []).length}
-              liked={!!likes[item.id]} following={follows[item.id] ?? item.following}
+               liked={!!likes[item.id]} following={isFollowing(item)} onCreator={() => openCreator(item)}
               onLike={() => setLikes((old) => ({ ...old, [item.id]: !old[item.id] }))}
               onFollow={() => toggleFollow(item)} />}
           />
@@ -249,12 +276,14 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
       </View>}
 
       <View style={{ flex: 1, display: section === 'discover' ? 'flex' : 'none' }}><DiscoverScreen active={section === 'discover'} onOpenPost={openPost} /></View>
+      {section === 'creator' && creator ? <CreatorProfile creator={creator} following={isFollowing(creator)}
+        onFollow={() => toggleFollow(creator)} onBack={() => setSection('home')} onOpenPost={openPost} /> : null}
       {hasProfile ? (
         <View style={{ flex: 1, display: section === 'profile' ? 'flex' : 'none' }}>
           {preview ? <DemoProfile active={section === 'profile'} name={viewer?.name ?? 'Alex Morgan'} ctx={profileCtx} onExitDemo={onExitDemo} /> : renderProfile?.(profileCtx, section === 'profile')}
         </View>
       ) : null}
-      <View style={[st.nav, { height: NAV_H + ins.bottom, paddingBottom: ins.bottom, borderTopColor: 'rgba(31,224,232,0.12)' }]}>
+      {section !== 'creator' && <View style={[st.nav, { height: NAV_H + ins.bottom, paddingBottom: ins.bottom, borderTopColor: 'rgba(31,224,232,0.12)' }]}>
         <NavItem testID="nav-home" icon="home" label="Home" active={section === 'home'} onPress={() => { if (section === 'home') changeTab('foryou'); else changeSection('home'); }} />
         <NavItem testID="nav-discover" icon="globe" label="Discover" active={section === 'discover'} onPress={() => changeSection('discover')} />
         <Pressable testID="nav-create" onPress={() => setOpen('create')} accessibilityRole="button" accessibilityLabel="Create post" style={st.navItem}>
@@ -267,7 +296,7 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
           </View>
           <Text style={[st.navLabel, { color: section === 'profile' ? c.accent : c.secondary }]}>Profile</Text>
         </Pressable>
-      </View>
+      </View>}
 
       <CommentsSheet key={`comments-${current.id}`} post={current} visible={open === 'comments'} onClose={() => setOpen(null)} extra={local[current.id] ?? []} onAdd={addComment} />
       <TranslateSheet key={`translate-${current.id}`} post={current} visible={open === 'translate'} onClose={() => setOpen(null)} />
