@@ -3,7 +3,7 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { AppState, FlatList, Platform, Pressable, Share, StyleSheet, Text, TextInput, View } from 'react-native';
+import { AppState, FlatList, Linking, Platform, Pressable, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 import { EarthGlobe } from '@/components/EarthGlobe';
 import { useInsets } from '@/components/ui';
 import { useColors } from '@/hooks/useColors';
@@ -236,7 +236,17 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo }: { viewer:
       <TranslateSheet key={current.id} post={current} visible={open === 'translate'} onClose={() => setOpen(null)} />
       <SoonSheet visible={open === 'create'} onClose={() => setOpen(null)} icon="video" title="Create" body="Posting stories with built-in subtitles in every language is on its way. Nothing is uploaded from this preview." />
       <SoonSheet visible={open === 'messages'} onClose={() => setOpen(null)} icon="message-circle" title="Messages" body="Chat across languages with auto-translated messages is coming soon. There are no messages yet." />
-      <SoonSheet visible={open === 'more'} onClose={() => setOpen(null)} icon="sliders" title="More options" body="Save, report and 'not interested' controls arrive with the live feed. This post is curated sample content." />
+      <Sheet visible={open === 'more'} onClose={() => setOpen(null)} title="About this post" testID="post-info-sheet">
+        <PreviewTag text="Curated sample content" />
+        {current.videoCredit && current.videoSourceUrl ? (
+          <Pressable onPress={() => Linking.openURL(current.videoSourceUrl!)} accessibilityRole="link"
+            accessibilityLabel="Open video source and license" style={{ padding: 16, minHeight: 44 }}>
+            <Text style={{ color: c.text, fontFamily: 'Poppins_500Medium', fontSize: 14 }}>{current.videoCredit}</Text>
+            <Text style={{ color: c.secondary, marginTop: 8 }}>Adapted sample clip</Text>
+            <Text style={{ color: c.accent, marginTop: 12 }}>View source and license</Text>
+          </Pressable>
+        ) : null}
+      </Sheet>
       {preview ? (
         <Sheet visible={open === 'profile'} onClose={() => setOpen(null)} title="Demo profile" testID="demo-profile">
           <PreviewTag text="Simulated account · no email required" />

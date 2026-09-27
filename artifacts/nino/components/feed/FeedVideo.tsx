@@ -3,7 +3,7 @@ import { Image } from 'expo-image';
 import { useEventListener } from 'expo';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import React, { useEffect, useState } from 'react';
-import { Linking, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { SamplePost } from './data';
 
 type VideoFormat = 'mp4' | 'webm';
@@ -119,12 +119,6 @@ function Playback({ post, active, format, onError, retry }: {
           <Feather name={post.videoHasAudio ? (muted ? 'volume-x' : 'volume-2') : 'volume-x'} size={17} color="#FFF" />
           <Text style={styles.controlText}>{post.videoHasAudio ? (muted ? 'Muted' : 'Sound on') : 'No audio'}</Text>
         </Pressable>
-        {post.videoCredit && post.videoSourceUrl ? (
-          <Pressable onPress={() => Linking.openURL(post.videoSourceUrl!)} accessibilityRole="link"
-            accessibilityLabel={`Video credit: ${post.videoCredit}. Open source and license.`} style={styles.credit}>
-            <Text style={styles.creditText} numberOfLines={2}>{post.videoCredit} · adapted sample clip ↗</Text>
-          </Pressable>
-        ) : null}
       </View>
     </View>
   );
@@ -137,6 +131,4 @@ const styles = StyleSheet.create({
   controls: { position: 'absolute', top: 196, left: 16, right: 80, alignItems: 'flex-start', gap: 6 },
   mute: { minHeight: 44, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 22, backgroundColor: 'rgba(8,20,24,0.72)' },
   controlText: { color: '#FFF', fontFamily: 'Poppins_600SemiBold', fontSize: 12 },
-  credit: { paddingHorizontal: 8, paddingVertical: 5, borderRadius: 8, backgroundColor: 'rgba(8,20,24,0.72)' },
-  creditText: { color: '#E9FEFF', fontFamily: 'Poppins_400Regular', fontSize: 10 },
 });
