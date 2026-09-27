@@ -1,6 +1,6 @@
 import { Feather } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { EarthGlobe } from '@/components/EarthGlobe';
 import { useInsets } from '@/components/ui';
@@ -14,7 +14,7 @@ const FILTERS: { key: Filter; label: string }[] = [
   { key: 'foryou', label: 'For You' }, { key: 'countries', label: 'Countries' }, { key: 'live', label: 'Live Now' }, { key: 'nearby', label: 'Nearby' },
 ];
 
-export function DiscoverScreen({ onOpenPost }: { onOpenPost: (postId: string) => void }) {
+export function DiscoverScreen({ onOpenPost, active = true }: { onOpenPost: (postId: string) => void; active?: boolean }) {
   const c = useColors();
   const ins = useInsets();
   const [filter, setFilter] = useState<Filter>('countries');
@@ -23,6 +23,7 @@ export function DiscoverScreen({ onOpenPost }: { onOpenPost: (postId: string) =>
   const [openId, setOpenId] = useState<string | null>(null);
   const [follows, setFollows] = useState<Record<string, boolean>>({});
   const [preview, setPreview] = useState<DiscoverMedia | null>(null);
+  useEffect(() => { if (!active) setPreview(null); }, [active]);
 
   const list = useMemo(() => COUNTRIES.filter((x) => (chip === 'all' || x.id === chip) && countryMatches(x, query)), [chip, query]);
   const ordered = filter === 'foryou' ? [...list].sort((a, b) => Number(!!follows[b.id]) - Number(!!follows[a.id])) : list;
@@ -32,7 +33,7 @@ export function DiscoverScreen({ onOpenPost }: { onOpenPost: (postId: string) =>
   const country = COUNTRIES.find((x) => x.id === openId);
 
   const previewModal = (
-    <Modal visible={!!preview} transparent animationType="fade" onRequestClose={() => setPreview(null)}>
+    <Modal visible={active && !!preview} transparent animationType="fade" onRequestClose={() => setPreview(null)}>
       <Pressable testID="preview-close" onPress={() => setPreview(null)} style={[st.modal, { backgroundColor: c.overlay }]}>
         {preview ? (
           <View style={{ width: '100%', gap: 10 }}>

@@ -12,5 +12,5 @@ export default function Feed() {
   const p = readProfile(user.unsafeMetadata);
   if (!p.profileComplete) return <Redirect href="/setup" />;
   return <FeedScreen viewer={{ name: p.displayName, imageUrl: user.hasImage ? user.imageUrl : null }} onProfile={() => router.push('/profile')}
-    renderProfile={(ctx) => <RealProfile ctx={ctx} />} />;
+    renderProfile={(ctx, active) => <RealProfile ctx={ctx} active={active} />} />;
 }

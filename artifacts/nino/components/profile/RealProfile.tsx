@@ -1,7 +1,7 @@
 import { useAuth, useClerk, useUser } from '@clerk/expo';
 import { Feather } from '@expo/vector-icons';
 import { Redirect, router } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Pressable, Share, Text, View } from 'react-native';
 import { Sheet } from '@/components/feed/Sheets';
 import { Banner, LanguagePill } from '@/components/ui';
@@ -11,13 +11,14 @@ import { useI18n } from '@/lib/i18n';
 import type { ProfileCtx } from './profileCtx';
 import { confirmAction, ProfileView } from './ProfileView';
 
-export function RealProfile({ ctx, onBack }: { ctx?: ProfileCtx; onBack?: () => void }) {
+export function RealProfile({ ctx, onBack, active = true }: { ctx?: ProfileCtx; onBack?: () => void; active?: boolean }) {
   const { isSignedIn } = useAuth();
   const { user } = useUser();
   const { signOut } = useClerk();
   const c = useColors();
   const { t } = useI18n();
   const [menu, setMenu] = useState(false);
+  useEffect(() => { if (!active) setMenu(false); }, [active]);
   const [error, setError] = useState<string | null>(null);
 
   if (!isSignedIn || !user) return <Redirect href="/" />;
@@ -46,6 +47,7 @@ export function RealProfile({ ctx, onBack }: { ctx?: ProfileCtx; onBack?: () => 
   return (
     <>
       <ProfileView
+        active={active}
         testID="real-profile"
         name={p.displayName} handle={handle} imageUrl={user.hasImage ? user.imageUrl : null}
         flag={ctry?.flag} countryCode={ctry?.code}
@@ -65,7 +67,7 @@ export function RealProfile({ ctx, onBack }: { ctx?: ProfileCtx; onBack?: () => 
           liked: { items: ctx?.liked ?? [], emptyTitle: 'Nothing liked yet', emptyBody: 'Sample posts you like in the feed this session show here. Likes aren’t saved to your account yet.' },
         }}
       />
-      <Sheet visible={menu} onClose={() => setMenu(false)} title="Account" testID="profile-menu-sheet">
+      <Sheet visible={active && menu} onClose={() => setMenu(false)} title="Account" testID="profile-menu-sheet">
         <View style={{ paddingVertical: 12 }}><LanguagePill /></View>
         <Banner text={error} />
         <Item testID="menu-edit" icon="edit-2" label={t('edit')} onPress={edit} />

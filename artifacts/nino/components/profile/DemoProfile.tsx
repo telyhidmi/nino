@@ -1,5 +1,5 @@
 import * as ImagePicker from 'expo-image-picker';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Feather } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { Alert, Platform, Pressable, Share, Text, TextInput, View } from 'react-native';
@@ -18,12 +18,13 @@ const SAMPLE_UPLOADS: ProfileItem[] = [
   { id: 'demo-cairo', kind: 'photo', image: require('@/assets/images/discover-egypt.jpg'), label: 'Cairo rooftops', caption: 'Sample photo', views: 291 },
 ];
 
-export function DemoProfile({ name, ctx, onExitDemo }: { name: string; ctx: ProfileCtx; onExitDemo?: () => void }) {
+export function DemoProfile({ name, ctx, onExitDemo, active = true }: { name: string; ctx: ProfileCtx; onExitDemo?: () => void; active?: boolean }) {
   const c = useColors();
   const [uploads, setUploads] = useState<ProfileItem[]>([]);
   const [shownName, setShownName] = useState(name);
   const [bio, setBio] = useState('Exploring the world one story and one language at a time. City walks, local food, new people.');
   const [editing, setEditing] = useState(false);
+  useEffect(() => { if (!active) setEditing(false); }, [active]);
   const [photo, setPhoto] = useState<string | null>(null);
   const [draftPhoto, setDraftPhoto] = useState<string | null>(null);
   const pickPhoto = async () => {
@@ -68,6 +69,7 @@ export function DemoProfile({ name, ctx, onExitDemo }: { name: string; ctx: Prof
   return (
     <>
     <ProfileView
+      active={active}
       testID="demo-profile"
       name={shownName} imageUrl={photo} handle="alex.demo" flag="🇨🇦" countryCode="CAN" badge="DEMO"
       speaks="English (native)" understands={['FR', 'ES']}
@@ -87,7 +89,7 @@ export function DemoProfile({ name, ctx, onExitDemo }: { name: string; ctx: Prof
         liked: { items: ctx.liked, emptyTitle: 'Nothing liked yet', emptyBody: `Posts you like in the feed this session appear here. ${SAMPLE_POSTS.length} sample posts to explore.` },
       }}
     />
-    <Sheet visible={editing} onClose={() => setEditing(false)} title="Edit demo profile" testID="demo-edit-sheet">
+    <Sheet visible={active && editing} onClose={() => setEditing(false)} title="Edit demo profile" testID="demo-edit-sheet">
       <PreviewTag text="Local to this demo session · not saved to any account" />
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 14 }}>
         <View style={{ width: 64, height: 64, borderRadius: 32, borderWidth: 2, borderColor: c.accent, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', backgroundColor: c.cardSoft }}>

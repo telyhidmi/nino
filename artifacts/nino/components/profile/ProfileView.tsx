@@ -1,7 +1,7 @@
 import { Feather } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useVideoPlayer, VideoView } from 'expo-video';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Alert, ImageSourcePropType, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { EarthGlobe } from '@/components/EarthGlobe';
 import { useInsets } from '@/components/ui';
@@ -53,13 +53,16 @@ export function ProfileView(props: {
   onEdit?: () => void; onShare: () => void; onMenu?: () => void; onBack?: () => void;
   onAdd?: () => void; addLabel?: string; uploadNote?: string;
   onRemove?: (item: ProfileItem) => void;
-  topInset?: boolean; bottomPad?: number; testID?: string;
+  topInset?: boolean; bottomPad?: number; testID?: string; active?: boolean;
 }) {
   const c = useColors();
   const ins = useInsets();
   const [tab, setTab] = useState<ProfileTabKey>('posts');
   const [showFollowing, setShowFollowing] = useState(false);
   const [openItem, setOpenItem] = useState<ProfileItem | null>(null);
+  useEffect(() => {
+    if (!props.active && props.active !== undefined) { setShowFollowing(false); setOpenItem(null); }
+  }, [props.active]);
   const current = props.tabs[tab];
   const icons: Record<ProfileTabKey, keyof typeof Feather.glyphMap> = { posts: 'grid', private: 'lock', reposts: 'repeat', liked: 'heart' };
   const fmt = (n: number | null) => (n === null ? '—' : compact(n));
@@ -177,7 +180,7 @@ export function ProfileView(props: {
         )}
       </ScrollView>
 
-      <Modal visible={showFollowing} animationType="slide" transparent onRequestClose={() => setShowFollowing(false)}>
+      <Modal visible={props.active !== false && showFollowing} animationType="slide" transparent onRequestClose={() => setShowFollowing(false)}>
         <Pressable style={[StyleSheet.absoluteFill, { backgroundColor: c.overlay }]} onPress={() => setShowFollowing(false)} accessibilityLabel="Close" />
         <View testID="following-list" style={[s.sheet, { backgroundColor: c.card, borderColor: c.border, paddingBottom: ins.bottom + 16 }]}>
           <View style={s.sheetHead}>
@@ -205,7 +208,7 @@ export function ProfileView(props: {
         </View>
       </Modal>
 
-      <MediaViewer item={openItem} onClose={() => setOpenItem(null)} onRemove={props.onRemove && openItem?.local ? () => {
+      <MediaViewer item={props.active === false ? null : openItem} onClose={() => setOpenItem(null)} onRemove={props.onRemove && openItem?.local ? () => {
         const it = openItem;
         confirmAction('Remove this upload?', 'It only exists in this session and will be removed from your demo profile.', 'Remove', () => { props.onRemove?.(it); setOpenItem(null); });
       } : undefined} />

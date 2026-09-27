@@ -29,12 +29,12 @@ function Initials({ name, size }: { name?: string; size: number }) {
   );
 }
 
-function RailButton({ icon, label, onPress, active, testID, a11y }: { icon: keyof typeof Feather.glyphMap; label?: string; onPress: () => void; active?: boolean; testID: string; a11y: string }) {
+function RailButton({ icon, label, onPress, active, testID, a11y, compactLayout }: { icon: keyof typeof Feather.glyphMap; label?: string; onPress: () => void; active?: boolean; testID: string; a11y: string; compactLayout?: boolean }) {
   const c = useColors();
   return (
     <Pressable testID={testID} onPress={onPress} accessibilityRole="button" accessibilityLabel={a11y} accessibilityState={{ selected: !!active }} style={st.railItem}>
-      <View style={[st.railCircle, { borderColor: active ? c.accent : 'rgba(255,255,255,0.12)' }]}>
-        <Feather name={icon} size={22} color={active ? c.danger : c.text} />
+      <View style={[st.railCircle, compactLayout && st.smallRailCircle, { borderColor: active ? c.accent : 'rgba(255,255,255,0.12)' }]}>
+        <Feather name={icon} size={compactLayout ? 19 : 22} color={active ? c.danger : c.text} />
       </View>
       {label ? <Text style={st.railLabel}>{label}</Text> : null}
     </Pressable>
@@ -46,6 +46,7 @@ function PostView({ post, height, active, onOpen, viewerComments, liked, followi
   active: boolean; liked: boolean; following: boolean; onLike: () => void; onFollow: () => void;
 }) {
   const c = useColors();
+  const compactLayout = height < 600;
   const [translated, setTranslated] = useState(false);
   const share = () => {
     Share.share({ message: `${post.author} on Nino (fictional demo post): ${post.translation}` }).catch(() => undefined);
@@ -56,20 +57,20 @@ function PostView({ post, height, active, onOpen, viewerComments, liked, followi
         <Image source={post.image} style={StyleSheet.absoluteFill} contentFit="cover" accessibilityLabel={`Illustrative sample photo for ${post.location}`} />}
       <LinearGradient colors={['rgba(6,18,22,0.55)', 'transparent', 'transparent', 'rgba(6,18,22,0.92)']} locations={[0, 0.22, 0.5, 1]} style={StyleSheet.absoluteFill} pointerEvents="none" />
 
-      <View style={st.rail}>
+      <View style={[st.rail, compactLayout && st.smallRail]}>
         <Pressable testID="rail-follow" onPress={onFollow} accessibilityRole="button" accessibilityLabel={following ? `Unfollow ${post.author}` : `Follow ${post.author}`} style={st.railItem}>
-          <View style={[st.railAvatar, { borderColor: c.accent }]}>
-            <Image source={post.image} style={{ width: 50, height: 50, borderRadius: 25 }} contentFit="cover" contentPosition={{ top: '32%', left: '50%' }} />
+          <View style={[st.railAvatar, compactLayout && st.smallRailAvatar, { borderColor: c.accent }]}>
+            <Image source={post.image} style={{ width: compactLayout ? 40 : 50, height: compactLayout ? 40 : 50, borderRadius: 25 }} contentFit="cover" contentPosition={{ top: '32%', left: '50%' }} />
           </View>
           <View style={[st.plus, { backgroundColor: following ? c.accent : c.danger }]}>
             <Feather name={following ? 'check' : 'plus'} size={12} color={following ? c.onAccent : '#FFF'} />
           </View>
         </Pressable>
-        <RailButton testID="rail-like" icon="heart" active={liked} a11y={liked ? 'Unlike' : 'Like'} label={compact(post.likes + (liked ? 1 : 0))} onPress={onLike} />
-        <RailButton testID="rail-comments" icon="message-square" a11y="Comments" label={compact(post.commentCount + viewerComments)} onPress={() => onOpen('comments')} />
-        <RailButton testID="rail-share" icon="corner-up-left" a11y="Share" label={compact(post.shares)} onPress={share} />
-        <RailButton testID="rail-more" icon="more-horizontal" a11y="More options" onPress={() => onOpen('more')} />
-        <View style={[st.disc, { borderColor: c.accent }]}><View style={[st.discDot, { backgroundColor: c.bgTop }]} /></View>
+        <RailButton compactLayout={compactLayout} testID="rail-like" icon="heart" active={liked} a11y={liked ? 'Unlike' : 'Like'} label={compact(post.likes + (liked ? 1 : 0))} onPress={onLike} />
+        <RailButton compactLayout={compactLayout} testID="rail-comments" icon="message-square" a11y="Comments" label={compact(post.commentCount + viewerComments)} onPress={() => onOpen('comments')} />
+        <RailButton compactLayout={compactLayout} testID="rail-share" icon="corner-up-left" a11y="Share" label={compact(post.shares)} onPress={share} />
+        <RailButton compactLayout={compactLayout} testID="rail-more" icon="more-horizontal" a11y="More options" onPress={() => onOpen('more')} />
+        <View style={[st.disc, compactLayout && st.smallDisc, { borderColor: c.accent }]}><View style={[st.discDot, { backgroundColor: c.bgTop }]} /></View>
       </View>
 
       <View style={st.caption}>
@@ -96,7 +97,7 @@ function PostView({ post, height, active, onOpen, viewerComments, liked, followi
   );
 }
 
-export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSection = 'home', renderProfile }: { viewer: FeedViewer; onProfile: () => void; renderProfile?: (ctx: ProfileCtx) => React.ReactNode; preview?: boolean; onExitDemo?: () => void; initialSection?: 'home' | 'discover' | 'profile' }) {
+export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSection = 'home', renderProfile }: { viewer: FeedViewer; onProfile: () => void; renderProfile?: (ctx: ProfileCtx, active: boolean) => React.ReactNode; preview?: boolean; onExitDemo?: () => void; initialSection?: 'home' | 'discover' | 'profile' }) {
   const c = useColors();
   const ins = useInsets();
   const [tab, setTab] = useState<Tab>('foryou');
@@ -131,17 +132,22 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
   }, []);
 
   const posts = tab === 'live' ? [] : tab === 'following' ? SAMPLE_POSTS.filter((p) => follows[p.id] ?? p.following) : SAMPLE_POSTS;
-  const current = posts[Math.min(index, posts.length - 1)] ?? SAMPLE_POSTS[0];
+  const current = posts[Math.max(0, Math.min(index, posts.length - 1))] ?? SAMPLE_POSTS[0];
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
     return SAMPLE_POSTS.filter((p) => !q || [p.author, p.location, p.caption, p.translation, ...p.tags].join(' ').toLowerCase().includes(q));
   }, [query]);
 
   const addComment = (text: string) => setLocal((m) => ({ ...m, [current.id]: [...(m[current.id] ?? []), { id: `me-${Date.now()}`, author: viewer?.name ? `${viewer.name} (you)` : 'You', flag: '💬', text }] }));
-  const changeTab = (next: Tab) => { setTab(next); setIndex(0); setListStart(0); setListVersion((v) => v + 1); };
+  const changeTab = (next: Tab) => { setOpen(null); setTab(next); setIndex(0); setListStart(0); setListVersion((v) => v + 1); };
   const toggleFollow = (post: SamplePost) => {
     setFollows((old) => ({ ...old, [post.id]: !(old[post.id] ?? post.following) }));
-    if (tab === 'following') { setIndex(0); setListStart(0); }
+    if (tab === 'following') { setOpen(null); setIndex(0); setListStart(0); setListVersion((v) => v + 1); }
+  };
+  const changeSection = (next: 'home' | 'discover' | 'profile') => {
+    setOpen(null);
+    if (section === 'home' && next !== 'home') setListStart(index);
+    setSection(next);
   };
 
   const openPost = (postId: string) => {
@@ -152,14 +158,14 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
   const profileCtx: ProfileCtx = {
     following: SAMPLE_POSTS.filter((p) => follows[p.id] ?? p.following).map((p) => ({ id: p.id, name: p.author, handle: p.handle, flag: p.flag, image: p.image })),
     liked: SAMPLE_POSTS.filter((p) => likes[p.id]).map((p) => ({ id: `liked-${p.id}`, kind: p.video ? 'video' as const : 'photo' as const, image: p.image, video: p.video, label: `${p.author} · ${p.location}`, caption: p.translation, views: p.likes + 1, tag: 'LIKED · SAMPLE' })),
-    onUnfollow: (id) => { setFollows((old) => ({ ...old, [id]: false })); if (tab === 'following') { setIndex(0); setListStart(0); } },
+    onUnfollow: (id) => { setFollows((old) => ({ ...old, [id]: false })); if (tab === 'following') { setIndex(0); setListStart(0); setListVersion((v) => v + 1); } },
   };
   const hasProfile = preview || !!renderProfile;
 
   const NAV_H = 64;
   return (
     <View style={{ flex: 1, backgroundColor: c.bgTop }}>
-      <View style={{ flex: 1, display: section === 'home' ? 'flex' : 'none' }} onLayout={(e) => { if (e.nativeEvent.layout.height > 0) setH(e.nativeEvent.layout.height); }}>
+      {section === 'home' && <View style={{ flex: 1 }} onLayout={(e) => { if (e.nativeEvent.layout.height > 0) setH(e.nativeEvent.layout.height); }}>
         {h > 0 && posts.length > 0 ? (
           <FlatList
             key={`${tab}-${listVersion}-${tab === 'following' ? posts.map((p) => p.id).join(',') : ''}`}
@@ -240,22 +246,22 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
           <View style={[st.ai, { borderColor: c.border }]}><Text style={{ color: c.accent, fontFamily: 'Poppins_600SemiBold', fontSize: 11, letterSpacing: 0.5 }}>PREVIEW</Text></View>
           <Feather name="chevron-right" size={18} color={c.accent} />
         </Pressable>}
-      </View>
+      </View>}
 
-      <View style={{ flex: 1, display: section === 'discover' ? 'flex' : 'none' }}><DiscoverScreen onOpenPost={openPost} /></View>
+      <View style={{ flex: 1, display: section === 'discover' ? 'flex' : 'none' }}><DiscoverScreen active={section === 'discover'} onOpenPost={openPost} /></View>
       {hasProfile ? (
         <View style={{ flex: 1, display: section === 'profile' ? 'flex' : 'none' }}>
-          {preview ? <DemoProfile name={viewer?.name ?? 'Alex Morgan'} ctx={profileCtx} onExitDemo={onExitDemo} /> : renderProfile?.(profileCtx)}
+          {preview ? <DemoProfile active={section === 'profile'} name={viewer?.name ?? 'Alex Morgan'} ctx={profileCtx} onExitDemo={onExitDemo} /> : renderProfile?.(profileCtx, section === 'profile')}
         </View>
       ) : null}
       <View style={[st.nav, { height: NAV_H + ins.bottom, paddingBottom: ins.bottom, borderTopColor: 'rgba(31,224,232,0.12)' }]}>
-        <NavItem testID="nav-home" icon="home" label="Home" active={section === 'home'} onPress={() => { if (section === 'home') changeTab('foryou'); else setSection('home'); }} />
-        <NavItem testID="nav-discover" icon="globe" label="Discover" active={section === 'discover'} onPress={() => setSection('discover')} />
+        <NavItem testID="nav-home" icon="home" label="Home" active={section === 'home'} onPress={() => { if (section === 'home') changeTab('foryou'); else changeSection('home'); }} />
+        <NavItem testID="nav-discover" icon="globe" label="Discover" active={section === 'discover'} onPress={() => changeSection('discover')} />
         <Pressable testID="nav-create" onPress={() => setOpen('create')} accessibilityRole="button" accessibilityLabel="Create post" style={st.navItem}>
           <View style={[st.create, { borderColor: c.accent }]}><Feather name="plus" size={26} color={c.text} /></View>
         </Pressable>
         <NavItem testID="nav-messages" icon="message-square" label="Messages" onPress={() => setOpen('messages')} />
-        <Pressable testID="nav-profile" onPress={hasProfile ? () => setSection('profile') : onProfile} accessibilityRole="button" accessibilityLabel="Profile" style={st.navItem}>
+        <Pressable testID="nav-profile" onPress={hasProfile ? () => changeSection('profile') : onProfile} accessibilityRole="button" accessibilityLabel="Profile" style={st.navItem}>
           <View style={[st.navAv, { borderColor: section === 'profile' ? c.accent : c.border }]}>
             {viewer?.imageUrl ? <Image source={{ uri: viewer.imageUrl }} style={{ width: 26, height: 26, borderRadius: 13 }} /> : <Initials name={viewer?.name} size={26} />}
           </View>
@@ -263,8 +269,8 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
         </Pressable>
       </View>
 
-      <CommentsSheet post={current} visible={open === 'comments'} onClose={() => setOpen(null)} extra={local[current.id] ?? []} onAdd={addComment} />
-      <TranslateSheet key={current.id} post={current} visible={open === 'translate'} onClose={() => setOpen(null)} />
+      <CommentsSheet key={`comments-${current.id}`} post={current} visible={open === 'comments'} onClose={() => setOpen(null)} extra={local[current.id] ?? []} onAdd={addComment} />
+      <TranslateSheet key={`translate-${current.id}`} post={current} visible={open === 'translate'} onClose={() => setOpen(null)} />
       <SoonSheet visible={open === 'create'} onClose={() => setOpen(null)} icon="video" title="Create" body="Posting stories with built-in subtitles in every language is on its way. Nothing is uploaded from this preview." />
       <SoonSheet visible={open === 'messages'} onClose={() => setOpen(null)} icon="message-circle" title="Messages" body="Chat across languages with auto-translated messages is coming soon. There are no messages yet." />
       <Sheet visible={open === 'more'} onClose={() => setOpen(null)} title="About this post" testID="post-info-sheet">
@@ -292,7 +298,7 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
           </View>
         ) : results.map((p) => (
           <Pressable key={p.id} testID={`result-${p.id}`} accessibilityRole="button" accessibilityLabel={`Open ${p.location}`}
-            onPress={() => { const target = SAMPLE_POSTS.findIndex((item) => item.id === p.id); setTab('foryou'); setIndex(target); setListStart(target); setListVersion((v) => v + 1); setOpen(null); }}
+            onPress={() => openPost(p.id)}
             style={[st.result, { borderColor: c.border }]}>
             <Image source={p.image} style={{ width: 52, height: 68, borderRadius: 10 }} contentFit="cover" />
             <View style={{ flex: 1, gap: 2 }}>
@@ -331,12 +337,16 @@ const st = StyleSheet.create({
   liveDot: { width: 7, height: 7, borderRadius: 4 },
   badgeText: { color: '#E9FEFF', fontFamily: 'Poppins_600SemiBold', fontSize: 11, letterSpacing: 0.4 },
   rail: { position: 'absolute', right: 10, bottom: 150, alignItems: 'center', gap: 10 },
+  smallRail: { bottom: 60, gap: 4 },
   railItem: { alignItems: 'center', minWidth: 52, minHeight: 44 },
   railCircle: { width: 50, height: 50, borderRadius: 25, backgroundColor: 'rgba(8,20,24,0.6)', alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
+  smallRailCircle: { width: 42, height: 42, borderRadius: 21 },
   railLabel: { color: '#FFF', fontFamily: 'Poppins_600SemiBold', fontSize: 12, marginTop: 3, textShadowColor: 'rgba(0,0,0,0.6)', textShadowRadius: 4 },
   railAvatar: { width: 56, height: 56, borderRadius: 28, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+  smallRailAvatar: { width: 46, height: 46, borderRadius: 23 },
   plus: { width: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginTop: -10 },
   disc: { width: 40, height: 40, borderRadius: 20, borderWidth: 9, backgroundColor: '#0FB5BE', alignItems: 'center', justifyContent: 'center', marginTop: 4 },
+  smallDisc: { width: 32, height: 32, borderRadius: 16, borderWidth: 7 },
   discDot: { width: 8, height: 8, borderRadius: 4 },
   caption: { position: 'absolute', left: 16, right: 84, bottom: 74, gap: 6 },
   authorRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
