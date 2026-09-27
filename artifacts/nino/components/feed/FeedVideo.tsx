@@ -6,16 +6,40 @@ import React, { useEffect, useState } from 'react';
 import { Linking, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { SamplePost } from './data';
 
-// Mounted only for the visible post. useVideoPlayer releases its native player on unmount.
-export function FeedVideo({ post, active }: { post: SamplePost; active: boolean }) {
-  const [attempt, setAttempt] = useState(0);
-  return <Playback key={`${post.id}-${attempt}`} post={post} active={active} retry={() => setAttempt((n) => n + 1)} />;
+type VideoFormat = 'mp4' | 'webm';
+
+function supportedFormats(): VideoFormat[] {
+  if (Platform.OS !== 'web' || typeof document === 'undefined') return ['mp4'];
+  const video = document.createElement('video');
+  // H.264 baseline is supported by Safari (including iOS Safari); VP8/WebM is
+  // useful on Chromium builds without H.264. Never assume WebM works on all web.
+  const mp4 = video.canPlayType('video/mp4; codecs="avc1.42E01E"');
+  const webm = video.canPlayType('video/webm; codecs="vp8"');
+  return [
+    ...(mp4 ? ['mp4' as const] : []),
+    ...(webm ? ['webm' as const] : []),
+  ];
 }
 
-function Playback({ post, active, retry }: { post: SamplePost; active: boolean; retry: () => void }) {
-  // The web preview's Chromium build can lack H.264 support. Bundle VP8/WebM
-  // equivalents there; iOS/Android use the H.264/AAC MP4 assets.
-  const player = useVideoPlayer(Platform.OS === 'web' ? post.videoWeb! : post.video!, (p) => {
+// Mounted only for the visible post. useVideoPlayer releases its native player on unmount.
+export function FeedVideo({ post, active }: { post: SamplePost; active: boolean }) {
+  const [formats] = useState(supportedFormats);
+  const [formatIndex, setFormatIndex] = useState(0);
+  const [attempt, setAttempt] = useState(0);
+  const format = formats[formatIndex] ?? 'mp4';
+  const retry = () => { setFormatIndex(0); setAttempt((n) => n + 1); };
+  return <Playback key={`${post.id}-${formatIndex}-${attempt}`} post={post} active={active} format={format}
+    onError={() => {
+      if (formatIndex + 1 < formats.length) setFormatIndex(formatIndex + 1);
+    }} retry={retry} />;
+}
+
+function Playback({ post, active, format, onError, retry }: {
+  post: SamplePost; active: boolean; format: VideoFormat; onError: () => void; retry: () => void;
+}) {
+  // expo-video resolves the numeric require() asset ID to a local URI on both
+  // native and web. Use the browser's codec probe before choosing the web asset.
+  const player = useVideoPlayer(format === 'webm' ? post.videoWeb! : post.video!, (p) => {
     p.loop = true;
     p.muted = true;
     p.staysActiveInBackground = false;
@@ -36,6 +60,17 @@ function Playback({ post, active, retry }: { post: SamplePost; active: boolean; 
       setStatus('loading');
     }
   });
+
+  useEffect(() => {
+    // A player can become ready before the event subscription is installed.
+    // Without this check, the ready-only play effect can remain stuck forever.
+    if (player.status === 'readyToPlay') setStatus('ready');
+    else if (player.status === 'error') setStatus('error');
+  }, [player]);
+
+  useEffect(() => {
+    if (status === 'error') onError();
+  }, [status, onError]);
 
   useEffect(() => {
     if (active && !paused && status === 'ready') {
