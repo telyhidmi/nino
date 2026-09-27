@@ -12,7 +12,7 @@ import { compact, SampleComment, SAMPLE_POSTS, SamplePost } from './data';
 import { FeedVideo } from './FeedVideo';
 import { CommentsSheet, PreviewTag, Sheet, SoonSheet, TranslateSheet } from './Sheets';
 
-type Tab = 'foryou' | 'following';
+type Tab = 'foryou' | 'following' | 'live';
 type Open = null | 'comments' | 'translate' | 'search' | 'create' | 'messages' | 'more' | 'profile';
 
 export type FeedViewer = { name?: string; imageUrl?: string | null } | null;
@@ -128,7 +128,7 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
     return () => document.removeEventListener('visibilitychange', update);
   }, []);
 
-  const posts = tab === 'following' ? SAMPLE_POSTS.filter((p) => follows[p.id] ?? p.following) : SAMPLE_POSTS;
+  const posts = tab === 'live' ? [] : tab === 'following' ? SAMPLE_POSTS.filter((p) => follows[p.id] ?? p.following) : SAMPLE_POSTS;
   const current = posts[Math.min(index, posts.length - 1)] ?? SAMPLE_POSTS[0];
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -172,6 +172,15 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
               onLike={() => setLikes((old) => ({ ...old, [item.id]: !old[item.id] }))}
               onFollow={() => toggleFollow(item)} />}
           />
+        ) : tab === 'live' ? (
+          <View style={st.emptyFollowing}>
+            <Feather name="radio" size={36} color={c.accent} />
+            <Text style={[st.emptyTitle, { color: c.text }]}>Live on Nino</Text>
+            <Text style={[st.emptyBody, { color: c.secondary }]}>Live streaming isn’t connected yet. When it’s ready, you’ll find broadcasts from around the world here.</Text>
+            <Pressable testID="live-explore-feed" onPress={() => changeTab('foryou')} accessibilityRole="button" style={[st.emptyButton, { borderColor: c.accent }]}>
+              <Text style={{ color: c.accent, fontFamily: 'Poppins_600SemiBold' }}>Back to For You</Text>
+            </Pressable>
+          </View>
         ) : tab === 'following' ? (
           <View style={st.emptyFollowing}>
             <Feather name="users" size={32} color={c.accent} />
@@ -189,11 +198,11 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
             <EarthGlobe size={20} />
           </View>
           <View style={st.tabs}>
-            {(['foryou', 'following'] as Tab[]).map((k) => {
+            {(['foryou', 'following', 'live'] as Tab[]).map((k) => {
               const on = tab === k;
               return (
                 <Pressable key={k} testID={`tab-${k}`} onPress={() => changeTab(k)} accessibilityRole="tab" accessibilityState={{ selected: on }} style={st.tab}>
-                  <Text style={[st.tabText, { color: on ? c.text : 'rgba(255,255,255,0.65)' }]}>{k === 'foryou' ? 'For You' : 'Following'}</Text>
+                  <Text style={[st.tabText, { color: on ? c.text : 'rgba(255,255,255,0.65)' }]}>{k === 'foryou' ? 'For You' : k === 'live' ? 'Live' : 'Following'}</Text>
                   <View style={[st.tabBar, { backgroundColor: on ? c.accent : 'transparent' }]} />
                 </Pressable>
               );
@@ -215,13 +224,13 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
           </Pressable>
         ) : null}
 
-        <Pressable testID="translate-bar" onPress={() => setOpen('translate')} accessibilityRole="button" accessibilityLabel="Translate with Nino"
+        {tab !== 'live' && <Pressable testID="translate-bar" onPress={() => setOpen('translate')} accessibilityRole="button" accessibilityLabel="Translate with Nino"
           style={[st.tbar, { borderColor: c.borderStrong, bottom: 10 }]}>
           <EarthGlobe size={26} />
           <Text style={st.tbarText}>Translate with Nino</Text>
           <View style={[st.ai, { borderColor: c.border }]}><Text style={{ color: c.accent, fontFamily: 'Poppins_600SemiBold', fontSize: 11, letterSpacing: 0.5 }}>PREVIEW</Text></View>
           <Feather name="chevron-right" size={18} color={c.accent} />
-        </Pressable>
+        </Pressable>}
       </View>
 
       <View style={{ flex: 1, display: section === 'discover' ? 'flex' : 'none' }}><DiscoverScreen onOpenPost={openPost} /></View>
@@ -318,9 +327,9 @@ const st = StyleSheet.create({
   top: { position: 'absolute', left: 0, right: 0, height: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14 },
   brand: { flexDirection: 'row', alignItems: 'center', gap: 2, width: 64 },
   brandText: { color: '#E9FEFF', fontFamily: 'Poppins_700Bold', fontSize: 15 },
-  tabs: { flexDirection: 'row', gap: 6 },
-  tab: { minHeight: 44, paddingHorizontal: 8, alignItems: 'center', justifyContent: 'center' },
-  tabText: { fontFamily: 'Poppins_600SemiBold', fontSize: 17 },
+  tabs: { flexDirection: 'row', gap: 2 },
+  tab: { minHeight: 44, minWidth: 44, paddingHorizontal: 6, alignItems: 'center', justifyContent: 'center' },
+  tabText: { fontFamily: 'Poppins_600SemiBold', fontSize: 15 },
   tabBar: { height: 3, width: 26, borderRadius: 2, marginTop: 2 },
   searchBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(8,20,24,0.55)', alignItems: 'center', justifyContent: 'center', marginLeft: 20 },
   badgeRow: { position: 'absolute', left: 16, flexDirection: 'row', gap: 6 },
