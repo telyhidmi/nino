@@ -202,10 +202,11 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
             pagingEnabled
             showsVerticalScrollIndicator={false}
             getItemLayout={(_, i) => ({ length: h, offset: h * i, index: i })}
-            onScroll={(e) => setIndex((previous) => {
+            onScroll={(e) => {
+              // Read the pooled native event synchronously, not in a state updater.
               const next = Math.max(0, Math.min(posts.length - 1, Math.round(e.nativeEvent.contentOffset.y / h)));
-              return previous === next ? previous : next;
-            })}
+              setIndex((previous) => previous === next ? previous : next);
+            }}
             scrollEventThrottle={16}
             onMomentumScrollEnd={(e) => setIndex(Math.max(0, Math.min(posts.length - 1, Math.round(e.nativeEvent.contentOffset.y / h))))}
              renderItem={({ item, index: itemIndex }) => <PostView post={item} height={h} active={itemIndex === index && focused && foreground && webVisible && open === null && section === 'home'}
