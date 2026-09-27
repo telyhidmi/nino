@@ -78,7 +78,9 @@ function Playback({ post, active, format, onError, retry }: {
     } else {
       player.pause();
     }
-    return () => { player.pause(); };
+    // useVideoPlayer owns disposal and stops playback on unmount.
+    // Its cleanup may release the native object before this effect's cleanup,
+    // so calling player methods during cleanup crashes on iOS.
   }, [active, paused, player, status]);
 
   return (
