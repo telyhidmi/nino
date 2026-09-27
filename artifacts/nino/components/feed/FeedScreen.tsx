@@ -1,12 +1,14 @@
 import { Feather } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useMemo, useState } from 'react';
-import { FlatList, Pressable, Share, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useFocusEffect } from 'expo-router';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { AppState, FlatList, Platform, Pressable, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 import { EarthGlobe } from '@/components/EarthGlobe';
 import { useInsets } from '@/components/ui';
 import { useColors } from '@/hooks/useColors';
 import { compact, SampleComment, SAMPLE_POSTS, SamplePost } from './data';
+import { FeedVideo } from './FeedVideo';
 import { CommentsSheet, PreviewTag, Sheet, SoonSheet, TranslateSheet } from './Sheets';
 
 type Tab = 'foryou' | 'following';
@@ -36,9 +38,9 @@ function RailButton({ icon, label, onPress, active, testID, a11y }: { icon: keyo
   );
 }
 
-function PostView({ post, height, onOpen, viewerComments, liked, following, onLike, onFollow }: {
+function PostView({ post, height, active, onOpen, viewerComments, liked, following, onLike, onFollow }: {
   post: SamplePost; height: number; onOpen: (o: Open) => void; viewerComments: number;
-  liked: boolean; following: boolean; onLike: () => void; onFollow: () => void;
+  active: boolean; liked: boolean; following: boolean; onLike: () => void; onFollow: () => void;
 }) {
   const c = useColors();
   const [translated, setTranslated] = useState(false);
@@ -47,7 +49,8 @@ function PostView({ post, height, onOpen, viewerComments, liked, following, onLi
   };
   return (
     <View style={{ height, width: '100%' }}>
-      <Image source={post.image} style={StyleSheet.absoluteFill} contentFit="cover" accessibilityLabel={`Scenic photo of ${post.location}`} />
+      {post.video && active ? <FeedVideo post={post} active={active} /> :
+        <Image source={post.image} style={StyleSheet.absoluteFill} contentFit="cover" accessibilityLabel={`Illustrative sample photo for ${post.location}`} />}
       <LinearGradient colors={['rgba(6,18,22,0.55)', 'transparent', 'transparent', 'rgba(6,18,22,0.92)']} locations={[0, 0.22, 0.5, 1]} style={StyleSheet.absoluteFill} pointerEvents="none" />
 
       <View style={st.rail}>
@@ -103,6 +106,25 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo }: { viewer:
   const [local, setLocal] = useState<Record<string, SampleComment[]>>({});
   const [likes, setLikes] = useState<Record<string, boolean>>({});
   const [follows, setFollows] = useState<Record<string, boolean>>({});
+  const [focused, setFocused] = useState(false);
+  const [foreground, setForeground] = useState(AppState.currentState === 'active');
+  const [webVisible, setWebVisible] = useState(true);
+
+  useFocusEffect(useCallback(() => {
+    setFocused(true);
+    return () => setFocused(false);
+  }, []));
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (state) => setForeground(state === 'active'));
+    return () => subscription.remove();
+  }, []);
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof document === 'undefined') return;
+    const update = () => setWebVisible(!document.hidden);
+    update();
+    document.addEventListener('visibilitychange', update);
+    return () => document.removeEventListener('visibilitychange', update);
+  }, []);
 
   const posts = tab === 'following' ? SAMPLE_POSTS.filter((p) => follows[p.id] ?? p.following) : SAMPLE_POSTS;
   const current = posts[Math.min(index, posts.length - 1)] ?? SAMPLE_POSTS[0];
@@ -131,8 +153,14 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo }: { viewer:
             pagingEnabled
             showsVerticalScrollIndicator={false}
             getItemLayout={(_, i) => ({ length: h, offset: h * i, index: i })}
-            onMomentumScrollEnd={(e) => setIndex(Math.round(e.nativeEvent.contentOffset.y / h))}
-            renderItem={({ item }) => <PostView post={item} height={h} onOpen={setOpen} viewerComments={(local[item.id] ?? []).length}
+            onScroll={(e) => setIndex((previous) => {
+              const next = Math.max(0, Math.min(posts.length - 1, Math.round(e.nativeEvent.contentOffset.y / h)));
+              return previous === next ? previous : next;
+            })}
+            scrollEventThrottle={16}
+            onMomentumScrollEnd={(e) => setIndex(Math.max(0, Math.min(posts.length - 1, Math.round(e.nativeEvent.contentOffset.y / h))))}
+            renderItem={({ item, index: itemIndex }) => <PostView post={item} height={h} active={itemIndex === index && focused && foreground && webVisible && open === null}
+              onOpen={setOpen} viewerComments={(local[item.id] ?? []).length}
               liked={!!likes[item.id]} following={follows[item.id] ?? item.following}
               onLike={() => setLikes((old) => ({ ...old, [item.id]: !old[item.id] }))}
               onFollow={() => toggleFollow(item)} />}

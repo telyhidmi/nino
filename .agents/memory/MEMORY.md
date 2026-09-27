@@ -1,1 +1,2 @@
 - [Earth logo rendering](earth-rendering.md) — preserve Expo Go and web compatibility without adding native GL dependencies for the small logo.
+- [Video compatibility](video-compatibility.md) — browser preview may need WebM alternatives to native H.264 clips.
