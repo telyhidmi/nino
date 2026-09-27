@@ -24,7 +24,7 @@ export default function Welcome() {
   const { t, font, languageChosen, rtl } = useI18n();
 
   if (isSignedIn) {
-    return <Redirect href={readProfile(user?.unsafeMetadata).profileComplete ? '/profile' : '/setup'} />;
+    return <Redirect href={readProfile(user?.unsafeMetadata).profileComplete ? '/feed' : '/setup'} />;
   }
 
   return (

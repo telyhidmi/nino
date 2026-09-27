@@ -66,7 +66,7 @@ export default function SetupScreen() {
         },
       });
       await user.reload();
-      router.replace('/profile');
+      router.replace(editing ? '/profile' : '/feed');
     } catch (err) {
       setError(clerkErrorMessage(err, t('genericError')));
     } finally {

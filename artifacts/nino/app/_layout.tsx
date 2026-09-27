@@ -49,6 +49,8 @@ function RootNav() {
       <Stack.Screen name="language" options={{ animation: 'slide_from_bottom' }} />
       <Stack.Screen name="(auth)" />
       <Stack.Screen name="setup" />
+      <Stack.Screen name="feed" />
+      <Stack.Screen name="feed-preview" />
       <Stack.Screen name="profile" />
     </Stack>
   );

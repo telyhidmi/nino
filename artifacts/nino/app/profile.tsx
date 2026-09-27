@@ -66,7 +66,7 @@ export default function ProfileScreen() {
   );
 
   return (
-    <Shell back={false}>
+    <Shell back fallback="/feed">
       <View style={{ alignItems: 'center', gap: 12 }}>
         <Avatar uri={user.hasImage ? user.imageUrl : null} name={p.displayName} size={116} flag={ctry?.flag} />
         <Text style={{ color: c.text, fontFamily: font('bold'), fontSize: 24, textAlign: 'center' }}>{p.displayName}</Text>
