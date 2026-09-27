@@ -41,7 +41,7 @@ export function CommentsSheet({ post, visible, onClose, extra, onAdd }: { post: 
   const all = [...post.comments, ...extra];
   return (
     <Sheet visible={visible} onClose={onClose} title={`Comments · ${all.length}`} testID="comments-sheet">
-      <PreviewTag text="Sample comments · yours stay on this device" />
+      <PreviewTag text="Sample comments · yours last this demo session only" />
       <FlatList
         style={{ maxHeight: 340, marginTop: 12 }}
         data={all}
@@ -62,7 +62,7 @@ export function CommentsSheet({ post, visible, onClose, extra, onAdd }: { post: 
           testID="comment-input"
           value={text}
           onChangeText={setText}
-          placeholder="Add a comment (local preview)"
+          placeholder="Add a comment (demo only)"
           placeholderTextColor={c.muted}
           style={{ flex: 1, color: c.text, fontFamily: 'Poppins_400Regular', fontSize: 14, minHeight: 44 }}
           accessibilityLabel="Comment text"

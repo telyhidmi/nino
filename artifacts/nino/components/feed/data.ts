@@ -1,6 +1,9 @@
+import type { ImageSourcePropType } from 'react-native';
+
 export type SampleComment = { id: string; author: string; flag: string; text: string; translation?: string };
 export type SamplePost = {
   id: string;
+  image: ImageSourcePropType;
   author: string;
   handle: string;
   countryCode: string;
@@ -19,11 +22,10 @@ export type SamplePost = {
   tags: string[];
 };
 
-export const FEED_IMAGE = require('@/assets/images/feed-rio.jpg');
-
 export const SAMPLE_POSTS: SamplePost[] = [
   {
     id: 'rio-isabela',
+    image: require('@/assets/images/feed-rio-scenic.jpg'),
     author: 'Isabela Souza',
     handle: 'isa.viaja',
     countryCode: 'BRA',
@@ -51,27 +53,97 @@ export const SAMPLE_POSTS: SamplePost[] = [
     ],
   },
   {
-    id: 'rio-sunset',
-    author: 'Isabela Souza',
-    handle: 'isa.viaja',
-    countryCode: 'BRA',
-    flag: '🇧🇷',
-    location: 'Arpoador, Rio de Janeiro',
-    langPair: 'PT-BR ⇄ AR',
-    caption: 'Pôr do sol no Arpoador: aqui todo mundo aplaude o sol. ☀️',
-    translation: 'Sunset at Arpoador: here everyone applauds the sun. ☀️',
-    music: 'Mas Que Nada • Sample track',
+    id: 'kyoto-kenji',
+    image: require('@/assets/images/feed-kyoto.jpg'),
+    author: 'Kenji Mori',
+    handle: 'kenji.walks',
+    countryCode: 'JPN',
+    flag: '🇯🇵',
+    location: 'Higashiyama, Kyoto',
+    langPair: 'JA ⇄ EN',
+    caption: '夕暮れの京都。古い路地を歩くと、時間がゆっくり流れる気がします。🏮',
+    translation: 'Kyoto at dusk. In these old lanes, time seems to slow down. 🏮',
+    music: 'Evening walk • Demo soundtrack',
     likes: 48730,
     commentCount: 912,
     shares: 367,
     following: true,
-    tags: ['sunset', 'brazil', 'traditions'],
+    tags: ['kyoto', 'japan', 'streets', 'culture'],
     comments: [
-      { id: 'c4', author: 'Amira Saleh', flag: '🇪🇬', text: 'Clapping for the sun? I love this tradition.' },
+      { id: 'c4', author: 'Amira Saleh', flag: '🇪🇬', text: 'Those lantern-lit streets look beautiful!' },
     ],
     translations: [
-      { code: 'en', label: 'English', text: 'Sunset at Arpoador: here everyone applauds the sun.' },
-      { code: 'ar', label: 'العربية', text: 'غروب الشمس في أربوادور: هنا الجميع يصفق للشمس.' },
+      { code: 'en', label: 'English', text: 'Kyoto at dusk. In these old lanes, time seems to slow down.' },
+      { code: 'ar', label: 'العربية', text: 'كيوتو عند الغسق. في هذه الأزقة القديمة يبدو أن الوقت يمر ببطء.' },
+    ],
+  },
+  {
+    id: 'santorini-eleni',
+    image: require('@/assets/images/feed-santorini.jpg'),
+    author: 'Eleni Papadopoulos',
+    handle: 'eleni.travels',
+    countryCode: 'GRC',
+    flag: '🇬🇷',
+    location: 'Santorini, Greece',
+    langPair: 'EL ⇄ EN',
+    caption: 'Το φως του Αιγαίου κάνει κάθε γωνιά να μοιάζει με καρτ ποστάλ. 💙',
+    translation: 'The Aegean light makes every corner look like a postcard. 💙',
+    music: 'Aegean afternoon • Demo soundtrack',
+    likes: 32800,
+    commentCount: 526,
+    shares: 184,
+    following: false,
+    tags: ['greece', 'santorini', 'island', 'sea'],
+    comments: [{ id: 'c5', author: 'Mateo Ruiz', flag: '🇪🇸', text: '¡Qué azul tan bonito!', translation: 'What a beautiful blue!' }],
+    translations: [
+      { code: 'en', label: 'English', text: 'The Aegean light makes every corner look like a postcard.' },
+      { code: 'es', label: 'Español', text: 'La luz del Egeo hace que cada rincón parezca una postal.' },
+    ],
+  },
+  {
+    id: 'venice-matteo',
+    image: require('@/assets/images/feed-venice.jpg'),
+    author: 'Matteo Bianchi',
+    handle: 'matteo.in.motion',
+    countryCode: 'ITA',
+    flag: '🇮🇹',
+    location: 'Venice, Italy',
+    langPair: 'IT ⇄ EN',
+    caption: 'Ogni ponte nasconde una nuova storia. Perdiamoci tra i canali! 🚣',
+    translation: 'Every bridge hides a new story. Let’s get lost among the canals! 🚣',
+    music: 'Canal stroll • Demo soundtrack',
+    likes: 71900,
+    commentCount: 1340,
+    shares: 502,
+    following: false,
+    tags: ['italy', 'venice', 'canals', 'architecture'],
+    comments: [{ id: 'c6', author: 'Isabela Souza', flag: '🇧🇷', text: 'Que lugar lindo!', translation: 'What a beautiful place!' }],
+    translations: [
+      { code: 'en', label: 'English', text: 'Every bridge hides a new story. Let’s get lost among the canals!' },
+      { code: 'pt', label: 'Português', text: 'Cada ponte esconde uma nova história. Vamos nos perder pelos canais!' },
+    ],
+  },
+  {
+    id: 'tokyo-aiko',
+    image: require('@/assets/images/feed-tokyo.jpg'),
+    author: 'Aiko Tanaka',
+    handle: 'aiko.citylights',
+    countryCode: 'JPN',
+    flag: '🇯🇵',
+    location: 'Tokyo, Japan',
+    langPair: 'JA ⇄ EN',
+    caption: '雨上がりの街は、光が反射してまるで映画のワンシーンみたい。🌃',
+    translation: 'After the rain, the city lights reflect like a scene from a movie. 🌃',
+    music: 'City lights • Demo soundtrack',
+    likes: 56200,
+    commentCount: 783,
+    shares: 291,
+    following: false,
+    tags: ['japan', 'tokyo', 'city', 'night'],
+    comments: [{ id: 'c7', author: 'Eleni Papadopoulos', flag: '🇬🇷', text: 'This city never stops glowing!' }],
+    translations: [
+      { code: 'en', label: 'English', text: 'After the rain, the city lights reflect like a scene from a movie.' },
+      { code: 'es', label: 'Español', text: 'Después de la lluvia, las luces de la ciudad se reflejan como en una película.' },
     ],
   },
 ];

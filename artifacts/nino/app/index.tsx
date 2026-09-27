@@ -32,7 +32,7 @@ export default function Welcome() {
       <View style={[styles.wrap, { paddingTop: ins.top + 8, paddingBottom: ins.bottom + 16 }]}>
         <View style={styles.top}><LanguagePill /></View>
         <View style={styles.center}>
-          <Rise delay={0}><WorldArt size={270} /></Rise>
+          <Rise delay={0}><WorldArt size={220} /></Rise>
           <Rise delay={250}>
             <View style={{ alignItems: 'center', gap: 6, marginTop: 8 }}>
               <Wordmark height={62} />
@@ -48,9 +48,10 @@ export default function Welcome() {
           </Rise>
         </View>
         <Rise delay={650}>
-          <View style={{ gap: 12, width: '100%', maxWidth: 440, alignSelf: 'center' }}>
+          <View style={{ gap: 8, width: '100%', maxWidth: 440, alignSelf: 'center' }}>
             <PillButton testID="get-started" label={t('getStarted')} icon="globe" onPress={() => router.push(languageChosen ? '/sign-up' : '/language')} />
             <PillButton testID="have-account" variant="ghost" label={t('haveAccount')} onPress={() => router.push('/sign-in')} />
+            <PillButton testID="try-demo" variant="ghost" label="Try demo · no email needed" icon="play-circle" onPress={() => router.push('/feed-preview')} />
           </View>
         </Rise>
       </View>
@@ -61,5 +62,5 @@ export default function Welcome() {
 const styles = StyleSheet.create({
   wrap: { flex: 1, paddingHorizontal: 22 },
   top: { alignItems: 'flex-end', height: 44, justifyContent: 'center' },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 18 },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10 },
 });
