@@ -9,6 +9,7 @@ import { SAMPLE_POSTS } from '@/components/feed/data';
 import type { ProfileCtx } from './profileCtx';
 import { ProfileView } from './ProfileView';
 import type { ProfileItem } from './ProfileView';
+import { usePostCopy } from '@/lib/postTranslations';
 
 const SAMPLE_UPLOADS: ProfileItem[] = [
   { id: 'demo-falls', kind: 'video', image: require('@/assets/images/feed-kyoto.jpg'), video: require('@/assets/videos/falls.mp4'), label: 'Mist at the falls', caption: 'Sample clip · CC-licensed footage bundled with the demo', views: 4210, pinned: true },
@@ -21,6 +22,7 @@ const SAMPLE_UPLOADS: ProfileItem[] = [
 
 export function DemoProfile({ name, ctx, onExitDemo, active = true }: { name: string; ctx: ProfileCtx; onExitDemo?: () => void; active?: boolean }) {
   const c = useColors();
+  const copy = usePostCopy();
   const [shownName, setShownName] = useState(name);
   const [bio, setBio] = useState('Exploring the world one story and one language at a time. City walks, local food, new people.');
   const [editing, setEditing] = useState(false);
@@ -62,11 +64,10 @@ export function DemoProfile({ name, ctx, onExitDemo, active = true }: { name: st
       following={ctx.following} followingEmpty="You aren't following anyone in this demo yet. Tap Follow on a post in For You."
       onUnfollow={ctx.onUnfollow}
       onEdit={openEdit} onShare={share} onMenu={onExitDemo ? menu : undefined}
-       onAdd={ctx.onAdd} addLabel="Create a local demo post"
-       uploadNote="Local posts use temporary files for this session · nothing is published"
-       onRemove={ctx.onRemove}
+        onAdd={ctx.onAdd} addLabel={copy.newPost}
+        uploadNote={copy.demoNotice}
       tabs={{
-         posts: { items: [...ctx.uploads, ...SAMPLE_UPLOADS], emptyTitle: '', emptyBody: '' },
+          posts: { items: SAMPLE_UPLOADS, emptyTitle: '', emptyBody: '' },
         private: { items: [], emptyTitle: 'No private posts', emptyBody: 'Private posts aren’t available in the demo.' },
         reposts: { items: [], emptyTitle: 'No reposts yet', emptyBody: 'Reposting isn’t connected yet.' },
         liked: { items: ctx.liked, emptyTitle: 'Nothing liked yet', emptyBody: `Posts you like in the feed this session appear here. ${SAMPLE_POSTS.length} sample posts to explore.` },

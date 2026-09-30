@@ -8,9 +8,13 @@ import { AppState, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, 
 import { KeyboardAwareScrollViewCompat } from '@/components/KeyboardAwareScrollViewCompat';
 import { useInsets } from '@/components/ui';
 import { useColors } from '@/hooks/useColors';
-import type { ProfileItem } from '@/components/profile/ProfileView';
+import { useAuth } from '@clerk/expo';
+import { useQueryClient } from '@tanstack/react-query';
+import { getListPostsQueryKey, getListMyPostsQueryKey, useRequestPostUpload, usePublishPost, type Post, type PostUploadTicket } from '@workspace/api-client-react';
+import { usePostCopy } from '@/lib/postTranslations';
+import { readUploadMedia, uploadMedia, type CapturedMedia, type ByteProgress, type UploadMedia } from '@/lib/uploadMedia';
 
-type Captured = { uri: string; type: 'image' | 'video' };
+type Captured = CapturedMedia;
 type PermissionProblem = { message: string; settings: boolean };
 type Mode = 'photo' | 600 | 60 | 30 | 15;
 
@@ -31,8 +35,19 @@ function VideoPreview({ uri }: { uri: string }) {
   return <VideoView player={player} style={styles.fill} contentFit="contain" nativeControls />;
 }
 
-export function CreatePost({ visible, onClose, onSave }: { visible: boolean; onClose: () => void; onSave: (item: ProfileItem) => void }) {
+export function CreatePost({ visible, onClose, onSave, allowPublish = true }: { visible: boolean; onClose: () => void; onSave: (item: Post) => void; allowPublish?: boolean }) {
   const c = useColors();
+  const copy = usePostCopy();
+  const { isSignedIn, userId, getToken } = useAuth();
+  const queryClient = useQueryClient();
+  const apiAbort = useRef(new AbortController());
+  const requestUpload = useRequestPostUpload({ request: { signal: apiAbort.current.signal } });
+  const publish = usePublishPost({ request: { signal: apiAbort.current.signal } });
+  const uploading = useRef(false);
+  const cancelUpload = useRef<(() => void) | null>(null);
+  const ticket = useRef<(PostUploadTicket & { ownerId: string; uploaded: boolean; media: UploadMedia }) | null>(null);
+  const [bytes, setBytes] = useState<ByteProgress | null>(null);
+  const [phase, setPhase] = useState<'upload' | 'finalize' | null>(null);
   const ins = useInsets();
   const [camPerm, requestCam] = useCameraPermissions();
   const [, requestMic] = useMicrophonePermissions();
@@ -82,6 +97,8 @@ export function CreatePost({ visible, onClose, onSave }: { visible: boolean; onC
     mounted.current = true;
     return () => {
       mounted.current = false;
+      cancelUpload.current?.();
+      apiAbort.current.abort();
       session.current++;
       discardId.current = recId.current;
       clearTimer();
@@ -112,6 +129,7 @@ export function CreatePost({ visible, onClose, onSave }: { visible: boolean; onC
   useEffect(() => { if (!cameraActive) markReady(false); }, [cameraActive]);
 
   const reset = () => {
+    ticket.current = null; setBytes(null); setPhase(null);
     setAsset(null); setCaption(''); setError(null); setProblem(null); setLiveInfo(false);
     setElapsed(0); markReady(false); setAsked(false); setBusy(false); setPicking(false);
     session.current++;
@@ -120,6 +138,7 @@ export function CreatePost({ visible, onClose, onSave }: { visible: boolean; onC
   };
 
   const close = () => {
+    if (uploading.current) return;
     if (recordingRef.current) { discardId.current = recId.current; stopNative(); }
     clearTimer();
     reset();
@@ -133,7 +152,7 @@ export function CreatePost({ visible, onClose, onSave }: { visible: boolean; onC
     setBusy(true);
     try {
       const pic = await cam.takePictureAsync({ quality: 0.85 });
-      if (alive(t) && pic?.uri) setAsset({ uri: pic.uri, type: 'image' });
+      if (alive(t) && pic?.uri) setAsset({ uri: pic.uri, type: 'image', mimeType: 'image/jpeg' });
     } catch (e) {
       if (alive(t)) setError(`Could not take photo: ${errText(e)}`);
     } finally {
@@ -214,7 +233,7 @@ export function CreatePost({ visible, onClose, onSave }: { visible: boolean; onC
       if (!alive(t)) return;
       const a = res.canceled ? null : res.assets[0];
       if (a) {
-        if (a.type === 'video' || a.type === 'image') setAsset({ uri: a.uri, type: a.type });
+        if (a.type === 'video' || a.type === 'image') setAsset({ uri: a.uri, type: a.type, mimeType: a.mimeType, file: a.file });
         else setError('This media format is not supported. Choose a photo or video.');
       }
     } catch (e) {
@@ -225,31 +244,53 @@ export function CreatePost({ visible, onClose, onSave }: { visible: boolean; onC
   };
 
   const retake = () => {
-    if (busy) return;
+    if (busy || uploading.current) return;
+    ticket.current = null; setBytes(null); setPhase(null);
     setAsset(null); setCaption(''); setError(null); setElapsed(0);
   };
 
-  const save = () => {
-    if (busy || !asset) return;
-    setBusy(true);
+  const save = async () => {
+    if (busy || uploading.current || !asset) return;
+    if (!allowPublish || !isSignedIn || !userId) { setError(copy.signIn); return; }
+    uploading.current = true;
+    setBusy(true); setError(null);
+    const t = session.current;
     try {
-      const isVideo = asset.type === 'video';
-      const text = caption.trim();
-      onSave({
-        id: `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        kind: isVideo ? 'video' : 'photo',
-        local: true,
-        image: isVideo ? undefined : { uri: asset.uri },
-        video: isVideo ? { uri: asset.uri } : undefined,
-        label: text ? text.slice(0, 48) : isVideo ? 'Your video' : 'Your photo',
-        caption: text || 'Saved locally for this session. Not published.',
-      });
-      setBusy(false);
+      if (!(await getToken())) throw new Error(copy.signIn);
+      if (!alive(t)) return;
+      if (ticket.current && ticket.current.ownerId !== userId) throw new Error(copy.signIn);
+      setPhase('upload');
+      if (!ticket.current) {
+        const media = await readUploadMedia(asset, copy.invalid, copy.limit);
+        if (!alive(t)) return;
+        const result = await requestUpload.mutateAsync({ data: { contentType: media.contentType, size: media.size, kind: asset.type === 'video' ? 'video' : 'photo' } });
+        if (!alive(t)) return;
+        ticket.current = { ...result, ownerId: userId, uploaded: false, media };
+      }
+      const pending = ticket.current;
+      if (!pending.uploaded) {
+        await uploadMedia(pending.uploadUrl, pending.media, (value) => { if (alive(t)) setBytes(value); },
+          (cancel) => { cancelUpload.current = cancel; if (!alive(t)) cancel(); });
+        if (!alive(t)) return;
+        pending.uploaded = true;
+        cancelUpload.current = null;
+      }
+      setPhase('finalize');
+      const post = await publish.mutateAsync({ data: { uploadId: pending.uploadId, caption: caption.trim() } });
+      if (!alive(t)) return;
+      // Never mark published before the server has finalized. Same ticket survives errors,
+      // including a lost finalize response, so the server's idempotency prevents duplicates.
+      void queryClient.invalidateQueries({ queryKey: getListPostsQueryKey() });
+      void queryClient.invalidateQueries({ queryKey: getListMyPostsQueryKey() });
       reset();
+      onSave(post);
       onClose();
     } catch (e) {
-      setError(`Could not save this local post: ${errText(e)}`);
-      setBusy(false);
+      if (alive(t)) setError(`${copy.failed}\n${errText(e)}`);
+    } finally {
+      uploading.current = false;
+      cancelUpload.current = null;
+      if (mounted.current) { setBusy(false); setPhase(null); }
     }
   };
 
@@ -288,7 +329,7 @@ export function CreatePost({ visible, onClose, onSave }: { visible: boolean; onC
         <Pressable testID="create-retake" onPress={retake} disabled={busy} accessibilityRole="button" accessibilityLabel="Retake" style={styles.iconButton}>
           <Feather name="chevron-left" size={26} color={c.text} />
         </Pressable>
-        <Text style={[styles.heading, { color: c.text }]}>New post</Text>
+        <Text style={[styles.heading, { color: c.text }]}>{copy.newPost}</Text>
         <Pressable testID="create-close" onPress={close} disabled={busy} accessibilityRole="button" accessibilityLabel="Close composer" style={styles.iconButton}>
           <Feather name="x" size={24} color={c.text} />
         </Pressable>
@@ -301,17 +342,21 @@ export function CreatePost({ visible, onClose, onSave }: { visible: boolean; onC
           <Feather name="rotate-ccw" size={15} color={c.accent} />
           <Text style={[styles.inlineText, { color: c.accent }]}>Retake</Text>
         </Pressable>
-        <TextInput testID="create-caption" value={caption} onChangeText={setCaption} multiline maxLength={500}
-          placeholder="Write a caption…" placeholderTextColor={c.muted} accessibilityLabel="Post caption"
+        <TextInput testID="create-caption" value={caption} onChangeText={setCaption} multiline maxLength={500} editable={!busy}
+          placeholder={copy.caption} placeholderTextColor={c.muted} accessibilityLabel={copy.caption}
           style={[styles.input, { color: c.text, borderColor: c.border, backgroundColor: c.cardSoft }]} />
         <View style={[styles.notice, { backgroundColor: c.accentWash, borderColor: c.border }]}>
           <Feather name="smartphone" size={16} color={c.accent} />
-          <Text style={[styles.body, { color: c.secondary, flex: 1 }]}>Local only · stays on this device for this session. Nothing is uploaded or published.</Text>
+          <Text style={[styles.body, { color: c.secondary, flex: 1 }]}>{allowPublish && isSignedIn ? copy.notice : copy.signIn}</Text>
         </View>
+        {busy && bytes ? <View accessibilityLiveRegion="polite">
+          <Text testID="create-upload-progress" style={[styles.body, { color: c.secondary }]}>{phase === 'finalize' ? copy.finalizing : copy.uploading} · {Math.min(100, Math.round(bytes.sent / bytes.total * 100))}% · {(bytes.sent / 1048576).toFixed(1)} / {(bytes.total / 1048576).toFixed(1)} MB</Text>
+          <View style={[styles.progressTrack, { backgroundColor: c.accentWash, width: '100%', marginTop: 8 }]}><View style={[styles.progressFill, { backgroundColor: c.accent, width: `${Math.min(100, bytes.sent / bytes.total * 100)}%` }]} /></View>
+        </View> : null}
         <Pressable testID="create-save" disabled={busy} onPress={save} accessibilityRole="button"
           style={[styles.save, { backgroundColor: c.accent, opacity: busy ? 0.5 : 1 }]}>
           <Feather name="check" size={18} color={c.onAccent} />
-          <Text style={[styles.inlineText, { color: c.onAccent }]}>Save to my profile</Text>
+          <Text style={[styles.inlineText, { color: c.onAccent }]}>{busy ? copy.publishing : error ? `${copy.retry} · ${copy.publish}` : copy.publish}</Text>
         </Pressable>
         {error ? <Text testID="create-error" style={[styles.body, { color: c.danger }]}>{error}</Text> : null}
       </KeyboardAwareScrollViewCompat>

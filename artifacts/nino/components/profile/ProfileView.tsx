@@ -7,6 +7,7 @@ import { EarthGlobe } from '@/components/EarthGlobe';
 import { useInsets } from '@/components/ui';
 import { useColors } from '@/hooks/useColors';
 import { compact } from '@/components/feed/data';
+import { usePostCopy } from '@/lib/postTranslations';
 
 export type ProfileItem = {
   id: string;
@@ -18,6 +19,7 @@ export type ProfileItem = {
   views?: number;
   pinned?: boolean;
   local?: boolean;
+  published?: boolean;
   tag?: string;
 };
 export type FollowedCreator = { id: string; name: string; handle: string; flag: string; image: ImageSourcePropType };
@@ -53,10 +55,14 @@ export function ProfileView(props: {
   onEdit?: () => void; onShare: () => void; onMenu?: () => void; onBack?: () => void;
   onFollow?: () => void; isFollowing?: boolean; postsOnly?: boolean; onOpenItem?: (item: ProfileItem) => void;
   onAdd?: () => void; addLabel?: string; uploadNote?: string;
-  onRemove?: (item: ProfileItem) => void;
+  onRemove?: (item: ProfileItem) => void | Promise<void>;
+  postsStatus?: React.ReactNode;
+  removing?: boolean;
+  removalError?: string | null;
   topInset?: boolean; bottomPad?: number; testID?: string; active?: boolean;
 }) {
   const c = useColors();
+  const copy = usePostCopy();
   const ins = useInsets();
   const [tab, setTab] = useState<ProfileTabKey>('posts');
   const [showFollowing, setShowFollowing] = useState(false);
@@ -160,6 +166,7 @@ export function ProfileView(props: {
             </Pressable>
           ))}
         </View>
+        {tab === 'posts' ? props.postsStatus : null}
 
         {current.items.length === 0 ? (
           <View style={s.empty}>
@@ -214,9 +221,12 @@ export function ProfileView(props: {
         </View>
       </Modal>
 
-      <MediaViewer item={props.active === false ? null : openItem} onClose={() => setOpenItem(null)} onRemove={props.onRemove && openItem?.local ? () => {
+       <MediaViewer item={props.active === false ? null : openItem} removing={props.removing} removalError={props.removalError} onClose={() => { if (!props.removing) setOpenItem(null); }} onRemove={props.onRemove && (openItem?.local || openItem?.published) ? () => {
+        if (props.removing) return;
         const it = openItem;
-         confirmAction('Remove this local post?', 'It will be removed from this session’s profile. Nothing was published.', 'Remove', () => { props.onRemove?.(it); setOpenItem(null); });
+         confirmAction(it.published ? copy.deleteTitle : 'Remove this local post?', it.published ? copy.deleteBody : 'It will be removed from this session’s profile. Nothing was published.', copy.delete, () => {
+           Promise.resolve(props.onRemove?.(it)).then(() => setOpenItem(null)).catch(() => undefined);
+         });
       } : undefined} />
     </View>
   );
@@ -227,8 +237,9 @@ function VideoPlayer({ source }: { source: number | { uri: string } }) {
   return <VideoView player={player} style={StyleSheet.absoluteFill} contentFit="contain" nativeControls />;
 }
 
-function MediaViewer({ item, onClose, onRemove }: { item: ProfileItem | null; onClose: () => void; onRemove?: () => void }) {
+function MediaViewer({ item, onClose, onRemove, removing, removalError }: { item: ProfileItem | null; onClose: () => void; onRemove?: () => void; removing?: boolean; removalError?: string | null }) {
   const c = useColors();
+  const copy = usePostCopy();
   const ins = useInsets();
   return (
     <Modal visible={!!item} animationType="fade" onRequestClose={onClose}>
@@ -237,12 +248,13 @@ function MediaViewer({ item, onClose, onRemove }: { item: ProfileItem | null; on
         <View style={[s.viewerTop, { top: ins.top + 6 }]}>
           <Pressable testID="media-close" onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" style={[s.iconBtn, { backgroundColor: 'rgba(12,12,14,0.7)' }]}><Feather name="x" size={22} color={c.text} /></Pressable>
           {onRemove ? (
-            <Pressable testID="media-remove" onPress={onRemove} accessibilityRole="button" accessibilityLabel="Remove upload" style={[s.iconBtn, { backgroundColor: c.dangerWash }]}><Feather name="trash-2" size={20} color={c.danger} /></Pressable>
+            <Pressable testID="media-remove" onPress={onRemove} disabled={removing} accessibilityRole="button" accessibilityLabel={removing ? copy.deleting : copy.delete} style={[s.iconBtn, { backgroundColor: c.dangerWash, opacity: removing ? 0.4 : 1 }]}><Feather name="trash-2" size={20} color={c.danger} /></Pressable>
           ) : null}
         </View>
         {item ? (
           <View style={[s.viewerCap, { bottom: ins.bottom + 90, borderColor: c.border }]} pointerEvents="none">
-             <Text style={[s.badgeText, { color: c.accent }]}>{item.local ? 'LOCAL · THIS SESSION ONLY · NOT PUBLISHED' : 'SAMPLE UPLOAD · DEMO'}</Text>
+             <Text style={[s.badgeText, { color: c.accent }]}>{item.published ? copy.published : item.local ? 'LOCAL · THIS SESSION ONLY · NOT PUBLISHED' : 'SAMPLE UPLOAD · DEMO'}</Text>
+             {removalError ? <Text testID="post-delete-error" accessibilityLiveRegion="polite" style={[s.small, { color: c.danger }]}>{removalError}</Text> : null}
             <Text style={[s.actionText, { color: c.text }]}>{item.label}</Text>
             {item.caption ? <Text style={[s.small, { color: c.secondary }]}>{item.caption}</Text> : null}
           </View>

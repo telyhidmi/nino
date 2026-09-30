@@ -9,13 +9,20 @@ import { EarthGlobe } from '@/components/EarthGlobe';
 import { useInsets } from '@/components/ui';
 import { DemoProfile } from '@/components/profile/DemoProfile';
 import { CreatorProfile } from '@/components/profile/CreatorProfile';
-import type { ProfileItem } from '@/components/profile/ProfileView';
 import type { ProfileCtx } from '@/components/profile/profileCtx';
 import { useColors } from '@/hooks/useColors';
 import { compact, SampleComment, SAMPLE_POSTS, SamplePost } from './data';
 import { FeedVideo } from './FeedVideo';
 import { CreatePost } from './CreatePost';
 import { CommentsSheet, PreviewTag, Sheet, SoonSheet, TranslateSheet } from './Sheets';
+import { getListPostsQueryKey, useListPosts, type Post, type PostList } from '@workspace/api-client-react';
+import { useQueryClient } from '@tanstack/react-query';
+import { usePostCopy } from '@/lib/postTranslations';
+import { postError } from '@/lib/posts';
+import { PublishedPost } from './PublishedPost';
+
+type FeedPost = SamplePost | Post;
+const isPublished = (post: FeedPost): post is Post => 'mediaUrl' in post;
 
 type Tab = 'foryou' | 'following' | 'live';
 type Open = null | 'comments' | 'translate' | 'search' | 'create' | 'messages' | 'more';
@@ -104,6 +111,9 @@ function PostView({ post, height, active, onOpen, onCreator, viewerComments, lik
 
 export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSection = 'home', renderProfile }: { viewer: FeedViewer; onProfile: () => void; renderProfile?: (ctx: ProfileCtx, active: boolean) => React.ReactNode; preview?: boolean; onExitDemo?: () => void; initialSection?: 'home' | 'discover' | 'profile' }) {
   const c = useColors();
+  const copy = usePostCopy();
+  const queryClient = useQueryClient();
+  const persisted = useListPosts({ query: { queryKey: getListPostsQueryKey(), enabled: !preview, staleTime: 30_000, refetchOnMount: 'always', retry: false } });
   const ins = useInsets();
   const [tab, setTab] = useState<Tab>('foryou');
   const [open, setOpen] = useState<Open>(null);
@@ -120,12 +130,12 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
   const [webVisible, setWebVisible] = useState(true);
   const [section, setSection] = useState<'home' | 'discover' | 'profile' | 'creator'>(initialSection);
   const [creatorHandle, setCreatorHandle] = useState<string | null>(null);
-  const [uploads, setUploads] = useState<ProfileItem[]>([]);
 
   useFocusEffect(useCallback(() => {
     setFocused(true);
+    if (!preview) void persisted.refetch();
     return () => setFocused(false);
-  }, []));
+  }, [preview, persisted.refetch]));
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (state) => setForeground(state === 'active'));
     return () => subscription.remove();
@@ -144,8 +154,10 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
   }, [section]);
 
   const isFollowing = (post: SamplePost) => follows[post.handle] ?? SAMPLE_POSTS.find((p) => p.handle === post.handle)?.following ?? false;
-  const posts = tab === 'live' ? [] : tab === 'following' ? SAMPLE_POSTS.filter(isFollowing) : SAMPLE_POSTS;
-  const current = posts[Math.max(0, Math.min(index, posts.length - 1))] ?? SAMPLE_POSTS[0];
+  const allPosts: FeedPost[] = preview ? SAMPLE_POSTS : [...(persisted.data?.posts ?? []), ...SAMPLE_POSTS];
+  const posts: FeedPost[] = tab === 'live' ? [] : tab === 'following' ? SAMPLE_POSTS.filter(isFollowing) : allPosts;
+  const selectedPost = posts[Math.max(0, Math.min(index, posts.length - 1))];
+  const current = selectedPost && !isPublished(selectedPost) ? selectedPost : SAMPLE_POSTS[0];
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
     return SAMPLE_POSTS.filter((p) => !q || [p.author, p.location, p.caption, p.translation, ...p.tags].join(' ').toLowerCase().includes(q));
@@ -159,7 +171,7 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
       setOpen(null);
       if (section === 'creator' && isFollowing(post)) {
         // The current post leaves Following; keep it selected in For You on return.
-        const target = SAMPLE_POSTS.findIndex((p) => p.id === post.id);
+        const target = allPosts.findIndex((p) => p.id === post.id);
         setTab('foryou'); setIndex(target); setListStart(target);
       } else if (section !== 'creator') {
         setIndex(0); setListStart(0);
@@ -171,10 +183,11 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
     setOpen(null);
     if (section === 'home' && next !== 'home') setListStart(index);
     setSection(next);
+    if (next === 'home' && !preview) void persisted.refetch();
   };
 
   const openPost = (postId: string) => {
-    const target = Math.max(0, SAMPLE_POSTS.findIndex((item) => item.id === postId));
+    const target = Math.max(0, allPosts.findIndex((item) => item.id === postId));
     setTab('foryou'); setIndex(target); setListStart(target); setListVersion((v) => v + 1); setOpen(null); setSection('home');
   };
   const openCreator = (post: SamplePost) => {
@@ -186,9 +199,9 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
   const creator = SAMPLE_POSTS.find((post) => post.handle === creatorHandle);
 
   const profileCtx: ProfileCtx = {
-    uploads,
+    uploads: [],
     onAdd: () => setOpen('create'),
-    onRemove: (item) => setUploads((items) => items.filter((x) => x.id !== item.id)),
+    onRemove: () => undefined,
     following: SAMPLE_POSTS.filter((p, i) => SAMPLE_POSTS.findIndex((other) => other.handle === p.handle) === i && isFollowing(p)).map((p) => ({ id: p.handle, name: p.author, handle: p.handle, flag: p.flag, image: p.image })),
     liked: SAMPLE_POSTS.filter((p) => likes[p.id]).map((p) => ({ id: `liked-${p.id}`, kind: p.video ? 'video' as const : 'photo' as const, image: p.image, video: p.video, label: `${p.author} · ${p.location}`, caption: p.translation, views: p.likes + 1, tag: 'LIKED · SAMPLE' })),
     onUnfollow: (handle) => { setFollows((old) => ({ ...old, [handle]: false })); if (tab === 'following') { setIndex(0); setListStart(0); setListVersion((v) => v + 1); } },
@@ -204,9 +217,11 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
             key={`${tab}-${listVersion}-${tab === 'following' ? posts.map((p) => p.id).join(',') : ''}`}
             data={posts}
             keyExtractor={(p) => p.id}
-            initialScrollIndex={listStart}
+            initialScrollIndex={Math.min(listStart, posts.length - 1)}
             pagingEnabled
             showsVerticalScrollIndicator={false}
+            refreshing={!preview && persisted.isFetching}
+            onRefresh={() => { if (!preview) void persisted.refetch(); }}
             getItemLayout={(_, i) => ({ length: h, offset: h * i, index: i })}
             onScroll={(e) => {
               // Read the pooled native event synchronously, not in a state updater.
@@ -215,7 +230,7 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
             }}
             scrollEventThrottle={16}
             onMomentumScrollEnd={(e) => setIndex(Math.max(0, Math.min(posts.length - 1, Math.round(e.nativeEvent.contentOffset.y / h))))}
-             renderItem={({ item, index: itemIndex }) => <PostView post={item} height={h} active={itemIndex === index && focused && foreground && webVisible && open === null && section === 'home'}
+              renderItem={({ item, index: itemIndex }) => isPublished(item) ? <PublishedPost post={item} height={h} active={itemIndex === index && focused && foreground && webVisible && open === null && section === 'home'} /> : <PostView post={item} height={h} active={itemIndex === index && focused && foreground && webVisible && open === null && section === 'home'}
               onOpen={setOpen} viewerComments={(local[item.id] ?? []).length}
                liked={!!likes[item.id]} following={isFollowing(item)} onCreator={() => openCreator(item)}
               onLike={() => setLikes((old) => ({ ...old, [item.id]: !old[item.id] }))}
@@ -263,9 +278,13 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
         </View>
         <View style={[st.badgeRow, { top: ins.top + 52 }]} pointerEvents="none">
           <View style={[st.badge, { borderColor: c.border }]}>
-            <Text style={st.badgeText}>{preview ? 'DEMO MODE · SAMPLE POSTS' : 'SAMPLE POSTS'}</Text>
+            <Text style={st.badgeText}>{selectedPost && isPublished(selectedPost) ? copy.published : preview ? 'DEMO MODE · SAMPLE POSTS' : 'SAMPLE POSTS · DEMO'}</Text>
           </View>
         </View>
+        {!preview && (persisted.isError || persisted.isPending) ? <View style={{ position: 'absolute', top: ins.top + 90, left: 16, right: 16, padding: 12, backgroundColor: c.overlay, borderRadius: 12 }}>
+          <Text testID="feed-posts-status" style={{ color: persisted.isError ? c.danger : c.text }}>{persisted.isError ? `${copy.loadFailed}: ${postError(persisted.error)}` : copy.loading}</Text>
+          {persisted.isError ? <Pressable testID="feed-posts-retry" onPress={() => { void persisted.refetch(); }} accessibilityRole="button" style={{ minHeight: 44, justifyContent: 'center' }}><Text style={{ color: c.accent }}>{copy.retry}</Text></Pressable> : null}
+        </View> : null}
         {preview && onExitDemo ? (
           <Pressable testID="exit-demo" onPress={onExitDemo} accessibilityRole="button" accessibilityLabel="Exit demo to welcome"
             style={[st.exitDemo, { top: ins.top + 52, borderColor: c.border }]}>
@@ -273,7 +292,7 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
           </Pressable>
         ) : null}
 
-        {tab !== 'live' && <Pressable testID="translate-bar" onPress={() => setOpen('translate')} accessibilityRole="button" accessibilityLabel="Translate with Nino"
+        {tab !== 'live' && !(selectedPost && isPublished(selectedPost)) && <Pressable testID="translate-bar" onPress={() => setOpen('translate')} accessibilityRole="button" accessibilityLabel="Translate with Nino"
           style={[st.tbar, { borderColor: c.borderStrong, bottom: 10 }]}>
           <EarthGlobe size={26} />
           <Text style={st.tbarText}>Translate with Nino</Text>
@@ -307,8 +326,8 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
 
       <CommentsSheet key={`comments-${current.id}`} post={current} visible={open === 'comments'} onClose={() => setOpen(null)} extra={local[current.id] ?? []} onAdd={addComment} />
       <TranslateSheet key={`translate-${current.id}`} post={current} visible={open === 'translate'} onClose={() => setOpen(null)} />
-      <CreatePost visible={open === 'create'} onClose={() => setOpen(null)} onSave={(item) => {
-        setUploads((items) => [item, ...items]);
+      <CreatePost visible={open === 'create'} allowPublish={!preview} onClose={() => setOpen(null)} onSave={(item) => {
+        queryClient.setQueryData<PostList>(getListPostsQueryKey(), (previous) => ({ posts: [item, ...(previous?.posts ?? []).filter((post) => post.id !== item.id)] }));
         setOpen(null);
         setSection('profile');
       }} />

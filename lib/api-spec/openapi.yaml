@@ -11,6 +11,127 @@ tags:
   - name: health
     description: Health operations
 paths:
+  /posts/uploads:
+    post:
+      operationId: requestPostUpload
+      tags: [posts]
+      security: [{bearerAuth: []}]
+      summary: Request a private PUT upload ticket (valid for 15 minutes)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PostUploadRequest"
+      responses:
+        "200":
+          description: PUT the raw bytes to uploadUrl, then publish using uploadId
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PostUploadTicket"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /posts:
+    get:
+      operationId: listPosts
+      tags: [posts]
+      security: [{bearerAuth: []}]
+      responses:
+        "200":
+          description: Published posts, newest first
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PostList"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      operationId: publishPost
+      tags: [posts]
+      security: [{bearerAuth: []}]
+      description: Idempotent by uploadId. Retrying returns the original post; caption cannot change.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PublishPostRequest"
+      responses:
+        "200":
+          description: Published post
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Post"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "410":
+          description: Upload expired or post already deleted
+        "422":
+          description: Uploaded object size, type, or signature does not match ticket
+  /posts/mine:
+    get:
+      operationId: listMyPosts
+      tags: [posts]
+      security: [{bearerAuth: []}]
+      responses:
+        "200":
+          description: Current authenticated user's posts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PostList"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /posts/{id}:
+    delete:
+      operationId: deletePost
+      tags: [posts]
+      security: [{bearerAuth: []}]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: {type: string, format: uuid}
+      responses:
+        "204":
+          description: Post deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /posts/media/{id}:
+    get:
+      operationId: getPostMedia
+      tags: [posts]
+      description: Public media for published, non-deleted posts. Supports single byte ranges and HEAD.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: {type: string, format: uuid}
+        - in: header
+          name: Range
+          schema: {type: string}
+      responses:
+        "200":
+          description: Media bytes
+          content:
+            application/octet-stream:
+              schema: {type: string, format: binary}
+        "206":
+          description: Requested byte range
+        "416":
+          description: Invalid or unsatisfiable byte range
+        "404":
+          $ref: "#/components/responses/NotFound"
   /healthz:
     get:
       operationId: healthCheck
@@ -25,7 +146,71 @@ paths:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  responses:
+    Unauthorized:
+      description: A verified Clerk session bearer token is required
+    BadRequest:
+      description: Invalid request
+    NotFound:
+      description: Not found or not owned by current user
   schemas:
+    PostUploadRequest:
+      type: object
+      additionalProperties: false
+      required: [contentType, size, kind]
+      properties:
+        contentType:
+          type: string
+          enum: [image/jpeg, image/png, image/webp, image/gif, image/heic, image/heif, video/mp4, video/quicktime, video/webm]
+        size:
+          type: integer
+          minimum: 1
+          maximum: 209715200
+          description: Exact byte count. Photos have a 20971520-byte limit.
+        kind:
+          type: string
+          enum: [photo, video]
+    PostUploadTicket:
+      type: object
+      required: [uploadId, uploadUrl]
+      properties:
+        uploadId: {type: string, format: uuid}
+        uploadUrl: {type: string}
+    PublishPostRequest:
+      type: object
+      additionalProperties: false
+      required: [uploadId, caption]
+      properties:
+        uploadId: {type: string, format: uuid}
+        caption: {type: string, maxLength: 2200}
+    Post:
+      type: object
+      required: [id, ownerId, caption, kind, mediaUrl, createdAt, authorName, authorAvatar]
+      properties:
+        id: {type: string, format: uuid}
+        ownerId: {type: string}
+        caption: {type: string}
+        kind:
+          type: string
+          enum: [photo, video]
+        mediaUrl: {type: string}
+        createdAt: {type: string, format: date-time}
+        authorName: {type: string}
+        authorAvatar:
+          type: [string, "null"]
+    PostList:
+      type: object
+      required: [posts]
+      properties:
+        posts:
+          type: array
+          items:
+            $ref: "#/components/schemas/Post"
     HealthStatus:
       type: object
       properties:

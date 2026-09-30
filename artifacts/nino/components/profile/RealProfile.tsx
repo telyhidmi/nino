@@ -10,6 +10,11 @@ import { clerkErrorMessage, countryBy, languageBy, readProfile } from '@/lib/dat
 import { useI18n } from '@/lib/i18n';
 import type { ProfileCtx } from './profileCtx';
 import { confirmAction, ProfileView } from './ProfileView';
+import { useQueryClient } from '@tanstack/react-query';
+import { getListMyPostsQueryKey, getListPostsQueryKey, useListMyPosts, useDeletePost, type PostList } from '@workspace/api-client-react';
+import { usePostCopy } from '@/lib/postTranslations';
+import { postItem, postError } from '@/lib/posts';
+import type { ProfileItem } from './ProfileView';
 
 export function RealProfile({ ctx, onBack, active = true }: { ctx?: ProfileCtx; onBack?: () => void; active?: boolean }) {
   const { isSignedIn } = useAuth();
@@ -17,6 +22,27 @@ export function RealProfile({ ctx, onBack, active = true }: { ctx?: ProfileCtx; 
   const { signOut } = useClerk();
   const c = useColors();
   const { t } = useI18n();
+  const copy = usePostCopy();
+  const queryClient = useQueryClient();
+  const mineKey = [...getListMyPostsQueryKey(), user?.id];
+  const mine = useListMyPosts({ query: { queryKey: mineKey, enabled: !!isSignedIn && !!user && active, staleTime: 0, refetchOnMount: 'always', retry: false } });
+  const removePost = useDeletePost();
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  useEffect(() => { if (active && isSignedIn && user) void mine.refetch(); }, [active, user?.id, isSignedIn]);
+  const remove = async (item: ProfileItem) => {
+    if (removePost.isPending) return;
+    setDeleteError(null);
+    try {
+      await removePost.mutateAsync({ id: item.id });
+      queryClient.setQueryData<PostList>(mineKey, (previous) => previous ? { posts: previous.posts.filter((post) => post.id !== item.id) } : previous);
+      queryClient.setQueryData<PostList>(getListPostsQueryKey(), (previous) => previous ? { posts: previous.posts.filter((post) => post.id !== item.id) } : previous);
+      void queryClient.invalidateQueries({ queryKey: getListMyPostsQueryKey() });
+      void queryClient.invalidateQueries({ queryKey: getListPostsQueryKey() });
+    } catch (e) {
+      setDeleteError(`${copy.deleteFailed}: ${postError(e)}`);
+      throw e;
+    }
+  };
   const [menu, setMenu] = useState(false);
   useEffect(() => { if (!active) setMenu(false); }, [active]);
   const [error, setError] = useState<string | null>(null);
@@ -59,11 +85,16 @@ export function RealProfile({ ctx, onBack, active = true }: { ctx?: ProfileCtx; 
         followingEmpty={ctx ? 'You aren’t following anyone yet. Follow creators from the feed and they’ll show up here for this session.' : 'Following isn’t saved to your account yet. Follows you make in the feed show here during that session.'}
         onUnfollow={ctx?.onUnfollow}
         onEdit={edit} onShare={share} onMenu={() => setMenu(true)} onBack={onBack}
-         onAdd={ctx?.onAdd} addLabel="Create a local post" onRemove={ctx?.onRemove}
-         uploadNote="Local posts use temporary files for this session · not published to your account"
+          onAdd={ctx?.onAdd} addLabel={copy.newPost} onRemove={remove} removing={removePost.isPending} removalError={deleteError}
+          uploadNote={copy.notice}
+          postsStatus={<View style={{ padding: 16, gap: 8 }}>
+            {mine.isPending ? <Text style={{ color: c.secondary }}>{copy.loading}</Text> : null}
+            {mine.isError ? <><Text testID="profile-posts-error" style={{ color: c.danger }}>{copy.loadFailed}: {postError(mine.error)}</Text><Pressable testID="profile-posts-retry" onPress={() => { void mine.refetch(); }} accessibilityRole="button" style={{ minHeight: 44, justifyContent: 'center' }}><Text style={{ color: c.accent }}>{copy.retry}</Text></Pressable></> : null}
+            {deleteError ? <Text style={{ color: c.danger }}>{deleteError}</Text> : null}
+          </View>}
         tabs={{
-           posts: { items: ctx?.uploads ?? [], emptyTitle: 'No local posts yet', emptyBody: 'Tap + to add a photo or video to this session. Publishing to Nino isn’t connected.' },
-          private: { items: [], emptyTitle: 'No private posts', emptyBody: 'Private posts will appear here once publishing is available.' },
+            posts: { items: (mine.data?.posts ?? []).map((post) => postItem(post, copy.published)), emptyTitle: mine.isPending || mine.isError ? '' : copy.empty, emptyBody: mine.isPending || mine.isError ? '' : copy.emptyBody },
+           private: { items: [], emptyTitle: copy.privateUnavailable, emptyBody: '' },
           reposts: { items: [], emptyTitle: 'No reposts', emptyBody: 'Reposting isn’t connected yet.' },
           liked: { items: ctx?.liked ?? [], emptyTitle: 'Nothing liked yet', emptyBody: 'Sample posts you like in the feed this session show here. Likes aren’t saved to your account yet.' },
         }}
