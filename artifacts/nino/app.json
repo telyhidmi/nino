@@ -17,7 +17,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#0B1A1F",
+        "backgroundColor": "#0E0E10",
         "foregroundImage": "./assets/images/icon.png"
       }
     },
@@ -49,6 +49,6 @@
       "typedRoutes": true,
       "reactCompiler": true
     },
-    "backgroundColor": "#0B1A1F"
+    "backgroundColor": "#0E0E10"
   }
 }

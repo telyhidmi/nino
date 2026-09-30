@@ -37,7 +37,7 @@ export default function LanguageScreen() {
               style={({ pressed }) => [{
                 flexDirection: row, alignItems: 'center', gap: 14, padding: 16, borderRadius: 18, borderWidth: 1,
                 backgroundColor: on ? c.accentWash : c.card, borderColor: on ? c.accent : c.border,
-                shadowColor: c.accent, shadowOpacity: on ? 0.4 : 0, shadowRadius: 14, shadowOffset: { width: 0, height: 0 },
+                shadowColor: c.accent, shadowOpacity: 0, shadowRadius: 14, shadowOffset: { width: 0, height: 0 },
               }, pressed && { opacity: 0.85 }]}
             >
               <Text style={{ fontSize: 28 }}>{l.flag}</Text>

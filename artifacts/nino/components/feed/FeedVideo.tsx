@@ -127,10 +127,10 @@ function Playback({ post, active, format, onError, retry }: {
 }
 
 const styles = StyleSheet.create({
-  center: { position: 'absolute', left: 70, right: 70, top: '42%', alignItems: 'center', justifyContent: 'center', padding: 14, borderRadius: 16, backgroundColor: 'rgba(8,20,24,0.68)', gap: 8 },
+  center: { position: 'absolute', left: 70, right: 70, top: '42%', alignItems: 'center', justifyContent: 'center', padding: 14, borderRadius: 16, backgroundColor: 'rgba(12,12,14,0.68)', gap: 8 },
   status: { color: '#FFF', textAlign: 'center', fontFamily: 'Poppins_600SemiBold', fontSize: 13 },
-  retry: { minHeight: 44, paddingHorizontal: 18, justifyContent: 'center', borderRadius: 22, borderWidth: 1, borderColor: '#1FE0E8' },
+  retry: { minHeight: 44, paddingHorizontal: 18, justifyContent: 'center', borderRadius: 22, borderWidth: 1, borderColor: 'rgba(255,255,255,0.5)' },
   controls: { position: 'absolute', top: 196, left: 16, right: 80, alignItems: 'flex-start', gap: 6 },
-  mute: { minHeight: 44, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 22, backgroundColor: 'rgba(8,20,24,0.72)' },
+  mute: { minHeight: 44, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 22, backgroundColor: 'rgba(12,12,14,0.72)' },
   controlText: { color: '#FFF', fontFamily: 'Poppins_600SemiBold', fontSize: 12 },
 });

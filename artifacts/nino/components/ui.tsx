@@ -47,8 +47,8 @@ export function PillButton({
         styles.pill,
         { flexDirection: row },
         primary
-          ? { backgroundColor: c.accent, shadowColor: c.accent, shadowOpacity: 0.55, shadowRadius: 18, shadowOffset: { width: 0, height: 0 }, elevation: 8 }
-          : { borderWidth: 1, borderColor: variant === 'danger' ? 'rgba(255,59,74,0.45)' : c.border, backgroundColor: variant === 'danger' ? c.dangerWash : 'rgba(21,38,43,0.6)' },
+          ? { backgroundColor: c.accent, shadowColor: c.accent, shadowOpacity: 0, shadowRadius: 0, shadowOffset: { width: 0, height: 0 }, elevation: 8 }
+          : { borderWidth: 1, borderColor: variant === 'danger' ? 'rgba(255,59,74,0.45)' : c.border, backgroundColor: variant === 'danger' ? c.dangerWash : 'rgba(26,26,29,0.6)' },
         off && { opacity: 0.5 },
         pressed && { transform: [{ scale: 0.98 }], opacity: 0.9 },
         style,
@@ -121,7 +121,7 @@ export function Title({ title, body }: { title: string; body?: string }) {
 export function IconButton({ icon, onPress, testID }: { icon: keyof typeof Feather.glyphMap; onPress: () => void; testID?: string }) {
   const c = useColors();
   return (
-    <Pressable testID={testID} onPress={onPress} hitSlop={8} style={({ pressed }) => [styles.iconBtn, { borderColor: c.border, backgroundColor: 'rgba(21,38,43,0.7)' }, pressed && { opacity: 0.7 }]}>
+    <Pressable testID={testID} onPress={onPress} hitSlop={8} style={({ pressed }) => [styles.iconBtn, { borderColor: c.border, backgroundColor: 'rgba(26,26,29,0.7)' }, pressed && { opacity: 0.7 }]}>
       <Feather name={icon} size={20} color={c.text} />
     </Pressable>
   );
@@ -137,7 +137,7 @@ export function LanguagePill() {
   const { lang, font, row } = useI18n();
   const cur = LANGS.find((l) => l.code === lang)!;
   return (
-    <Pressable testID="language-pill" onPress={() => router.push('/language?from=switch')} style={({ pressed }) => [styles.langPill, { flexDirection: row, borderColor: c.border, backgroundColor: 'rgba(21,38,43,0.7)' }, pressed && { opacity: 0.7 }]}>
+    <Pressable testID="language-pill" onPress={() => router.push('/language?from=switch')} style={({ pressed }) => [styles.langPill, { flexDirection: row, borderColor: c.border, backgroundColor: 'rgba(26,26,29,0.7)' }, pressed && { opacity: 0.7 }]}>
       <Feather name="globe" size={14} color={c.accent} />
       <Text style={{ color: c.text, fontFamily: font('medium'), fontSize: 13 }}>{cur.native}</Text>
       <Feather name="chevron-down" size={14} color={c.secondary} />

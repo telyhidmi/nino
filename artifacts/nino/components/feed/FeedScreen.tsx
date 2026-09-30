@@ -36,7 +36,7 @@ function RailButton({ icon, label, onPress, active, testID, a11y, compactLayout 
   const c = useColors();
   return (
     <Pressable testID={testID} onPress={onPress} accessibilityRole="button" accessibilityLabel={a11y} accessibilityState={{ selected: !!active }} style={st.railItem}>
-      <View style={[st.railCircle, compactLayout && st.smallRailCircle, { borderColor: active ? c.accent : 'rgba(255,255,255,0.12)' }]}>
+      <View style={[st.railCircle, compactLayout && st.smallRailCircle, { borderColor: active ? c.text : 'rgba(255,255,255,0.12)' }]}>
         <Feather name={icon} size={compactLayout ? 19 : 22} color={active ? c.danger : c.text} />
       </View>
       {label ? <Text style={st.railLabel}>{label}</Text> : null}
@@ -58,7 +58,7 @@ function PostView({ post, height, active, onOpen, onCreator, viewerComments, lik
     <View style={{ height, width: '100%' }}>
       {post.video && active ? <FeedVideo post={post} active={active} /> :
         <Image source={post.image} style={StyleSheet.absoluteFill} contentFit="cover" accessibilityLabel={`Illustrative sample photo for ${post.location}`} />}
-      <LinearGradient colors={['rgba(6,18,22,0.55)', 'transparent', 'transparent', 'rgba(6,18,22,0.92)']} locations={[0, 0.22, 0.5, 1]} style={StyleSheet.absoluteFill} pointerEvents="none" />
+      <LinearGradient colors={['rgba(12,12,14,0.55)', 'transparent', 'transparent', 'rgba(12,12,14,0.92)']} locations={[0, 0.22, 0.5, 1]} style={StyleSheet.absoluteFill} pointerEvents="none" />
 
       <View style={[st.rail, compactLayout && st.smallRail]}>
         <View style={st.railItem}>
@@ -73,7 +73,7 @@ function PostView({ post, height, active, onOpen, onCreator, viewerComments, lik
         <RailButton compactLayout={compactLayout} testID="rail-comments" icon="message-square" a11y="Comments" label={compact(post.commentCount + viewerComments)} onPress={() => onOpen('comments')} />
         <RailButton compactLayout={compactLayout} testID="rail-share" icon="corner-up-left" a11y="Share" label={compact(post.shares)} onPress={share} />
         <RailButton compactLayout={compactLayout} testID="rail-more" icon="more-horizontal" a11y="More options" onPress={() => onOpen('more')} />
-        <View style={[st.disc, compactLayout && st.smallDisc, { borderColor: c.accent }]}><View style={[st.discDot, { backgroundColor: c.bgTop }]} /></View>
+        <View style={[st.disc, compactLayout && st.smallDisc, { borderColor: '#2A2A2E' }]}><View style={[st.discDot, { backgroundColor: c.bgTop }]} /></View>
       </View>
 
       <View style={st.caption}>
@@ -83,18 +83,18 @@ function PostView({ post, height, active, onOpen, onCreator, viewerComments, lik
             <Text style={st.author} numberOfLines={1}>{post.author}</Text>
           </Pressable>
           <Pressable testID="caption-follow" onPress={onFollow} accessibilityRole="button" accessibilityLabel={following ? 'Following' : 'Follow'} hitSlop={8}
-            style={[st.follow, { borderColor: c.accent, backgroundColor: following ? c.accent : 'rgba(31,224,232,0.12)' }]}>
+            style={[st.follow, { borderColor: c.accent, backgroundColor: following ? c.accent : 'rgba(255,255,255,0.08)' }]}>
             <Text style={{ color: following ? c.onAccent : c.accent, fontFamily: 'Poppins_600SemiBold', fontSize: 12 }}>{following ? 'Following' : 'Follow'}</Text>
           </Pressable>
         </View>
-        <View style={st.row6}><Feather name="map-pin" size={13} color={c.danger} /><Text style={[st.loc, { color: c.accent }]}>{post.location}</Text></View>
+        <View style={st.row6}><Feather name="map-pin" size={13} color={'#FFFFFF'} /><Text style={[st.loc, { color: '#FFFFFF' }]}>{post.location}</Text></View>
         <Text style={st.captionText}>{translated ? post.translation : post.caption}</Text>
         <Pressable testID="toggle-translation" onPress={() => setTranslated((t) => !t)} accessibilityRole="button" accessibilityLabel={translated ? 'See original' : 'See translation'} style={[st.row6, { minHeight: 32 }]}>
-          <Feather name="type" size={14} color={c.accent} />
-          <Text style={{ color: c.accent, fontFamily: 'Poppins_600SemiBold', fontSize: 13 }}>{translated ? 'See original' : 'See translation'}</Text>
+          <Feather name="type" size={14} color={'#FFFFFF'} />
+          <Text style={{ color: '#FFFFFF', fontFamily: 'Poppins_600SemiBold', fontSize: 13 }}>{translated ? 'See original' : 'See translation'}</Text>
         </Pressable>
         <View style={st.music}>
-          <Feather name="music" size={13} color={c.accent} />
+          <Feather name="music" size={13} color={'#FFFFFF'} />
           <Text style={st.musicText} numberOfLines={1}>{post.music}</Text>
         </View>
       </View>
@@ -252,7 +252,7 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
               return (
                 <Pressable key={k} testID={`tab-${k}`} onPress={() => changeTab(k)} accessibilityRole="tab" accessibilityState={{ selected: on }} style={st.tab}>
                   <Text style={[st.tabText, { color: on ? c.text : 'rgba(255,255,255,0.65)' }]}>{k === 'foryou' ? 'For You' : k === 'live' ? 'Live' : 'Following'}</Text>
-                  <View style={[st.tabBar, { backgroundColor: on ? c.accent : 'transparent' }]} />
+                  <View style={[st.tabBar, { backgroundColor: on ? c.text : 'transparent' }]} />
                 </Pressable>
               );
             })}
@@ -290,18 +290,18 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
           {preview ? <DemoProfile active={section === 'profile'} name={viewer?.name ?? 'Alex Morgan'} ctx={profileCtx} onExitDemo={onExitDemo} /> : renderProfile?.(profileCtx, section === 'profile')}
         </View>
       ) : null}
-      {section !== 'creator' && <View style={[st.nav, { height: NAV_H + ins.bottom, paddingBottom: ins.bottom, borderTopColor: 'rgba(31,224,232,0.12)' }]}>
+      {section !== 'creator' && <View style={[st.nav, { height: NAV_H + ins.bottom, paddingBottom: ins.bottom, borderTopColor: 'rgba(255,255,255,0.08)' }]}>
         <NavItem testID="nav-home" icon="home" label="Home" active={section === 'home'} onPress={() => { if (section === 'home') changeTab('foryou'); else changeSection('home'); }} />
         <NavItem testID="nav-discover" icon="globe" label="Discover" active={section === 'discover'} onPress={() => changeSection('discover')} />
         <Pressable testID="nav-create" onPress={() => setOpen('create')} accessibilityRole="button" accessibilityLabel="Create post" style={st.navItem}>
-          <View style={[st.create, { borderColor: c.accent }]}><Feather name="plus" size={26} color={c.text} /></View>
+          <View style={[st.create, { borderColor: c.accent, backgroundColor: c.accent }]}><Feather name="plus" size={26} color={c.onAccent} /></View>
         </Pressable>
         <NavItem testID="nav-messages" icon="message-square" label="Messages" onPress={() => setOpen('messages')} />
         <Pressable testID="nav-profile" onPress={hasProfile ? () => changeSection('profile') : onProfile} accessibilityRole="button" accessibilityLabel="Profile" style={st.navItem}>
-          <View style={[st.navAv, { borderColor: section === 'profile' ? c.accent : c.border }]}>
+          <View style={[st.navAv, { borderColor: section === 'profile' ? c.text : c.border }]}>
             {viewer?.imageUrl ? <Image source={{ uri: viewer.imageUrl }} style={{ width: 26, height: 26, borderRadius: 13 }} /> : <Initials name={viewer?.name} size={26} />}
           </View>
-          <Text style={[st.navLabel, { color: section === 'profile' ? c.accent : c.secondary }]}>Profile</Text>
+          <Text style={[st.navLabel, { color: section === 'profile' ? c.text : c.secondary }]}>Profile</Text>
         </Pressable>
       </View>}
 
@@ -356,8 +356,8 @@ function NavItem({ icon, label, active, onPress, testID }: { icon: keyof typeof 
   const c = useColors();
   return (
     <Pressable testID={testID} onPress={onPress} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ selected: !!active }} style={st.navItem}>
-      <Feather name={icon} size={22} color={active ? c.accent : c.secondary} />
-      <Text style={[st.navLabel, { color: active ? c.accent : c.secondary }]}>{label}</Text>
+      <Feather name={icon} size={22} color={active ? c.text : c.secondary} />
+      <Text style={[st.navLabel, { color: active ? c.text : c.secondary }]}>{label}</Text>
     </Pressable>
   );
 }
@@ -365,48 +365,48 @@ function NavItem({ icon, label, active, onPress, testID }: { icon: keyof typeof 
 const st = StyleSheet.create({
   top: { position: 'absolute', left: 0, right: 0, height: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14 },
   brand: { flexDirection: 'row', alignItems: 'center', gap: 2, width: 64 },
-  brandText: { color: '#E9FEFF', fontFamily: 'Poppins_700Bold', fontSize: 15 },
+  brandText: { color: '#FFFFFF', fontFamily: 'Poppins_700Bold', fontSize: 15 },
   tabs: { flexDirection: 'row', gap: 2 },
   tab: { minHeight: 44, minWidth: 44, paddingHorizontal: 6, alignItems: 'center', justifyContent: 'center' },
   tabText: { fontFamily: 'Poppins_600SemiBold', fontSize: 15 },
   tabBar: { height: 3, width: 26, borderRadius: 2, marginTop: 2 },
-  searchBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(8,20,24,0.55)', alignItems: 'center', justifyContent: 'center', marginLeft: 20 },
+  searchBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(12,12,14,0.55)', alignItems: 'center', justifyContent: 'center', marginLeft: 20 },
   badgeRow: { position: 'absolute', left: 16, flexDirection: 'row', gap: 6 },
-  exitDemo: { position: 'absolute', right: 14, height: 26, borderRadius: 999, borderWidth: 1, paddingHorizontal: 9, backgroundColor: 'rgba(8,20,24,0.72)', flexDirection: 'row', alignItems: 'center', gap: 4 },
-  badge: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, height: 26, borderRadius: 999, backgroundColor: 'rgba(8,20,24,0.72)', borderWidth: 1 },
+  exitDemo: { position: 'absolute', right: 14, height: 26, borderRadius: 999, borderWidth: 1, paddingHorizontal: 9, backgroundColor: 'rgba(12,12,14,0.72)', flexDirection: 'row', alignItems: 'center', gap: 4 },
+  badge: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, height: 26, borderRadius: 999, backgroundColor: 'rgba(12,12,14,0.72)', borderWidth: 1 },
   liveDot: { width: 7, height: 7, borderRadius: 4 },
-  badgeText: { color: '#E9FEFF', fontFamily: 'Poppins_600SemiBold', fontSize: 11, letterSpacing: 0.4 },
+  badgeText: { color: '#FFFFFF', fontFamily: 'Poppins_600SemiBold', fontSize: 11, letterSpacing: 0.4 },
   rail: { position: 'absolute', right: 10, bottom: 150, alignItems: 'center', gap: 10 },
   smallRail: { bottom: 60, gap: 4 },
   railItem: { alignItems: 'center', minWidth: 52, minHeight: 44 },
-  railCircle: { width: 50, height: 50, borderRadius: 25, backgroundColor: 'rgba(8,20,24,0.6)', alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
+  railCircle: { width: 50, height: 50, borderRadius: 25, backgroundColor: 'rgba(12,12,14,0.6)', alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
   smallRailCircle: { width: 42, height: 42, borderRadius: 21 },
   railLabel: { color: '#FFF', fontFamily: 'Poppins_600SemiBold', fontSize: 12, marginTop: 3, textShadowColor: 'rgba(0,0,0,0.6)', textShadowRadius: 4 },
   railAvatar: { width: 56, height: 56, borderRadius: 28, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
   smallRailAvatar: { width: 46, height: 46, borderRadius: 23 },
   plus: { width: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginTop: -10 },
-  disc: { width: 40, height: 40, borderRadius: 20, borderWidth: 9, backgroundColor: '#0FB5BE', alignItems: 'center', justifyContent: 'center', marginTop: 4 },
+  disc: { width: 40, height: 40, borderRadius: 20, borderWidth: 9, backgroundColor: '#2A2A2E', alignItems: 'center', justifyContent: 'center', marginTop: 4 },
   smallDisc: { width: 32, height: 32, borderRadius: 16, borderWidth: 7 },
   discDot: { width: 8, height: 8, borderRadius: 4 },
   caption: { position: 'absolute', left: 16, right: 84, bottom: 74, gap: 6 },
   authorRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  cc: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, height: 22, borderRadius: 6, backgroundColor: 'rgba(8,20,24,0.7)' },
-  ccText: { color: '#E9FEFF', fontFamily: 'Poppins_600SemiBold', fontSize: 11 },
+  cc: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, height: 22, borderRadius: 6, backgroundColor: 'rgba(12,12,14,0.7)' },
+  ccText: { color: '#FFFFFF', fontFamily: 'Poppins_600SemiBold', fontSize: 11 },
   author: { color: '#FFF', fontFamily: 'Poppins_700Bold', fontSize: 17, flexShrink: 1 },
   follow: { paddingHorizontal: 14, height: 30, borderRadius: 999, borderWidth: 1, justifyContent: 'center' },
   row6: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   loc: { fontFamily: 'Poppins_500Medium', fontSize: 13 },
   captionText: { color: '#FFF', fontFamily: 'Poppins_400Regular', fontSize: 15, lineHeight: 22, textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 4 },
-  music: { flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'flex-start', maxWidth: '100%', paddingHorizontal: 12, height: 30, borderRadius: 999, backgroundColor: 'rgba(8,20,24,0.7)' },
-  musicText: { color: '#E9FEFF', fontFamily: 'Poppins_400Regular', fontSize: 12, flexShrink: 1 },
-  tbar: { position: 'absolute', left: 14, right: 14, height: 54, borderRadius: 27, borderWidth: 1.5, backgroundColor: 'rgba(8,24,28,0.88)', flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, shadowColor: '#1FE0E8', shadowOpacity: 0.35, shadowRadius: 12, shadowOffset: { width: 0, height: 0 } },
+  music: { flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'flex-start', maxWidth: '100%', paddingHorizontal: 12, height: 30, borderRadius: 999, backgroundColor: 'rgba(12,12,14,0.7)' },
+  musicText: { color: '#FFFFFF', fontFamily: 'Poppins_400Regular', fontSize: 12, flexShrink: 1 },
+  tbar: { position: 'absolute', left: 14, right: 14, height: 54, borderRadius: 27, borderWidth: 1, backgroundColor: 'rgba(12,12,14,0.88)', flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, shadowColor: 'rgba(255,255,255,0.5)', shadowOpacity: 0.35, shadowRadius: 12, shadowOffset: { width: 0, height: 0 } },
   tbarText: { flex: 1, color: '#FFF', fontFamily: 'Poppins_600SemiBold', fontSize: 16 },
   ai: { paddingHorizontal: 10, height: 26, borderRadius: 999, borderWidth: 1, justifyContent: 'center' },
-  nav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', backgroundColor: '#08161A', borderTopWidth: 1 },
+  nav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', backgroundColor: '#0E0E10', borderTopWidth: 1 },
   navItem: { minWidth: 56, minHeight: 48, alignItems: 'center', justifyContent: 'center', gap: 2 },
   navLabel: { fontFamily: 'Poppins_500Medium', fontSize: 11 },
   navAv: { width: 30, height: 30, borderRadius: 15, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
-  create: { width: 54, height: 54, borderRadius: 27, borderWidth: 2.5, backgroundColor: '#0B1A1F', alignItems: 'center', justifyContent: 'center', shadowColor: '#1FE0E8', shadowOpacity: 0.5, shadowRadius: 10, shadowOffset: { width: 0, height: 0 } },
+  create: { width: 54, height: 54, borderRadius: 27, borderWidth: 0, backgroundColor: '#0E0E10', alignItems: 'center', justifyContent: 'center', shadowColor: 'rgba(255,255,255,0.5)', shadowOpacity: 0, shadowRadius: 10, shadowOffset: { width: 0, height: 0 } },
   searchInput: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderRadius: 14, paddingHorizontal: 12, marginVertical: 12 },
   result: { flexDirection: 'row', gap: 12, alignItems: 'center', paddingVertical: 10, borderTopWidth: 1 },
   emptyFollowing: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14, paddingHorizontal: 40 },

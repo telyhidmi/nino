@@ -174,7 +174,7 @@ export function ProfileView(props: {
                 {it.image ? <Image source={it.image} style={StyleSheet.absoluteFill} contentFit="cover" /> : <View style={[StyleSheet.absoluteFill, { backgroundColor: c.card, alignItems: 'center', justifyContent: 'center' }]}><Feather name="film" size={24} color={c.accent} /></View>}
                 <View style={s.tileTop}>
                   {it.pinned ? <View style={[s.chip, { backgroundColor: c.danger }]}><Text style={s.chipText}>PINNED</Text></View> : null}
-                   <View style={[s.chip, { backgroundColor: 'rgba(8,20,24,0.78)' }]}><Text style={s.chipText}>{it.local ? 'LOCAL · NOT PUBLISHED' : it.tag ?? 'SAMPLE'}</Text></View>
+                   <View style={[s.chip, { backgroundColor: 'rgba(12,12,14,0.78)' }]}><Text style={s.chipText}>{it.local ? 'LOCAL · NOT PUBLISHED' : it.tag ?? 'SAMPLE'}</Text></View>
                 </View>
                 <View style={s.tileBottom}>
                   <Feather name={it.kind === 'video' ? 'play' : 'image'} size={11} color="#FFF" />
@@ -232,10 +232,10 @@ function MediaViewer({ item, onClose, onRemove }: { item: ProfileItem | null; on
   const ins = useInsets();
   return (
     <Modal visible={!!item} animationType="fade" onRequestClose={onClose}>
-      <View testID="media-viewer" style={{ flex: 1, backgroundColor: '#050E11' }}>
+      <View testID="media-viewer" style={{ flex: 1, backgroundColor: '#0A0A0B' }}>
         {item ? (item.kind === 'video' && item.video ? <VideoPlayer source={item.video} /> : item.image ? <Image source={item.image} style={StyleSheet.absoluteFill} contentFit="contain" /> : null) : null}
         <View style={[s.viewerTop, { top: ins.top + 6 }]}>
-          <Pressable testID="media-close" onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" style={[s.iconBtn, { backgroundColor: 'rgba(8,20,24,0.7)' }]}><Feather name="x" size={22} color={c.text} /></Pressable>
+          <Pressable testID="media-close" onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" style={[s.iconBtn, { backgroundColor: 'rgba(12,12,14,0.7)' }]}><Feather name="x" size={22} color={c.text} /></Pressable>
           {onRemove ? (
             <Pressable testID="media-remove" onPress={onRemove} accessibilityRole="button" accessibilityLabel="Remove upload" style={[s.iconBtn, { backgroundColor: c.dangerWash }]}><Feather name="trash-2" size={20} color={c.danger} /></Pressable>
           ) : null}
@@ -255,10 +255,10 @@ function MediaViewer({ item, onClose, onRemove }: { item: ProfileItem | null; on
 const s = StyleSheet.create({
   top: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, minHeight: 48 },
   brand: { flexDirection: 'row', alignItems: 'center', gap: 2, width: 44 },
-  brandText: { color: '#E9FEFF', fontFamily: 'Poppins_700Bold', fontSize: 14 },
+  brandText: { color: '#FFFFFF', fontFamily: 'Poppins_700Bold', fontSize: 14 },
   handleTop: { flex: 1, textAlign: 'center', fontFamily: 'Poppins_700Bold', fontSize: 17, marginHorizontal: 8 },
   iconBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', borderWidth: 0 },
-  ring: { width: 96, height: 96, borderRadius: 48, borderWidth: 3, alignItems: 'center', justifyContent: 'center', shadowOpacity: 0.5, shadowRadius: 16, shadowOffset: { width: 0, height: 0 } },
+  ring: { width: 96, height: 96, borderRadius: 48, borderWidth: 2, alignItems: 'center', justifyContent: 'center', shadowOpacity: 0, shadowRadius: 0, shadowOffset: { width: 0, height: 0 } },
   flagPill: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, height: 20, borderRadius: 999, borderWidth: 1, marginTop: -12 },
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4, paddingHorizontal: 20 },
   name: { fontFamily: 'Poppins_700Bold', fontSize: 21, flexShrink: 1 },
@@ -297,5 +297,5 @@ const s = StyleSheet.create({
   followRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, borderTopWidth: 1 },
   unfollow: { minHeight: 44, paddingHorizontal: 14, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   viewerTop: { position: 'absolute', left: 14, right: 14, flexDirection: 'row', justifyContent: 'space-between' },
-  viewerCap: { position: 'absolute', left: 14, right: 14, gap: 4, padding: 12, borderRadius: 14, borderWidth: 1, backgroundColor: 'rgba(8,20,24,0.8)' },
+  viewerCap: { position: 'absolute', left: 14, right: 14, gap: 4, padding: 12, borderRadius: 14, borderWidth: 1, backgroundColor: 'rgba(12,12,14,0.8)' },
 });

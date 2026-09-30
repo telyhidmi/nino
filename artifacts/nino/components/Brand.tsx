@@ -20,7 +20,7 @@ export function Wordmark({ height = 56 }: { height?: number }) {
           <LinearGradient id="wg" x1="0" y1="0" x2="0" y2="1">
             <Stop offset="0" stopColor="#FFFFFF" />
             <Stop offset="0.5" stopColor="#D9FCFD" />
-            <Stop offset="1" stopColor="#1FE0E8" />
+            <Stop offset="1" stopColor="#FE2C55" />
           </LinearGradient>
         </Defs>
         <SvgText x="0" y="84" fontSize="98" fontFamily="Poppins_700Bold" fontWeight="700" fill="#0E6D74" opacity={0.55} dx={2} dy={3}>Nin</SvgText>
@@ -98,8 +98,8 @@ export function WorldArt({ size = 300 }: { size?: number }) {
         <Svg width={size} height={size} viewBox="0 0 300 300">
           <Defs>
             <RadialGradient id="halo" cx="50%" cy="50%" r="50%">
-              <Stop offset="0.55" stopColor="#1FE0E8" stopOpacity={0.35} />
-              <Stop offset="1" stopColor="#1FE0E8" stopOpacity={0} />
+              <Stop offset="0.55" stopColor="#FE2C55" stopOpacity={0.35} />
+              <Stop offset="1" stopColor="#FE2C55" stopOpacity={0} />
             </RadialGradient>
           </Defs>
           <Circle cx="150" cy="150" r="150" fill="url(#halo)" />
@@ -113,32 +113,32 @@ export function WorldArt({ size = 300 }: { size?: number }) {
             <Stop offset="1" stopColor="#081518" />
           </RadialGradient>
           <LinearGradient id="arc" x1="0" y1="0" x2="1" y2="1">
-            <Stop offset="0" stopColor="#1FE0E8" stopOpacity={0.2} />
+            <Stop offset="0" stopColor="#FE2C55" stopOpacity={0.2} />
             <Stop offset="0.5" stopColor="#8FF7FA" />
-            <Stop offset="1" stopColor="#1FE0E8" stopOpacity={0.2} />
+            <Stop offset="1" stopColor="#FE2C55" stopOpacity={0.2} />
           </LinearGradient>
         </Defs>
-        <Circle cx="150" cy="150" r="122" fill="url(#sphere)" stroke="rgba(31,224,232,0.55)" strokeWidth={1.2} />
+        <Circle cx="150" cy="150" r="122" fill="url(#sphere)" stroke="rgba(255,255,255,0.55)" strokeWidth={1.2} />
         {dots.map((d, i) => (
-          <Circle key={i} cx={d.x} cy={d.y} r={1.7} fill="#1FE0E8" opacity={0.28 + (i % 5) * 0.08} />
+          <Circle key={i} cx={d.x} cy={d.y} r={1.7} fill="#FE2C55" opacity={0.28 + (i % 5) * 0.08} />
         ))}
-        <Ellipse cx="150" cy="150" rx="122" ry="40" fill="none" stroke="rgba(31,224,232,0.18)" />
-        <Ellipse cx="150" cy="150" rx="48" ry="122" fill="none" stroke="rgba(31,224,232,0.18)" />
+        <Ellipse cx="150" cy="150" rx="122" ry="40" fill="none" stroke="rgba(255,255,255,0.18)" />
+        <Ellipse cx="150" cy="150" rx="48" ry="122" fill="none" stroke="rgba(255,255,255,0.18)" />
         {ARCS.map((d, i) => (
           <Path key={i} d={d} fill="none" stroke="url(#arc)" strokeWidth={1.8} strokeLinecap="round" />
         ))}
         {NODES.map((n, i) => (
           <G key={i}>
-            <Circle cx={n.x} cy={n.y} r={8} fill="#1FE0E8" opacity={0.18} />
-            <Circle cx={n.x} cy={n.y} r={3.4} fill="#E9FEFF" />
+            <Circle cx={n.x} cy={n.y} r={8} fill="#FE2C55" opacity={0.18} />
+            <Circle cx={n.x} cy={n.y} r={3.4} fill="#FFFFFF" />
           </G>
         ))}
         <Ellipse cx="112" cy="84" rx="54" ry="22" fill="#FFFFFF" opacity={0.05} />
       </Svg>
       <Animated.View style={[StyleSheet.absoluteFill, ring]} pointerEvents="none">
         <Svg width={size} height={size} viewBox="0 0 300 300">
-          <Circle cx="150" cy="150" r="140" fill="none" stroke="rgba(31,224,232,0.35)" strokeWidth={1} strokeDasharray="2 7" />
-          <Circle cx="150" cy="10" r="4" fill="#1FE0E8" />
+          <Circle cx="150" cy="150" r="140" fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth={1} strokeDasharray="2 7" />
+          <Circle cx="150" cy="10" r="4" fill="#FE2C55" />
           <Circle cx="290" cy="150" r="2.5" fill="#9FB3B8" />
         </Svg>
       </Animated.View>
