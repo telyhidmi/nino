@@ -1,16 +1,29 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { Platform } from 'react-native';
+import { europe } from './locales/europe';
+import { asia } from './locales/asia';
 
-export type Lang = 'en' | 'ar' | 'pt' | 'es';
-export const LANGS: { code: Lang; native: string; flag: string; hello: string }[] = [
-  { code: 'en', native: 'English', flag: '🇺🇸', hello: 'Hello' },
-  { code: 'ar', native: 'العربية', flag: '🇸🇦', hello: 'مرحبا' },
-  { code: 'pt', native: 'Português', flag: '🇧🇷', hello: 'Olá' },
-  { code: 'es', native: 'Español', flag: '🇪🇸', hello: 'Hola' },
+export type Lang = 'en' | 'ar' | 'pt' | 'es' | 'fr' | 'de' | 'it' | 'tr' | 'ru' | 'hi' | 'zh' | 'ja';
+export const LANGS: { code: Lang; native: string; english: string; flag: string; hello: string }[] = [
+  { code: 'en', native: 'English', english: 'English', flag: '🇺🇸', hello: 'Hello' },
+  { code: 'ar', native: 'العربية', english: 'Arabic', flag: '🇸🇦', hello: 'مرحبا' },
+  { code: 'pt', native: 'Português', english: 'Portuguese', flag: '🇧🇷', hello: 'Olá' },
+  { code: 'es', native: 'Español', english: 'Spanish', flag: '🇪🇸', hello: 'Hola' },
+  { code: 'fr', native: 'Français', english: 'French', flag: '🇫🇷', hello: 'Bonjour' },
+  { code: 'de', native: 'Deutsch', english: 'German', flag: '🇩🇪', hello: 'Hallo' },
+  { code: 'it', native: 'Italiano', english: 'Italian', flag: '🇮🇹', hello: 'Ciao' },
+  { code: 'tr', native: 'Türkçe', english: 'Turkish', flag: '🇹🇷', hello: 'Merhaba' },
+  { code: 'ru', native: 'Русский', english: 'Russian', flag: '🇷🇺', hello: 'Привет' },
+  { code: 'hi', native: 'हिन्दी', english: 'Hindi', flag: '🇮🇳', hello: 'नमस्ते' },
+  { code: 'zh', native: '简体中文', english: 'Chinese Simplified', flag: '🇨🇳', hello: '你好' },
+  { code: 'ja', native: '日本語', english: 'Japanese', flag: '🇯🇵', hello: 'こんにちは' },
 ];
 
 const en = {
+  searchLanguages: 'Search languages',
+  languageSaveError: 'Could not save your language. Please try again.',
+  retry: 'Try again',
   tagline: 'One World  ·  One Voice',
   taglineAr: 'عالم واحد صوت واحد',
   welcomeTitle: 'Different languages.\nSame people.',
@@ -101,6 +114,9 @@ const en = {
 type Dict = typeof en;
 
 const ar: Dict = {
+  searchLanguages: 'ابحث عن لغة',
+  languageSaveError: 'تعذّر حفظ لغتك. يرجى المحاولة مجددًا.',
+  retry: 'حاول مجددًا',
   tagline: 'عالم واحد  ·  صوت واحد',
   taglineAr: 'One World  ·  One Voice',
   welcomeTitle: 'لغات مختلفة.\nناس واحدة.',
@@ -190,6 +206,9 @@ const ar: Dict = {
 };
 
 const pt: Dict = {
+  searchLanguages: 'Buscar idiomas',
+  languageSaveError: 'Não foi possível salvar seu idioma. Tente novamente.',
+  retry: 'Tentar novamente',
   tagline: 'Um Mundo  ·  Uma Voz',
   taglineAr: 'عالم واحد صوت واحد',
   welcomeTitle: 'Idiomas diferentes.\nAs mesmas pessoas.',
@@ -279,6 +298,9 @@ const pt: Dict = {
 };
 
 const es: Dict = {
+  searchLanguages: 'Buscar idiomas',
+  languageSaveError: 'No se pudo guardar tu idioma. Inténtalo de nuevo.',
+  retry: 'Intentar de nuevo',
   tagline: 'Un Mundo  ·  Una Voz',
   taglineAr: 'عالم واحد صوت واحد',
   welcomeTitle: 'Idiomas distintos.\nLa misma gente.',
@@ -367,7 +389,7 @@ const es: Dict = {
   socialCallbackError: 'No se pudo reconectar con la ventana original. Cierra esta ventana e inténtalo desde Nino en otra pestaña.',
 };
 
-const DICTS: Record<Lang, Dict> = { en, ar, pt, es };
+const DICTS: Record<Lang, Dict> = { en, ar, pt, es, ...europe, ...asia };
 export type TKey = keyof Dict;
 
 const LANG_KEY = 'nino.appLanguage';
@@ -396,8 +418,11 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     (async () => {
       try {
         const [l, c] = await Promise.all([AsyncStorage.getItem(LANG_KEY), AsyncStorage.getItem(CHOSEN_KEY)]);
-        if (l && l in DICTS) setLangState(l as Lang);
+        if (l && Object.prototype.hasOwnProperty.call(DICTS, l)) setLangState(l as Lang);
         setChosen(c === '1');
+      } catch {
+        // Storage may be unavailable; keep the default language usable.
+        setChosen(false);
       } finally {
         setReady(true);
       }
@@ -414,15 +439,16 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
   }, [rtl, lang]);
 
   const setLang = useCallback(async (l: Lang) => {
+    await AsyncStorage.multiSet([[LANG_KEY, l], [CHOSEN_KEY, '1']]);
     setLangState(l);
     setChosen(true);
-    await AsyncStorage.multiSet([[LANG_KEY, l], [CHOSEN_KEY, '1']]);
   }, []);
 
   const value = useMemo<Ctx>(() => {
     const t = (k: TKey) => DICTS[lang][k] ?? en[k];
     const font = (w: 'regular' | 'medium' | 'semibold' | 'bold' = 'regular') => {
       if (rtl) return w === 'bold' ? 'Cairo_700Bold' : w === 'regular' ? 'Cairo_400Regular' : 'Cairo_600SemiBold';
+      if (['ru', 'hi', 'zh', 'ja'].includes(lang)) return Platform.OS === 'ios' ? 'System' : 'sans-serif';
       return { regular: 'Poppins_400Regular', medium: 'Poppins_500Medium', semibold: 'Poppins_600SemiBold', bold: 'Poppins_700Bold' }[w];
     };
     return { lang, rtl, ready, languageChosen, t, setLang, font, row: rtl ? 'row-reverse' : 'row', align: rtl ? 'right' : 'left' };
