@@ -1,7 +1,7 @@
 import { useAuth, useClerk, useUser } from '@clerk/expo';
 import { Feather } from '@expo/vector-icons';
-import { Redirect, router } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import { Redirect, router, useFocusEffect } from 'expo-router';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Pressable, Share, Text, View } from 'react-native';
 import { Sheet } from '@/components/feed/Sheets';
 import { Banner, LanguagePill } from '@/components/ui';
@@ -16,7 +16,7 @@ import { usePostCopy } from '@/lib/postTranslations';
 import { postItem, postError } from '@/lib/posts';
 import type { ProfileItem } from './ProfileView';
 
-export function RealProfile({ ctx, onBack, active = true }: { ctx?: ProfileCtx; onBack?: () => void; active?: boolean }) {
+export function RealProfile({ ctx, onBack, active = true, postsResetToken }: { ctx?: ProfileCtx; onBack?: () => void; active?: boolean; postsResetToken?: number }) {
   const { isSignedIn } = useAuth();
   const { user } = useUser();
   const { signOut } = useClerk();
@@ -28,7 +28,9 @@ export function RealProfile({ ctx, onBack, active = true }: { ctx?: ProfileCtx; 
   const mine = useListMyPosts({ query: { queryKey: mineKey, enabled: !!isSignedIn && !!user && active, staleTime: 0, refetchOnMount: 'always', retry: false } });
   const removePost = useDeletePost();
   const [deleteError, setDeleteError] = useState<string | null>(null);
-  useEffect(() => { if (active && isSignedIn && user) void mine.refetch(); }, [active, user?.id, isSignedIn]);
+  useFocusEffect(useCallback(() => {
+    if (active && isSignedIn && user?.id) void mine.refetch();
+  }, [active, user?.id, isSignedIn, mine.refetch]));
   const remove = async (item: ProfileItem) => {
     if (removePost.isPending) return;
     setDeleteError(null);
@@ -74,6 +76,7 @@ export function RealProfile({ ctx, onBack, active = true }: { ctx?: ProfileCtx; 
     <>
       <ProfileView
         active={active}
+        postsResetToken={postsResetToken}
         testID="real-profile"
         name={p.displayName} handle={handle} imageUrl={user.hasImage ? user.imageUrl : null}
         flag={ctry?.flag} countryCode={ctry?.code}

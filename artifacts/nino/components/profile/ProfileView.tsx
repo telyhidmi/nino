@@ -8,6 +8,9 @@ import { useInsets } from '@/components/ui';
 import { useColors } from '@/hooks/useColors';
 import { compact } from '@/components/feed/data';
 import { usePostCopy } from '@/lib/postTranslations';
+import { resetProfileTab, type ProfileTabState } from '@/lib/profileTabReset';
+import type { ProfileTabKey } from '@/lib/profileTabReset';
+export type { ProfileTabKey } from '@/lib/profileTabReset';
 
 export type ProfileItem = {
   id: string;
@@ -23,7 +26,6 @@ export type ProfileItem = {
   tag?: string;
 };
 export type FollowedCreator = { id: string; name: string; handle: string; flag: string; image: ImageSourcePropType };
-export type ProfileTabKey = 'posts' | 'private' | 'reposts' | 'liked';
 export type ProfileTab = { items: ProfileItem[]; emptyTitle: string; emptyBody: string };
 
 export function confirmAction(title: string, body: string, action: string, onYes: () => void) {
@@ -58,13 +60,19 @@ export function ProfileView(props: {
   onRemove?: (item: ProfileItem) => void | Promise<void>;
   postsStatus?: React.ReactNode;
   removing?: boolean;
+  postsResetToken?: number;
   removalError?: string | null;
   topInset?: boolean; bottomPad?: number; testID?: string; active?: boolean;
 }) {
   const c = useColors();
   const copy = usePostCopy();
   const ins = useInsets();
-  const [tab, setTab] = useState<ProfileTabKey>('posts');
+  const [tabState, setTabState] = useState<ProfileTabState>({ tab: 'posts', resetToken: props.postsResetToken });
+  const nextTabState = resetProfileTab(tabState, props.postsResetToken);
+  // Reset during render so a retained/hidden profile never flashes the old tab.
+  if (nextTabState !== tabState) setTabState(nextTabState);
+  const tab = nextTabState.tab;
+  const setTab = (tab: ProfileTabKey) => setTabState({ tab, resetToken: props.postsResetToken });
   const [showFollowing, setShowFollowing] = useState(false);
   const [openItem, setOpenItem] = useState<ProfileItem | null>(null);
   useEffect(() => {

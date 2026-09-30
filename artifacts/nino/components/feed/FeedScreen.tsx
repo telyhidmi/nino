@@ -15,11 +15,12 @@ import { compact, SampleComment, SAMPLE_POSTS, SamplePost } from './data';
 import { FeedVideo } from './FeedVideo';
 import { CreatePost } from './CreatePost';
 import { CommentsSheet, PreviewTag, Sheet, SoonSheet, TranslateSheet } from './Sheets';
-import { getListPostsQueryKey, useListPosts, type Post, type PostList } from '@workspace/api-client-react';
+import { getListMyPostsQueryKey, getListPostsQueryKey, useListPosts, type Post } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { usePostCopy } from '@/lib/postTranslations';
 import { postError } from '@/lib/posts';
 import { PublishedPost } from './PublishedPost';
+import { cachePublishedPost } from '@/lib/publishedPostCache';
 
 type FeedPost = SamplePost | Post;
 const isPublished = (post: FeedPost): post is Post => 'mediaUrl' in post;
@@ -27,7 +28,7 @@ const isPublished = (post: FeedPost): post is Post => 'mediaUrl' in post;
 type Tab = 'foryou' | 'following' | 'live';
 type Open = null | 'comments' | 'translate' | 'search' | 'create' | 'messages' | 'more';
 
-export type FeedViewer = { name?: string; imageUrl?: string | null } | null;
+export type FeedViewer = { id?: string; name?: string; imageUrl?: string | null } | null;
 
 function Initials({ name, size }: { name?: string; size: number }) {
   const c = useColors();
@@ -109,7 +110,7 @@ function PostView({ post, height, active, onOpen, onCreator, viewerComments, lik
   );
 }
 
-export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSection = 'home', renderProfile }: { viewer: FeedViewer; onProfile: () => void; renderProfile?: (ctx: ProfileCtx, active: boolean) => React.ReactNode; preview?: boolean; onExitDemo?: () => void; initialSection?: 'home' | 'discover' | 'profile' }) {
+export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSection = 'home', renderProfile }: { viewer: FeedViewer; onProfile: () => void; renderProfile?: (ctx: ProfileCtx, active: boolean, postsResetToken: number) => React.ReactNode; preview?: boolean; onExitDemo?: () => void; initialSection?: 'home' | 'discover' | 'profile' }) {
   const c = useColors();
   const copy = usePostCopy();
   const queryClient = useQueryClient();
@@ -130,6 +131,7 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
   const [webVisible, setWebVisible] = useState(true);
   const [section, setSection] = useState<'home' | 'discover' | 'profile' | 'creator'>(initialSection);
   const [creatorHandle, setCreatorHandle] = useState<string | null>(null);
+  const [postsResetToken, setPostsResetToken] = useState(0);
 
   useFocusEffect(useCallback(() => {
     setFocused(true);
@@ -196,6 +198,11 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
     setCreatorHandle(post.handle);
     setSection('creator');
   };
+  const openOwnerPosts = () => {
+    setPostsResetToken((token) => token + 1);
+    if (renderProfile && !preview) changeSection('profile');
+    else onProfile();
+  };
   const creator = SAMPLE_POSTS.find((post) => post.handle === creatorHandle);
 
   const profileCtx: ProfileCtx = {
@@ -230,7 +237,7 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
             }}
             scrollEventThrottle={16}
             onMomentumScrollEnd={(e) => setIndex(Math.max(0, Math.min(posts.length - 1, Math.round(e.nativeEvent.contentOffset.y / h))))}
-              renderItem={({ item, index: itemIndex }) => isPublished(item) ? <PublishedPost post={item} height={h} active={itemIndex === index && focused && foreground && webVisible && open === null && section === 'home'} /> : <PostView post={item} height={h} active={itemIndex === index && focused && foreground && webVisible && open === null && section === 'home'}
+              renderItem={({ item, index: itemIndex }) => isPublished(item) ? <PublishedPost post={item} height={h} onAuthor={!preview && viewer?.id === item.ownerId ? openOwnerPosts : undefined} active={itemIndex === index && focused && foreground && webVisible && open === null && section === 'home'} /> : <PostView post={item} height={h} active={itemIndex === index && focused && foreground && webVisible && open === null && section === 'home'}
               onOpen={setOpen} viewerComments={(local[item.id] ?? []).length}
                liked={!!likes[item.id]} following={isFollowing(item)} onCreator={() => openCreator(item)}
               onLike={() => setLikes((old) => ({ ...old, [item.id]: !old[item.id] }))}
@@ -306,7 +313,7 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
         onFollow={() => toggleFollow(creator)} onBack={() => setSection('home')} onOpenPost={openPost} /> : null}
       {hasProfile ? (
         <View style={{ flex: 1, display: section === 'profile' ? 'flex' : 'none' }}>
-          {preview ? <DemoProfile active={section === 'profile'} name={viewer?.name ?? 'Alex Morgan'} ctx={profileCtx} onExitDemo={onExitDemo} /> : renderProfile?.(profileCtx, section === 'profile')}
+          {preview ? <DemoProfile active={section === 'profile'} name={viewer?.name ?? 'Alex Morgan'} ctx={profileCtx} onExitDemo={onExitDemo} /> : renderProfile?.(profileCtx, section === 'profile', postsResetToken)}
         </View>
       ) : null}
       {section !== 'creator' && <View style={[st.nav, { height: NAV_H + ins.bottom, paddingBottom: ins.bottom, borderTopColor: 'rgba(255,255,255,0.08)' }]}>
@@ -326,10 +333,9 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
 
       <CommentsSheet key={`comments-${current.id}`} post={current} visible={open === 'comments'} onClose={() => setOpen(null)} extra={local[current.id] ?? []} onAdd={addComment} />
       <TranslateSheet key={`translate-${current.id}`} post={current} visible={open === 'translate'} onClose={() => setOpen(null)} />
-      <CreatePost visible={open === 'create'} allowPublish={!preview} onClose={() => setOpen(null)} onSave={(item) => {
-        queryClient.setQueryData<PostList>(getListPostsQueryKey(), (previous) => ({ posts: [item, ...(previous?.posts ?? []).filter((post) => post.id !== item.id)] }));
-        setOpen(null);
-        setSection('profile');
+      <CreatePost visible={open === 'create'} allowPublish={!preview} onClose={() => setOpen(null)} onSave={async (item) => {
+        await cachePublishedPost(queryClient, item, getListPostsQueryKey(), getListMyPostsQueryKey());
+        openOwnerPosts();
       }} />
       <SoonSheet visible={open === 'messages'} onClose={() => setOpen(null)} icon="message-circle" title="Messages" body="Chat across languages with auto-translated messages is coming soon. There are no messages yet." />
       <Sheet visible={open === 'more'} onClose={() => setOpen(null)} title="About this post" testID="post-info-sheet">

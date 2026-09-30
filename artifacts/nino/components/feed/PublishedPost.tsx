@@ -35,7 +35,7 @@ function PublishedVideo({ uri }: { uri: string }) {
   </>;
 }
 
-export function PublishedPost({ post, height, active }: { post: Post; height: number; active: boolean }) {
+export function PublishedPost({ post, height, active, onAuthor }: { post: Post; height: number; active: boolean; onAuthor?: () => void }) {
   const c = useColors();
   const copy = usePostCopy();
   const [attempt, setAttempt] = useState(0);
@@ -53,11 +53,11 @@ export function PublishedPost({ post, height, active }: { post: Post; height: nu
       <Pressable testID={`post-share-${post.id}`} onPress={share} accessibilityRole="button" accessibilityLabel="Share" style={[s.button, { backgroundColor: c.overlay }]}><Feather name="share" size={22} color={c.text} /></Pressable>
       <Pressable testID={`post-media-retry-${post.id}`} onPress={() => { setImageError(null); setAttempt((value) => value + 1); }} accessibilityRole="button" accessibilityLabel={copy.retry} style={[s.button, { backgroundColor: c.overlay }]}><Feather name="refresh-cw" size={22} color={c.text} /></Pressable>
     </View>
-    <View style={s.caption} pointerEvents="none">
-      <View style={s.authorRow}>
+    <View style={s.caption} pointerEvents="box-none">
+      <Pressable testID={`published-author-${post.id}`} onPress={onAuthor} disabled={!onAuthor} accessibilityRole={onAuthor ? 'button' : undefined} accessibilityLabel={onAuthor ? `View ${post.authorName}'s profile` : post.authorName} style={s.authorRow}>
         {post.authorAvatar ? <Image source={{ uri: post.authorAvatar }} style={s.avatar} contentFit="cover" /> : <Feather name="user" size={24} color={c.text} />}
         <Text style={[s.author, { color: c.text }]}>{post.authorName}</Text>
-      </View>
+      </Pressable>
       <Text style={[s.text, { color: c.text }]}>{post.caption}</Text>
       <Text style={[s.date, { color: c.secondary }]}>{new Date(post.createdAt).toLocaleDateString()}</Text>
     </View>
@@ -70,7 +70,7 @@ const s = StyleSheet.create({
   actions: { position: 'absolute', bottom: 150, right: 12, gap: 12 },
   button: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
   caption: { position: 'absolute', bottom: 48, left: 16, right: 78, gap: 8 },
-  authorRow: { flexDirection: 'row', gap: 10, alignItems: 'center' },
+  authorRow: { flexDirection: 'row', gap: 10, alignItems: 'center', minHeight: 44 },
   avatar: { width: 32, height: 32, borderRadius: 16 },
   author: { fontSize: 17, fontWeight: '700', flexShrink: 1 },
   text: { fontSize: 15, lineHeight: 22 },

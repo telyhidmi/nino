@@ -9,8 +9,7 @@ import { KeyboardAwareScrollViewCompat } from '@/components/KeyboardAwareScrollV
 import { useInsets } from '@/components/ui';
 import { useColors } from '@/hooks/useColors';
 import { useAuth } from '@clerk/expo';
-import { useQueryClient } from '@tanstack/react-query';
-import { getListPostsQueryKey, getListMyPostsQueryKey, useRequestPostUpload, usePublishPost, type Post, type PostUploadTicket } from '@workspace/api-client-react';
+import { useRequestPostUpload, usePublishPost, type Post, type PostUploadTicket } from '@workspace/api-client-react';
 import { usePostCopy } from '@/lib/postTranslations';
 import { readUploadMedia, uploadMedia, type CapturedMedia, type ByteProgress, type UploadMedia } from '@/lib/uploadMedia';
 
@@ -35,11 +34,10 @@ function VideoPreview({ uri }: { uri: string }) {
   return <VideoView player={player} style={styles.fill} contentFit="contain" nativeControls />;
 }
 
-export function CreatePost({ visible, onClose, onSave, allowPublish = true }: { visible: boolean; onClose: () => void; onSave: (item: Post) => void; allowPublish?: boolean }) {
+export function CreatePost({ visible, onClose, onSave, allowPublish = true }: { visible: boolean; onClose: () => void; onSave: (item: Post) => void | Promise<void>; allowPublish?: boolean }) {
   const c = useColors();
   const copy = usePostCopy();
   const { isSignedIn, userId, getToken } = useAuth();
-  const queryClient = useQueryClient();
   const apiAbort = useRef(new AbortController());
   const requestUpload = useRequestPostUpload({ request: { signal: apiAbort.current.signal } });
   const publish = usePublishPost({ request: { signal: apiAbort.current.signal } });
@@ -280,10 +278,8 @@ export function CreatePost({ visible, onClose, onSave, allowPublish = true }: { 
       if (!alive(t)) return;
       // Never mark published before the server has finalized. Same ticket survives errors,
       // including a lost finalize response, so the server's idempotency prevents duplicates.
-      void queryClient.invalidateQueries({ queryKey: getListPostsQueryKey() });
-      void queryClient.invalidateQueries({ queryKey: getListMyPostsQueryKey() });
+      await onSave(post);
       reset();
-      onSave(post);
       onClose();
     } catch (e) {
       if (alive(t)) setError(`${copy.failed}\n${errText(e)}`);
