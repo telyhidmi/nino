@@ -1,3 +1,4 @@
+import { closeActiveLiveSession } from '@/lib/liveSession';
 import { useAuth, useClerk, useUser } from '@clerk/expo';
 import { Feather } from '@expo/vector-icons';
 import { Redirect, router, useFocusEffect } from 'expo-router';
@@ -57,7 +58,7 @@ export function RealProfile({ ctx, onBack, active = true, postsResetToken }: { c
 
   const doSignOut = async () => {
     setError(null);
-    try { await signOut(); router.replace('/'); } catch (e) { setError(clerkErrorMessage(e, t('genericError'))); }
+    try { await closeActiveLiveSession(); await signOut(); router.replace('/'); } catch (e) { setError(clerkErrorMessage(e, t('genericError'))); }
   };
   const share = () => {
     Share.share({ message: `Find me on Nino as ${p.displayName} (@${handle}).` }).catch(() => undefined);

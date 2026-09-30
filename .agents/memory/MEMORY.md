@@ -3,3 +3,4 @@
 - [Expo icon refresh](expo-icon-refresh.md) — use a new asset path for icon replacements and verify the native manifest's served image.
 - [Storage stream cancellation](storage-stream-cancellation.md) — avoid GCS SDK read streams for client-cancelable media responses.
 - [Discover country attribution](discover-country-attribution.md) — country means recording location, never profile country or upload location.
+- [Native Live scope](native-live-scope.md) — the user explicitly chose installed-app broadcasting over browser-first live.

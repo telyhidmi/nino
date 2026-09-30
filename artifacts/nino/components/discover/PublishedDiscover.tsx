@@ -11,6 +11,8 @@ import { postError } from '@/lib/posts';
 import { useDiscoverCopy } from './copy';
 import { countryFlag, countryName, groupRecordedVideos } from './publishedDiscovery';
 import { EmptyState, FlagChip } from './parts';
+import { LiveList } from '@/components/LiveList';
+import { useLiveCopy } from '@/lib/liveCopy';
 
 export type PublishedDiscoverProps = {
   posts: readonly Post[]; loading?: boolean; refreshing?: boolean; error?: unknown;
@@ -22,6 +24,8 @@ export function PublishedDiscover({ posts, loading, refreshing, error, onRetry, 
   const ins = useInsets();
   const copy = useDiscoverCopy();
   const postCopy = usePostCopy();
+  const liveCopy = useLiveCopy();
+  const [showLive, setShowLive] = useState(false);
   const [query, setQuery] = useState('');
   const [chip, setChip] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
@@ -60,7 +64,9 @@ export function PublishedDiscover({ posts, loading, refreshing, error, onRetry, 
       ) : (
         <View style={s.header}>
           <View style={s.brand}><Text style={[s.brandText, { color: c.accent }]}>Nin</Text><EarthGlobe size={28} /></View>
-          <Text style={[s.body, { color: c.secondary }]}>{copy.countries}</Text>
+          <Pressable testID="discover-live-tab" onPress={() => setShowLive(true)} accessibilityRole="button" style={s.back}>
+            <Text style={[s.body, { color: c.accent }]}>{liveCopy.live}</Text>
+          </Pressable>
         </View>
       )}
       <View style={[s.search, { borderColor: c.border, backgroundColor: c.cardSoft }]}>
@@ -91,6 +97,19 @@ export function PublishedDiscover({ posts, loading, refreshing, error, onRetry, 
   const empty = loading ? <View testID="discover-loading"><EmptyState icon="loader" title={postCopy.loading} body="" /></View> :
     error ? null : <View testID="discover-empty"><EmptyState icon="film" title={query || chip ? copy.noMatches : copy.empty}
       body={query || chip ? copy.noMatchesBody : copy.emptyBody} /></View>;
+
+  if (showLive) return <View style={{ flex: 1, backgroundColor: c.bgTop, paddingTop: ins.top + 6 }}>
+    <View style={s.header}>
+      <Pressable testID="discover-live-back" onPress={() => setShowLive(false)} accessibilityRole="button" accessibilityLabel={copy.back} style={s.back}>
+        <Feather name="arrow-left" size={24} color={c.text} />
+      </Pressable>
+      <Text style={[s.title, { color: c.text }]}>{liveCopy.live}</Text>
+      <Pressable testID="discover-countries-tab" onPress={() => setShowLive(false)} accessibilityRole="button" style={s.back}>
+        <Text style={[s.body, { color: c.secondary }]}>{copy.countries}</Text>
+      </Pressable>
+    </View>
+    <ScrollView><LiveList active={active} /></ScrollView>
+  </View>;
 
   return (
     <View style={{ flex: 1, backgroundColor: c.bgTop }}>

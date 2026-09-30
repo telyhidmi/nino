@@ -13,7 +13,17 @@ Friendly global social app connecting people across languages. Expo (SDK 57) + E
 - Missing `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` shows an explicit "Authentication is not configured" screen — no fake auth.
 
 ## Not built yet (later phases)
-Feed, discover, live rooms, chat, real-time translation, Google/Apple sign-in.
+Real-time translation.
+
+## Native Live broadcasting
+- Discover → Live now lists real backend broadcasts. Go Live is also available from the camera.
+- Live video requires a freshly installed iPhone or Android build containing the LiveKit native SDK and the two Expo plugins in `app.json`. A Metro refresh or Expo Go cannot add these native modules. The browser and Expo Go stay usable and show an installed-build-required explanation instead of pretend video.
+- No EAS configuration is needed or provided. Use the project's supported native publishing/build flow; iOS publishing is available through Replit Expo Launch. Android distribution requires an appropriate native build outside the browser preview.
+- The backend must have its LiveKit service configured. SDK installation alone does not provision LiveKit, and service/connection errors are displayed.
+- Camera and microphone permission and actual capture are checked before allocating a host room. Viewers never publish camera or microphone. Host controls include flip, mute, and end.
+- Navigating away or backgrounding stops capture and disconnects; hosts also request room termination. A network interruption can delay server cleanup. Reconnection is automatic while the screen stays active.
+- Chat uses reliable LiveKit data packets, authenticated participant identity, a 500-character limit, and a bounded 100-message in-memory history. Chat is not persisted or translated.
+- Native device verification is still required for camera flipping, audio routing, permission denial, reconnects, and iOS/Android background handling. Those behaviors cannot be validated in the web preview.
 
 ## Paid / external services
 - **Clerk** (Replit-managed) — authentication and profile image storage. Free tier covers development; production usage is subject to Clerk/Replit pricing (MAU-based).

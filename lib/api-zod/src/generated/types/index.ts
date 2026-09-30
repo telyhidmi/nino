@@ -8,6 +8,11 @@
 
 export * from './badRequestResponse';
 export * from './healthStatus';
+export * from './liveJoin';
+export * from './liveStream';
+export * from './liveStreamInput';
+export * from './liveStreamList';
+export * from './liveUnavailableResponse';
 export * from './notFoundResponse';
 export * from './post';
 export * from './postKind';

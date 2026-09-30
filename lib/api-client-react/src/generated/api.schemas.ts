@@ -5,6 +5,35 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export interface LiveStreamInput {
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  title: string;
+}
+
+export interface LiveStream {
+  id: string;
+  title: string;
+  hostId: string;
+  hostName: string;
+  /** @minimum 0 */
+  viewerCount: number;
+  startedAt: string;
+}
+
+export interface LiveStreamList {
+  streams: LiveStream[];
+}
+
+export interface LiveJoin {
+  stream: LiveStream;
+  serverUrl: string;
+  token: string;
+  isHost: boolean;
+}
+
 export type PostUploadRequestContentType = typeof PostUploadRequestContentType[keyof typeof PostUploadRequestContentType];
 
 
@@ -347,6 +376,11 @@ export interface PostList {
 export interface HealthStatus {
   status: string;
 }
+
+/**
+ * Live broadcasting unavailable; sanitized error message
+ */
+export type LiveUnavailableResponse = void;
 
 /**
  * A verified Clerk session bearer token is required

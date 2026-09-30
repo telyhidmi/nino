@@ -14,6 +14,8 @@ import { useRequestPostUpload, usePublishPost, type Post, type PostUploadTicket 
 import { usePostCopy } from '@/lib/postTranslations';
 import { readUploadMedia, uploadMedia, type CapturedMedia, type ByteProgress, type UploadMedia } from '@/lib/uploadMedia';
 import { captureRecordingCountry, useRecordingLocationCopy, type RecordingLocation, type LocationNotice } from '@/lib/recordingLocation';
+import { router } from 'expo-router';
+import { useLiveCopy } from '@/lib/liveCopy';
 
 type Captured = CapturedMedia & { recordingLocation?: RecordingLocation };
 type PermissionProblem = { message: string; settings: boolean };
@@ -40,6 +42,7 @@ export function CreatePost({ visible, onClose, onSave, allowPublish = true }: { 
   const c = useColors();
   const copy = usePostCopy();
   const locationCopy = useRecordingLocationCopy();
+  const liveCopy = useLiveCopy();
   const { isSignedIn, userId, getToken } = useAuth();
   const apiAbort = useRef(new AbortController());
   const requestUpload = useRequestPostUpload({ request: { signal: apiAbort.current.signal } });
@@ -80,7 +83,6 @@ export function CreatePost({ visible, onClose, onSave, allowPublish = true }: { 
   const [caption, setCaption] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [problem, setProblem] = useState<PermissionProblem | null>(null);
-  const [liveInfo, setLiveInfo] = useState(false);
   const [asked, setAsked] = useState(false);
   const [locationNotice, setLocationNotice] = useState<LocationNotice | null>(null);
   const [locating, setLocating] = useState(false);
@@ -150,7 +152,7 @@ export function CreatePost({ visible, onClose, onSave, allowPublish = true }: { 
     locationAbort.current?.abort(); locationAbort.current = null;
     setLocationNotice(null); setLocating(false);
     ticket.current = null; setBytes(null); setPhase(null);
-    setAsset(null); setCaption(''); setError(null); setProblem(null); setLiveInfo(false);
+    setAsset(null); setCaption(''); setError(null); setProblem(null);
     setElapsed(0); markReady(false); setAsked(false); setBusy(false); setPicking(false);
     session.current++;
     // Keep the lock while a prior recording promise is still settling.
@@ -380,11 +382,6 @@ export function CreatePost({ visible, onClose, onSave, allowPublish = true }: { 
           <Text testID="create-error" style={[styles.toastText, { color: c.text }]}>{error}</Text>
         </Pressable>
       ) : null}
-      {liveInfo ? (
-        <Pressable onPress={() => setLiveInfo(false)} style={[styles.toast, { backgroundColor: c.overlay, borderColor: c.border }]}>
-          <Text style={[styles.toastText, { color: c.secondary }]}>Live broadcasting isn't connected to Nino yet. Nothing will stream.</Text>
-        </Pressable>
-      ) : null}
     </>
   );
 
@@ -494,9 +491,9 @@ export function CreatePost({ visible, onClose, onSave, allowPublish = true }: { 
                 <Text style={[styles.timerMax, { color: c.secondary }]}>/ {fmt(maxSeconds)}</Text>
               </View>
             ) : (
-              <Pressable testID="create-live" onPress={() => setLiveInfo((v) => !v)} style={[styles.livePill, { backgroundColor: c.overlay, borderColor: c.border }]} accessibilityRole="button" accessibilityLabel="Live broadcasting unavailable">
+              <Pressable testID="create-live" onPress={() => { close(); router.push('/live'); }} style={[styles.livePill, { backgroundColor: c.overlay, borderColor: c.accent }]} accessibilityRole="button" accessibilityLabel={liveCopy.go}>
                 <Feather name="radio" size={13} color={c.muted} />
-                <Text style={[styles.liveText, { color: c.muted }]}>LIVE · OFF</Text>
+                <Text style={[styles.liveText, { color: c.accent }]}>{liveCopy.go}</Text>
               </Pressable>
             )}
             <Pressable testID="create-flip" onPress={() => { if (lock.current || recordingRef.current) return; markReady(false); setFacing((f) => (f === 'back' ? 'front' : 'back')); }} disabled={recording || busy || !granted}

@@ -11,6 +11,93 @@ tags:
   - name: health
     description: Health operations
 paths:
+  /live:
+    get:
+      operationId: listLiveStreams
+      tags: [live]
+      security: [{bearerAuth: []}]
+      description: Only Nino rooms with a connected host publishing an unmuted camera track are discoverable.
+      responses:
+        "200":
+          description: Active broadcasts, newest first
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LiveStreamList"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "503":
+          $ref: "#/components/responses/LiveUnavailable"
+    post:
+      operationId: createLiveStream
+      tags: [live]
+      security: [{bearerAuth: []}]
+      description: One room per authenticated owner. Retrying returns the existing room and original metadata. Connect and publish camera to appear in discovery.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LiveStreamInput"
+      responses:
+        "200":
+          description: Host connection credentials; never cache or log
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LiveJoin"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "503":
+          $ref: "#/components/responses/LiveUnavailable"
+  /live/{id}/join:
+    post:
+      operationId: joinLiveStream
+      tags: [live]
+      security: [{bearerAuth: []}]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: {type: string}
+      description: Viewers receive subscribe and chat-data grants only. Owner may reconnect even before publishing.
+      responses:
+        "200":
+          description: Connection credentials; never cache or log
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LiveJoin"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/LiveUnavailable"
+  /live/{id}:
+    delete:
+      operationId: endLiveStream
+      tags: [live]
+      security: [{bearerAuth: []}]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: {type: string}
+      description: Owner only. Deletes the LiveKit room and disconnects all participants.
+      responses:
+        "204":
+          description: Broadcast ended
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: Only the owner can end a broadcast
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/LiveUnavailable"
   /posts/uploads:
     post:
       operationId: requestPostUpload
@@ -152,6 +239,8 @@ components:
       scheme: bearer
       bearerFormat: JWT
   responses:
+    LiveUnavailable:
+      description: Live broadcasting unavailable; sanitized error message
     Unauthorized:
       description: A verified Clerk session bearer token is required
     BadRequest:
@@ -159,6 +248,39 @@ components:
     NotFound:
       description: Not found or not owned by current user
   schemas:
+    LiveStreamInput:
+      type: object
+      additionalProperties: false
+      required: [title]
+      properties:
+        title: {type: string, minLength: 1, maxLength: 120}
+    LiveStream:
+      type: object
+      required: [id, title, hostId, hostName, viewerCount, startedAt]
+      properties:
+        id: {type: string}
+        title: {type: string}
+        hostId: {type: string}
+        hostName: {type: string}
+        viewerCount: {type: integer, minimum: 0}
+        startedAt: {type: string, format: date-time}
+    LiveStreamList:
+      type: object
+      required: [streams]
+      properties:
+        streams:
+          type: array
+          items:
+            $ref: "#/components/schemas/LiveStream"
+    LiveJoin:
+      type: object
+      required: [stream, serverUrl, token, isHost]
+      properties:
+        stream:
+          $ref: "#/components/schemas/LiveStream"
+        serverUrl: {type: string}
+        token: {type: string}
+        isHost: {type: boolean}
     PostUploadRequest:
       type: object
       additionalProperties: false

@@ -3,8 +3,9 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, AppState, BackHandler, FlatList, Linking, Platform, Pressable, Share, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, AppState, BackHandler, FlatList, Linking, Platform, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 import { DiscoverScreen } from '@/components/discover/DiscoverScreen';
+import { LiveList } from '@/components/LiveList';
 import { useDiscoverCopy } from '@/components/discover/copy';
 import { postIndexById } from '@/components/discover/publishedDiscovery';
 import { EarthGlobe } from '@/components/EarthGlobe';
@@ -251,14 +252,7 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
               onFollow={() => toggleFollow(item)} />}
           />
         ) : tab === 'live' ? (
-          <View style={st.emptyFollowing}>
-            <Feather name="radio" size={36} color={c.accent} />
-            <Text style={[st.emptyTitle, { color: c.text }]}>Live on Nino</Text>
-            <Text style={[st.emptyBody, { color: c.secondary }]}>Live streaming isn’t connected yet. When it’s ready, you’ll find broadcasts from around the world here.</Text>
-            <Pressable testID="live-explore-feed" onPress={() => changeTab('foryou')} accessibilityRole="button" style={[st.emptyButton, { borderColor: c.accent }]}>
-              <Text style={{ color: c.accent, fontFamily: 'Poppins_600SemiBold' }}>Back to For You</Text>
-            </Pressable>
-          </View>
+          <ScrollView contentContainerStyle={{ paddingTop: ins.top + 70 }}><LiveList active={focused && foreground && section === 'home'} preview={!!preview} /></ScrollView>
         ) : tab === 'following' ? (
           <View style={st.emptyFollowing}>
             <Feather name="users" size={32} color={c.accent} />

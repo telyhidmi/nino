@@ -22,6 +22,10 @@ import type {
 import type {
   BadRequestResponse,
   HealthStatus,
+  LiveJoin,
+  LiveStreamInput,
+  LiveStreamList,
+  LiveUnavailableResponse,
   NotFoundResponse,
   Post,
   PostList,
@@ -57,6 +61,307 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   }
   return result;
 };
+
+export const getListLiveStreamsUrl = () => {
+
+
+
+
+  return `/api/live`
+}
+
+/**
+ * Only Nino rooms with a connected host publishing an unmuted camera track are discoverable.
+ */
+export const listLiveStreams = async ( options?: Parameters<typeof customFetch>[1]): Promise<LiveStreamList> => {
+
+  return customFetch<LiveStreamList>(getListLiveStreamsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListLiveStreamsQueryKey = () => {
+    return [
+    `/api/live`
+    ] as const;
+    }
+
+
+export const getListLiveStreamsQueryOptions = <TData = Awaited<ReturnType<typeof listLiveStreams>>, TError = ErrorType<UnauthorizedResponse | LiveUnavailableResponse>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listLiveStreams>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListLiveStreamsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listLiveStreams>>> = ({ signal }) => listLiveStreams({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listLiveStreams>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListLiveStreamsQueryResult = NonNullable<Awaited<ReturnType<typeof listLiveStreams>>>
+export type ListLiveStreamsQueryError = ErrorType<UnauthorizedResponse | LiveUnavailableResponse>
+
+
+
+export function useListLiveStreams<TData = Awaited<ReturnType<typeof listLiveStreams>>, TError = ErrorType<UnauthorizedResponse | LiveUnavailableResponse>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listLiveStreams>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListLiveStreamsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateLiveStreamUrl = () => {
+
+
+
+
+  return `/api/live`
+}
+
+/**
+ * One room per authenticated owner. Retrying returns the existing room and original metadata. Connect and publish camera to appear in discovery.
+ */
+export const createLiveStream = async (liveStreamInput: LiveStreamInput, options?: Parameters<typeof customFetch>[1]): Promise<LiveJoin> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<LiveJoin>(getCreateLiveStreamUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(liveStreamInput)
+  }
+);}
+
+
+
+
+
+export const getCreateLiveStreamMutationKey = () => ['createLiveStream'] as const;
+
+export const getCreateLiveStreamMutationOptions = <TError = ErrorType<BadRequestResponse | UnauthorizedResponse | LiveUnavailableResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createLiveStream>>, TError,CreateLiveStreamMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createLiveStream>>, TError,CreateLiveStreamMutationVariables, TContext> => {
+
+const mutationKey = getCreateLiveStreamMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createLiveStream>>, CreateLiveStreamMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  createLiveStream(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateLiveStreamMutationResult = NonNullable<Awaited<ReturnType<typeof createLiveStream>>>
+    export type CreateLiveStreamMutationBody = BodyType<LiveStreamInput>
+    export type CreateLiveStreamMutationError = ErrorType<BadRequestResponse | UnauthorizedResponse | LiveUnavailableResponse>
+    export type CreateLiveStreamMutationVariables = {data: BodyType<LiveStreamInput>}
+
+    export const useCreateLiveStream = <TError = ErrorType<BadRequestResponse | UnauthorizedResponse | LiveUnavailableResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createLiveStream>>, TError,CreateLiveStreamMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createLiveStream>>,
+        TError,
+        CreateLiveStreamMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreateLiveStreamMutationOptions(options));
+    }
+
+export const getJoinLiveStreamUrl = (id: string,) => {
+
+
+
+
+  return `/api/live/${id}/join`
+}
+
+/**
+ * Viewers receive subscribe and chat-data grants only. Owner may reconnect even before publishing.
+ */
+export const joinLiveStream = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<LiveJoin> => {
+
+  return customFetch<LiveJoin>(getJoinLiveStreamUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getJoinLiveStreamMutationKey = () => ['joinLiveStream'] as const;
+
+export const getJoinLiveStreamMutationOptions = <TError = ErrorType<UnauthorizedResponse | NotFoundResponse | LiveUnavailableResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof joinLiveStream>>, TError,JoinLiveStreamMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof joinLiveStream>>, TError,JoinLiveStreamMutationVariables, TContext> => {
+
+const mutationKey = getJoinLiveStreamMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof joinLiveStream>>, JoinLiveStreamMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  joinLiveStream(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type JoinLiveStreamMutationResult = NonNullable<Awaited<ReturnType<typeof joinLiveStream>>>
+
+    export type JoinLiveStreamMutationError = ErrorType<UnauthorizedResponse | NotFoundResponse | LiveUnavailableResponse>
+    export type JoinLiveStreamMutationVariables = {id: string}
+
+    export const useJoinLiveStream = <TError = ErrorType<UnauthorizedResponse | NotFoundResponse | LiveUnavailableResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof joinLiveStream>>, TError,JoinLiveStreamMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof joinLiveStream>>,
+        TError,
+        JoinLiveStreamMutationVariables,
+        TContext
+      > => {
+      return useMutation(getJoinLiveStreamMutationOptions(options));
+    }
+
+export const getEndLiveStreamUrl = (id: string,) => {
+
+
+
+
+  return `/api/live/${id}`
+}
+
+/**
+ * Owner only. Deletes the LiveKit room and disconnects all participants.
+ */
+export const endLiveStream = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getEndLiveStreamUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getEndLiveStreamMutationKey = () => ['endLiveStream'] as const;
+
+export const getEndLiveStreamMutationOptions = <TError = ErrorType<UnauthorizedResponse | void | NotFoundResponse | LiveUnavailableResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof endLiveStream>>, TError,EndLiveStreamMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof endLiveStream>>, TError,EndLiveStreamMutationVariables, TContext> => {
+
+const mutationKey = getEndLiveStreamMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof endLiveStream>>, EndLiveStreamMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  endLiveStream(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type EndLiveStreamMutationResult = NonNullable<Awaited<ReturnType<typeof endLiveStream>>>
+
+    export type EndLiveStreamMutationError = ErrorType<UnauthorizedResponse | void | NotFoundResponse | LiveUnavailableResponse>
+    export type EndLiveStreamMutationVariables = {id: string}
+
+    export const useEndLiveStream = <TError = ErrorType<UnauthorizedResponse | void | NotFoundResponse | LiveUnavailableResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof endLiveStream>>, TError,EndLiveStreamMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof endLiveStream>>,
+        TError,
+        EndLiveStreamMutationVariables,
+        TContext
+      > => {
+      return useMutation(getEndLiveStreamMutationOptions(options));
+    }
 
 export const getRequestPostUploadUrl = () => {
 

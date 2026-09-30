@@ -65,6 +65,7 @@ function RootNav() {
       <Stack.Screen name="feed" />
       <Stack.Screen name="feed-preview" />
       <Stack.Screen name="profile" />
+      <Stack.Screen name="live" />
     </Stack>
   );
 }

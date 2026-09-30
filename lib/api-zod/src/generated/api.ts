@@ -9,6 +9,91 @@ import * as zod from 'zod';
 
 
 /**
+ * Only Nino rooms with a connected host publishing an unmuted camera track are discoverable.
+ */
+export const listLiveStreamsResponseStreamsItemViewerCountMin = 0;
+
+
+
+export const ListLiveStreamsResponse = zod.object({
+  "streams": zod.array(zod.object({
+  "id": zod.string(),
+  "title": zod.string(),
+  "hostId": zod.string(),
+  "hostName": zod.string(),
+  "viewerCount": zod.number().int().min(listLiveStreamsResponseStreamsItemViewerCountMin),
+  "startedAt": zod.coerce.date()
+}))
+})
+
+
+/**
+ * One room per authenticated owner. Retrying returns the existing room and original metadata. Connect and publish camera to appear in discovery.
+ */
+export const createLiveStreamBodyTitleMax = 120;
+
+
+
+export const CreateLiveStreamBody = zod.object({
+  "title": zod.string().min(1).max(createLiveStreamBodyTitleMax)
+})
+
+export const createLiveStreamResponseStreamViewerCountMin = 0;
+
+
+
+export const CreateLiveStreamResponse = zod.object({
+  "stream": zod.object({
+  "id": zod.string(),
+  "title": zod.string(),
+  "hostId": zod.string(),
+  "hostName": zod.string(),
+  "viewerCount": zod.number().int().min(createLiveStreamResponseStreamViewerCountMin),
+  "startedAt": zod.coerce.date()
+}),
+  "serverUrl": zod.string(),
+  "token": zod.string(),
+  "isHost": zod.boolean()
+})
+
+
+/**
+ * Viewers receive subscribe and chat-data grants only. Owner may reconnect even before publishing.
+ */
+export const JoinLiveStreamParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const joinLiveStreamResponseStreamViewerCountMin = 0;
+
+
+
+export const JoinLiveStreamResponse = zod.object({
+  "stream": zod.object({
+  "id": zod.string(),
+  "title": zod.string(),
+  "hostId": zod.string(),
+  "hostName": zod.string(),
+  "viewerCount": zod.number().int().min(joinLiveStreamResponseStreamViewerCountMin),
+  "startedAt": zod.coerce.date()
+}),
+  "serverUrl": zod.string(),
+  "token": zod.string(),
+  "isHost": zod.boolean()
+})
+
+
+/**
+ * Owner only. Deletes the LiveKit room and disconnects all participants.
+ */
+export const EndLiveStreamParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const EndLiveStreamResponse = zod.void()
+
+
+/**
  * @summary Request a private PUT upload ticket (valid for 15 minutes)
  */
 export const requestPostUploadBodySizeMax = 209715200;

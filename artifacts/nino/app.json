@@ -11,8 +11,8 @@
       "supportsTablet": false,
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "Nino uses your photo library to choose profile pictures and local-only posts.",
-        "NSCameraUsageDescription": "Nino uses your camera to capture photos and videos for local-only posts.",
-        "NSMicrophoneUsageDescription": "Nino uses your microphone to record audio with local-only videos."
+        "NSCameraUsageDescription": "Nino uses your camera to capture posts and stream live broadcasts.",
+        "NSMicrophoneUsageDescription": "Nino uses your microphone to record videos and stream live broadcasts."
       }
     },
     "android": {
@@ -26,6 +26,14 @@
     },
     "plugins": [
       "expo-router",
+      "@livekit/react-native-expo-plugin",
+      [
+        "@config-plugins/react-native-webrtc",
+        {
+          "cameraPermission": "Allow Nino to use your camera for live broadcasts.",
+          "microphonePermission": "Allow Nino to use your microphone for live broadcasts."
+        }
+      ],
       [
         "expo-splash-screen",
         {
@@ -39,15 +47,15 @@
         "expo-image-picker",
         {
           "photosPermission": "Allow Nino to select photos and videos for local-only posts and profile pictures.",
-          "cameraPermission": "Allow Nino to capture photos and videos for local-only posts.",
-          "microphonePermission": "Allow Nino to record audio for local-only videos."
+          "cameraPermission": "Allow Nino to capture photos and videos and stream live broadcasts.",
+          "microphonePermission": "Allow Nino to record audio and stream live broadcasts."
         }
       ],
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow Nino to use your camera to capture photos and videos for local-only posts.",
-          "microphonePermission": "Allow Nino to record audio with local-only videos.",
+          "cameraPermission": "Allow Nino to use your camera to capture posts and stream live broadcasts.",
+          "microphonePermission": "Allow Nino to record video audio and stream live broadcasts.",
           "recordAudioAndroid": true
         }
       ],
