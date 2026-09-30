@@ -12,6 +12,14 @@ import type { ProfileItem } from '@/components/profile/ProfileView';
 type Choice = 'photo' | 'video' | 'library';
 type PermissionProblem = { message: string; settings: boolean };
 
+const RECORDING_LENGTHS = [
+  { seconds: 600, label: '10 min', spoken: '10 minutes' },
+  { seconds: 60, label: '60s', spoken: '60 seconds' },
+  { seconds: 30, label: '30s', spoken: '30 seconds' },
+  { seconds: 15, label: '15s', spoken: '15 seconds' },
+] as const;
+type RecordingLength = (typeof RECORDING_LENGTHS)[number]['seconds'];
+
 function VideoPreview({ uri }: { uri: string }) {
   const player = useVideoPlayer({ uri });
   return <VideoView player={player} style={styles.preview} contentFit="contain" nativeControls />;
@@ -26,6 +34,8 @@ export function CreatePost({ visible, onClose, onSave }: { visible: boolean; onC
   const [error, setError] = useState<string | null>(null);
   const [permission, setPermission] = useState<PermissionProblem | null>(null);
   const [liveInfo, setLiveInfo] = useState(false);
+  const [recordingLength, setRecordingLength] = useState<RecordingLength>(60);
+  const recordingLabel = RECORDING_LENGTHS.find((option) => option.seconds === recordingLength)!.spoken;
 
   const close = () => {
     if (busy) return;
@@ -53,7 +63,11 @@ export function CreatePost({ visible, onClose, onSave }: { visible: boolean; onC
       }
       const result = choice === 'library'
         ? await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images', 'videos'], quality: 0.8 })
-        : await ImagePicker.launchCameraAsync({ mediaTypes: choice === 'video' ? ['videos'] : ['images'], quality: 0.8, videoMaxDuration: 60 });
+        : await ImagePicker.launchCameraAsync({
+          mediaTypes: choice === 'video' ? ['videos'] : ['images'],
+          quality: 0.8,
+          ...(choice === 'video' ? { videoMaxDuration: recordingLength } : {}),
+        });
       if (!result.canceled && result.assets[0]) {
         const picked = result.assets[0];
         if (picked.type !== 'video' && picked.type !== 'image') {
@@ -129,6 +143,29 @@ export function CreatePost({ visible, onClose, onSave }: { visible: boolean; onC
             </>
           ) : (
             <>
+              <Text style={[styles.label, { color: c.secondary }]}>VIDEO RECORDING LENGTH</Text>
+              <View style={styles.durations} accessibilityRole="radiogroup" accessibilityLabel="Video recording length">
+                {RECORDING_LENGTHS.map((option) => {
+                  const selected = recordingLength === option.seconds;
+                  return (
+                    <Pressable key={option.seconds} testID={`create-duration-${option.seconds}`}
+                      onPress={() => setRecordingLength(option.seconds)} disabled={busy}
+                      accessibilityRole="radio" accessibilityLabel={option.spoken}
+                      accessibilityState={{ checked: selected, disabled: busy }}
+                      style={[styles.duration, {
+                        backgroundColor: selected ? c.accent : c.card,
+                        borderColor: selected ? c.accent : c.border,
+                        opacity: busy ? 0.5 : 1,
+                      }]}>
+                      <Text style={[styles.actionText, { color: selected ? c.onAccent : c.text }]}>{option.label}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+              <Text style={[styles.body, { color: c.secondary }]}>
+                Record up to {recordingLabel}. You can stop earlier.
+                {Platform.OS === 'web' ? ' Browser cameras may not enforce this limit.' : Platform.OS === 'android' ? ' The limit depends on your camera app.' : ''}
+              </Text>
               <Text style={[styles.label, { color: c.secondary }]}>CHOOSE MEDIA</Text>
               {([
                 ['photo', 'camera', 'Take photo', 'Open your device camera'],
@@ -140,7 +177,7 @@ export function CreatePost({ visible, onClose, onSave }: { visible: boolean; onC
                   <View style={[styles.optionIcon, { backgroundColor: c.accentWash }]}><Feather name={icon} size={23} color={c.accent} /></View>
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.optionTitle, { color: c.text }]}>{title}</Text>
-                    <Text style={[styles.body, { color: c.secondary }]}>{subtitle}</Text>
+                    <Text style={[styles.body, { color: c.secondary }]}>{key === 'video' ? `Open camera · up to ${recordingLabel}` : subtitle}</Text>
                   </View>
                   <Feather name="chevron-right" size={18} color={c.secondary} />
                 </Pressable>
@@ -186,6 +223,8 @@ const styles = StyleSheet.create({
   notice: { flexDirection: 'row', gap: 10, padding: 14, borderWidth: 1, borderRadius: 14, alignItems: 'flex-start', marginBottom: 8 },
   body: { fontFamily: 'Poppins_400Regular', fontSize: 12, lineHeight: 19 },
   label: { fontFamily: 'Poppins_600SemiBold', fontSize: 12, letterSpacing: 0.5, marginTop: 8 },
+  durations: { flexDirection: 'row', gap: 8 },
+  duration: { flex: 1, minHeight: 48, borderWidth: 1, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
   media: { height: 280, borderRadius: 16, overflow: 'hidden' },
   preview: { width: '100%', height: '100%' },
   change: { minHeight: 44, alignSelf: 'flex-start', flexDirection: 'row', gap: 8, alignItems: 'center' },
