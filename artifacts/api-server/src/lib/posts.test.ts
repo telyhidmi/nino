@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import express from "express";
 import type { AddressInfo } from "node:net";
+import { createServer, request } from "node:http";
 import { postUploads } from "@workspace/db";
 import { createPostsRouter } from "../routes/posts";
 import { byteRange, checkFinalize, hasMediaSignature, PostError, requireOwner, requireSessionBearer, validateObject, validateTicket } from "./postValidation";
@@ -89,7 +90,8 @@ test("HTTP contract: auth, strict validation, owner-only deletion and idempotent
     db: fakeDb, clerkClient: fakeClerk,
     finalizeMedia: async () => {finalizeCount++;},
     removeMedia: async () => {removeCount++;},
-    mediaFile: () => {throw new Error("Unexpected storage access");},
+    mediaUrl: async () => {throw new Error("Unexpected storage access");},
+    fetchMedia: fetch,
     uploadUrl: async () => {throw new Error("Invalid request must not sign URLs");},
   } as unknown as Parameters<typeof createPostsRouter>[0]));
   const server = app.listen(0, "127.0.0.1");
@@ -123,5 +125,141 @@ test("HTTP contract: auth, strict validation, owner-only deletion and idempotent
     assert.equal((await call("/posts", "POST", "owner", {uploadId: id, caption: "resurrect"})).status, 410);
   } finally {
     await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+  }
+});
+
+test("media proxy: delayed upstream cancellation is contained and the next request stays healthy", {timeout: 10_000}, async () => {
+  const id = "00000000-0000-4000-8000-000000000002";
+  const bytes = Buffer.from("0123456789abcdef");
+  const post = {id, kind: "video", contentType: "video/mp4", size: bytes.length};
+  function gate() {
+    let resolve!: () => void;
+    const promise = new Promise<void>((done) => {resolve = done;});
+    return {promise, resolve};
+  }
+  let mode = "healthy", found = true, signCount = 0, fetchCount = 0;
+  let started = gate(), disconnected = gate();
+  const signingRelease = gate();
+  const upstream = createServer((req, res) => {
+    // Undici also appends identity for Range requests.
+    assert.ok(req.headers["accept-encoding"]?.split(",").every((value) => value.trim() === "identity"));
+    const range = req.headers.range;
+    const match = range?.match(/^bytes=(\d+)-(\d+)$/);
+    const start = match ? Number(match[1]) : 0;
+    const end = match ? Number(match[2]) : bytes.length - 1;
+    const body = bytes.subarray(start, end + 1);
+    res.on("close", disconnected.resolve);
+    if (mode === "before-headers") { started.resolve(); return; }
+    if (mode === "missing") { res.writeHead(404).end(); return; }
+    res.writeHead(mode === "bad-status" ? 200 : range ? 206 : 200, {
+      "Content-Length": mode === "bad-size" ? bytes.length + 1 : body.length,
+      ...(range ? {"Content-Range": mode === "bad-range" ? "bytes 0-1/16" : `bytes ${start}-${end}/${bytes.length}`} : {}),
+    });
+    if (mode === "during-stream") {
+      res.write(body.subarray(0, 4));
+      started.resolve();
+      return;
+    }
+    res.end(body);
+  });
+  await new Promise<void>((resolve) => upstream.listen(0, "127.0.0.1", resolve));
+  const privateUrl = `http://127.0.0.1:${(upstream.address() as AddressInfo).port}/private?signature=never-public`;
+  const app = express();
+  app.use("/api", createPostsRouter({
+    db: {select: () => ({from: () => ({where: async () => found ? [post] : []})})},
+    mediaUrl: async (_id: string, signal: AbortSignal) => {
+      signCount++;
+      if (mode === "during-signing") {
+        signal.addEventListener("abort", disconnected.resolve, {once: true});
+        started.resolve();
+        await signingRelease.promise;
+      }
+      return privateUrl;
+    },
+    fetchMedia: (...args: Parameters<typeof fetch>) => {fetchCount++; return fetch(...args);},
+  } as unknown as Parameters<typeof createPostsRouter>[0]));
+  const server = app.listen(0, "127.0.0.1");
+  await new Promise<void>((resolve) => server.once("listening", resolve));
+  const publicUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}/api/posts/media/${id}`;
+  async function healthy() {
+    mode = "healthy";
+    const response = await fetch(publicUrl);
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get("cache-control"), "no-store");
+    assert.equal(response.headers.get("content-type"), "video/mp4");
+    assert.equal(response.headers.get("accept-ranges"), "bytes");
+    assert.equal(response.headers.get("location"), null);
+    assert.deepEqual(Buffer.from(await response.arrayBuffer()), bytes);
+  }
+  try {
+    mode = "during-signing";
+    const signedClient = request(publicUrl);
+    signedClient.on("error", () => {});
+    signedClient.end();
+    await started.promise;
+    signedClient.destroy();
+    await disconnected.promise;
+    const fetchedBefore = fetchCount;
+    signingRelease.resolve();
+    // Let the delayed signer resolve even though its caller has disconnected.
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    assert.equal(fetchCount, fetchedBefore, "cancellation while signing must not start a GET");
+    await healthy();
+    for (const cancellation of ["before-headers", "during-stream"]) {
+      mode = cancellation;
+      started = gate();
+      disconnected = gate();
+      const dataReceived = gate();
+      const client = request(publicUrl, (response) => {
+        response.on("data", dataReceived.resolve);
+        response.on("error", () => {});
+      });
+      client.on("error", () => {});
+      client.end();
+      await started.promise;
+      if (cancellation === "during-stream") await dataReceived.promise;
+      client.destroy();
+      // Real upstream socket closure proves AbortController canceled both the
+      // pending headers fetch and the already-running response body.
+      await disconnected.promise;
+      await healthy();
+    }
+    const range = await fetch(publicUrl, {headers: {Range: "bytes=3-7"}});
+    assert.equal(range.status, 206);
+    assert.equal(range.headers.get("content-range"), "bytes 3-7/16");
+    assert.equal(await range.text(), "34567");
+    const head = await fetch(publicUrl, {method: "HEAD", headers: {Range: "bytes=-4"}});
+    assert.equal(head.status, 206);
+    assert.equal(head.headers.get("content-length"), "4");
+    assert.equal(await head.text(), "");
+    const invalid = await fetch(publicUrl, {headers: {Range: "bytes=99-"}});
+    assert.equal(invalid.status, 416);
+    assert.equal(invalid.headers.get("content-range"), "bytes */16");
+    await invalid.text();
+    for (const invalidUpstream of ["bad-status", "bad-size", "bad-range"]) {
+      mode = invalidUpstream;
+      const response = await fetch(publicUrl, {headers: {Range: "bytes=3-7"}});
+      assert.equal(response.status, 502);
+      assert.equal((await response.text()).includes("signature"), false);
+      await healthy();
+    }
+    mode = "missing";
+    const missing = await fetch(publicUrl);
+    assert.equal(missing.status, 404);
+    await missing.text();
+    found = false;
+    const signedBefore = signCount;
+    const unpublished = await fetch(publicUrl);
+    assert.equal(unpublished.status, 404);
+    await unpublished.text();
+    assert.equal(signCount, signedBefore, "unpublished media must never access storage");
+    found = true;
+    await healthy();
+  } finally {
+    server.closeAllConnections();
+    upstream.closeAllConnections();
+    await Promise.all([server, upstream].map((item) => new Promise<void>((resolve, reject) => {
+      item.close((error) => error ? reject(error) : resolve());
+    })));
   }
 });

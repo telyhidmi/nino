@@ -1,3 +1,4 @@
 - [Earth logo rendering](earth-rendering.md) — preserve Expo Go and web compatibility without adding native GL dependencies for the small logo.
 - [Video compatibility](video-compatibility.md) — browser preview may need WebM alternatives to native H.264 clips.
 - [Expo icon refresh](expo-icon-refresh.md) — use a new asset path for icon replacements and verify the native manifest's served image.
+- [Storage stream cancellation](storage-stream-cancellation.md) — avoid GCS SDK read streams for client-cancelable media responses.

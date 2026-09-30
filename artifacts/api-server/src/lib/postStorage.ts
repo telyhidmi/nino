@@ -34,14 +34,23 @@ export function mediaFile(id: string, published = true): File {
 }
 
 export async function uploadUrl(id: string, expiresAt: Date) {
-  const {bucket, name} = location(id, false);
+  return signedObjectUrl(id, false, "PUT", expiresAt);
+}
+
+// GET URLs stay server-side; browsers only receive the public DB-backed route.
+export async function mediaUrl(id: string, signal: AbortSignal) {
+  return signedObjectUrl(id, true, "GET", new Date(Date.now() + 60_000), signal);
+}
+
+async function signedObjectUrl(id: string, published: boolean, method: "PUT" | "GET", expiresAt: Date, signal?: AbortSignal) {
+  const {bucket, name} = location(id, published);
   const response = await fetch(`${REPLIT_SIDECAR_ENDPOINT}/object-storage/signed-object-url`, {
     method: "POST",
     headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({bucket_name: bucket, object_name: name, method: "PUT", expires_at: expiresAt.toISOString()}),
-    signal: AbortSignal.timeout(30_000),
+    body: JSON.stringify({bucket_name: bucket, object_name: name, method, expires_at: expiresAt.toISOString()}),
+    signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(30_000)]) : AbortSignal.timeout(30_000),
   });
-  if (!response.ok) throw new Error(`Could not sign upload URL (${response.status})`);
+  if (!response.ok) throw new Error(`Could not sign storage URL (${response.status})`);
   const body = await response.json() as {signed_url?: unknown};
   if (typeof body.signed_url !== "string") throw new Error("Storage returned an invalid signed URL");
   return body.signed_url as string;

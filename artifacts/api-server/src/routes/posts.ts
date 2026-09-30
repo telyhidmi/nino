@@ -2,14 +2,15 @@ import { Router, type IRouter, type Request, type Response, type NextFunction } 
 import { clerkClient } from "@clerk/express";
 import { randomUUID } from "node:crypto";
 import { pipeline } from "node:stream/promises";
+import { Readable, Transform } from "node:stream";
 import { and, desc, eq } from "drizzle-orm";
 import { db, posts, postUploads, type PostRow } from "@workspace/db";
 import { RequestPostUploadBody, PublishPostBody } from "@workspace/api-zod";
 import { byteRange, checkFinalize, PostError, requireOwner, requireSessionBearer, UPLOAD_TTL_MS, validateTicket } from "../lib/postValidation";
-import { finalizeMedia, mediaFile, removeMedia, uploadUrl } from "../lib/postStorage";
+import { finalizeMedia, mediaUrl, removeMedia, uploadUrl } from "../lib/postStorage";
 
-export function createPostsRouter(dependencies = {db, clerkClient, finalizeMedia, mediaFile, removeMedia, uploadUrl}) {
-const {db: database, clerkClient: clerk, finalizeMedia: finalize, mediaFile: fileForMedia, removeMedia: remove, uploadUrl: signUpload} = dependencies;
+export function createPostsRouter(dependencies = {db, clerkClient, finalizeMedia, mediaUrl, removeMedia, uploadUrl, fetchMedia: globalThis.fetch}) {
+const {db: database, clerkClient: clerk, finalizeMedia: finalize, mediaUrl: signMedia, removeMedia: remove, uploadUrl: signUpload, fetchMedia} = dependencies;
 const router: IRouter = Router();
 function serialize(post: PostRow) {
   return {
@@ -34,12 +35,23 @@ function validId(value: unknown): string {
 }
 
 router.get("/posts/media/:id", async (req, res) => {
+  res.set("Cache-Control", "no-store");
+  // Listen before ANY asynchronous work: a player may cancel while the DB,
+  // signer, or upstream headers are still pending.
+  const controller = new AbortController();
+  const closed = () => {
+    if (!res.writableFinished) controller.abort();
+  };
+  req.on("aborted", closed);
+  res.on("close", closed);
+  let upstream: globalThis.Response | undefined;
+  try {
+  if (req.aborted || res.destroyed) controller.abort();
   const id = validId(req.params.id);
   const [post] = await database.select().from(posts).where(eq(posts.id, id));
+  if (controller.signal.aborted) return;
   if (!post) throw new PostError(404, "Not found");
-  const file = fileForMedia(id);
-  const [exists] = await file.exists();
-  if (!exists) throw new PostError(404, "Published media is missing");
+  validateTicket(post.contentType, post.size, post.kind);
   res.set({
     "Content-Type": post.contentType,
     "X-Content-Type-Options": "nosniff",
@@ -55,10 +67,53 @@ router.get("/posts/media/:id", async (req, res) => {
     throw error;
   }
   const start = range?.start ?? 0, end = range?.end ?? post.size - 1;
+  const length = end - start + 1;
+  const url = await signMedia(id, controller.signal);
+  if (controller.signal.aborted) return;
+  upstream = await fetchMedia(url, {
+    signal: AbortSignal.any([controller.signal, AbortSignal.timeout(30_000)]),
+    headers: {"Accept-Encoding": "identity", ...(range ? {Range: `bytes=${start}-${end}`} : {})},
+    redirect: "error",
+  });
+  if (controller.signal.aborted) return;
+  if (upstream.status === 404) throw new PostError(404, "Published media is missing");
+  // Do not trust upstream headers to override the validated DB media contract.
+  if (upstream.status !== (range ? 206 : 200) ||
+      upstream.headers.get("content-length") !== String(length) ||
+      upstream.headers.get("content-range") !== (range ? `bytes ${start}-${end}/${post.size}` : null) ||
+      ![null, "identity"].includes(upstream.headers.get("content-encoding")) ||
+      !upstream.body) {
+    throw new PostError(502, "Storage returned invalid media");
+  }
   if (range) res.status(206).set("Content-Range", `bytes ${start}-${end}/${post.size}`);
-  res.set("Content-Length", String(end - start + 1));
+  res.set("Content-Length", String(length));
   if (req.method === "HEAD") { res.end(); return; }
-  await pipeline(file.createReadStream({start, end}), res);
+  let received = 0;
+  const limit = new Transform({
+    transform(chunk: Buffer, _encoding, callback) {
+      received += chunk.length;
+      callback(received > length ? new Error("Invalid media length") : null, received > length ? undefined : chunk);
+    },
+    flush(callback) {
+      callback(received !== length ? new Error("Invalid media length") : null);
+    },
+  });
+  // Unlike the GCS SDK stream, this standard stream can safely be destroyed
+  // before headers arrive or during pipeline teardown.
+  await pipeline(Readable.fromWeb(upstream.body), limit, res, {signal: controller.signal});
+  } catch (error) {
+    if (controller.signal.aborted) return;
+    // Fetch errors may contain a signed URL. Never forward their original cause.
+    if (error instanceof PostError) throw error;
+    throw new PostError(502, "Could not read published media");
+  } finally {
+    controller.abort();
+    if (upstream?.body && !upstream.body.locked) {
+      await upstream.body.cancel().catch(() => {});
+    }
+    req.off("aborted", closed);
+    res.off("close", closed);
+  }
 });
 
 router.post("/posts/uploads", async (req, res) => {
@@ -129,6 +184,7 @@ router.delete("/posts/:id", async (req, res) => {
 });
 
 router.use((error: unknown, req: Request, res: Response, next: NextFunction) => {
+  if (res.destroyed) return;
   if (res.headersSent) { next(error); return; }
   if (error instanceof PostError) { res.status(error.status).json({error: error.message}); return; }
   // SDK errors can contain request headers, signed URLs, or credentials.
