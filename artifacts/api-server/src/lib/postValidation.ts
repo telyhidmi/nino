@@ -1,3 +1,5 @@
+import { PublishPostBody } from "@workspace/api-zod";
+
 export const UPLOAD_TTL_MS = 15 * 60 * 1000;
 export const PHOTO_LIMIT = 20 * 1024 * 1024;
 export const VIDEO_LIMIT = 200 * 1024 * 1024;
@@ -20,6 +22,29 @@ export function requireSessionBearer(header: string | undefined, userId: string 
 export function validateTicket(type: string, size: number, kind: "photo" | "video") {
   if (!type.startsWith(kind === "photo" ? "image/" : "video/")) throw new PostError(400, "Content type does not match media kind");
   if (size > (kind === "photo" ? PHOTO_LIMIT : VIDEO_LIMIT)) throw new PostError(400, "File exceeds media size limit");
+}
+
+// Keep the complete assigned ISO country allowlist in the generated contract,
+// not the app's smaller list of countries available in its onboarding picker.
+export function validateRecordingLocation(value: unknown, now = Date.now()) {
+  if (value === undefined) return null;
+  const parsed = PublishPostBody.shape.recordingLocation.unwrap().strict().safeParse(value);
+  if (!parsed.success) throw new PostError(400, "Invalid recording location: only countryCode and recordedAt are allowed");
+  const rawDate = (value as {recordedAt: unknown}).recordedAt;
+  // Orval coerces date-time fields. Check the wire value first so numeric dates,
+  // timezone-less strings and silently rolled-over calendar dates are rejected.
+  const match = typeof rawDate === "string" && /^(\d{4})-(\d{2})-(\d{2})T([01]\d|2[0-3]):([0-5]\d):([0-5]\d)(?:\.\d+)?(?:Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)$/.exec(rawDate);
+  if (!match) throw new PostError(400, "recordedAt must be a valid ISO datetime with timezone");
+  const year = Number(match[1]), month = Number(match[2]), day = Number(match[3]);
+  const leapYear = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  const days = [31, leapYear ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  if (month < 1 || month > 12 || day < 1 || day > days[month - 1]) {
+    throw new PostError(400, "recordedAt must be a valid calendar datetime");
+  }
+  if (parsed.data.recordedAt.getTime() > now + 5 * 60 * 1000) {
+    throw new PostError(400, "recordedAt cannot be in the future (five-minute clock skew allowed)");
+  }
+  return parsed.data;
 }
 
 export function checkFinalize(owner: string, user: string, expiresAt: Date, finalized: boolean, hasPost: boolean) {

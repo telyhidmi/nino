@@ -51,6 +51,17 @@
           "recordAudioAndroid": true
         }
       ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Allow Nino to identify the country where you record a video for country Discover. Only the country and recording time are saved, never coordinates. You can decline and still record and post.",
+          "locationAlwaysAndWhenInUsePermission": false,
+          "locationAlwaysPermission": false,
+          "isIosBackgroundLocationEnabled": false,
+          "isAndroidBackgroundLocationEnabled": false,
+          "isAndroidForegroundServiceEnabled": false
+        }
+      ],
       "@clerk/expo",
       "expo-secure-store"
     ],

@@ -5,9 +5,11 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { RecordingLocation } from './recordingLocation';
 
 export interface PublishPostRequest {
   uploadId: string;
   /** @maxLength 2200 */
   caption: string;
+  recordingLocation?: RecordingLocation;
 }

@@ -17,4 +17,6 @@ export * from './postUploadRequestContentType';
 export * from './postUploadRequestKind';
 export * from './postUploadTicket';
 export * from './publishPostRequest';
+export * from './recordingLocation';
+export * from './recordingLocationCountryCode';
 export * from './unauthorizedResponse';

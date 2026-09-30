@@ -8,13 +8,18 @@ import { useColors } from '@/hooks/useColors';
 import { CountryDetail } from './CountryDetail';
 import { COUNTRIES, countryMatches, DiscoverMedia } from './data';
 import { CountryCard, DemoPill, EmptyState, FeaturedCountry, FlagChip, Segments } from './parts';
+import { PublishedDiscover, type PublishedDiscoverProps } from './PublishedDiscover';
 
 type Filter = 'foryou' | 'countries' | 'live' | 'nearby';
 const FILTERS: { key: Filter; label: string }[] = [
   { key: 'foryou', label: 'For You' }, { key: 'countries', label: 'Countries' }, { key: 'live', label: 'Live Now' }, { key: 'nearby', label: 'Nearby' },
 ];
 
-export function DiscoverScreen({ onOpenPost, active = true }: { onOpenPost: (postId: string) => void; active?: boolean }) {
+export function DiscoverScreen({ preview = false, ...props }: PublishedDiscoverProps & { preview?: boolean }) {
+  return preview ? <DemoDiscoverScreen onOpenPost={props.onOpenPost} active={props.active} /> : <PublishedDiscover {...props} />;
+}
+
+function DemoDiscoverScreen({ onOpenPost, active = true }: { onOpenPost: (postId: string) => void; active?: boolean }) {
   const c = useColors();
   const ins = useInsets();
   const [filter, setFilter] = useState<Filter>('countries');

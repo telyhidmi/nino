@@ -188,9 +188,25 @@ components:
       properties:
         uploadId: {type: string, format: uuid}
         caption: {type: string, maxLength: 2200}
+        recordingLocation:
+          $ref: "#/components/schemas/RecordingLocation"
+    RecordingLocation:
+      type: object
+      additionalProperties: false
+      description: Optional device-reported country at video recording time. Not verified GPS or proof of physical presence. Only accepted for videos; immutable after first publication.
+      required: [countryCode, recordedAt]
+      properties:
+        countryCode:
+          type: string
+          description: Assigned ISO 3166-1 alpha-2 country code (uppercase).
+          enum: [AD, AE, AF, AG, AI, AL, AM, AO, AQ, AR, AS, AT, AU, AW, AX, AZ, BA, BB, BD, BE, BF, BG, BH, BI, BJ, BL, BM, BN, BO, BQ, BR, BS, BT, BV, BW, BY, BZ, CA, CC, CD, CF, CG, CH, CI, CK, CL, CM, CN, CO, CR, CU, CV, CW, CX, CY, CZ, DE, DJ, DK, DM, DO, DZ, EC, EE, EG, EH, ER, ES, ET, FI, FJ, FK, FM, FO, FR, GA, GB, GD, GE, GF, GG, GH, GI, GL, GM, GN, GP, GQ, GR, GS, GT, GU, GW, GY, HK, HM, HN, HR, HT, HU, ID, IE, IL, IM, IN, IO, IQ, IR, IS, IT, JE, JM, JO, JP, KE, KG, KH, KI, KM, KN, KP, KR, KW, KY, KZ, LA, LB, LC, LI, LK, LR, LS, LT, LU, LV, LY, MA, MC, MD, ME, MF, MG, MH, MK, ML, MM, MN, MO, MP, MQ, MR, MS, MT, MU, MV, MW, MX, MY, MZ, NA, NC, NE, NF, NG, NI, NL, NO, NP, NR, NU, NZ, OM, PA, PE, PF, PG, PH, PK, PL, PM, PN, PR, PS, PT, PW, PY, QA, RE, RO, RS, RU, RW, SA, SB, SC, SD, SE, SG, SH, SI, SJ, SK, SL, SM, SN, SO, SR, SS, ST, SV, SX, SY, SZ, TC, TD, TF, TG, TH, TJ, TK, TL, TM, TN, TO, TR, TT, TV, TW, TZ, UA, UG, UM, US, UY, UZ, VA, VC, VE, VG, VI, VN, VU, WF, WS, YE, YT, ZA, ZM, ZW]
+        recordedAt:
+          type: string
+          format: date-time
+          description: Device-reported ISO datetime with timezone; cannot exceed server time by more than five minutes.
     Post:
       type: object
-      required: [id, ownerId, caption, kind, mediaUrl, createdAt, authorName, authorAvatar]
+      required: [id, ownerId, caption, kind, mediaUrl, createdAt, authorName, authorAvatar, recordingLocation]
       properties:
         id: {type: string, format: uuid}
         ownerId: {type: string}
@@ -203,6 +219,10 @@ components:
         authorName: {type: string}
         authorAvatar:
           type: [string, "null"]
+        recordingLocation:
+          oneOf:
+            - $ref: "#/components/schemas/RecordingLocation"
+            - type: "null"
     PostList:
       type: object
       required: [posts]

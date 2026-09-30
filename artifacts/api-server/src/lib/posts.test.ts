@@ -4,8 +4,9 @@ import express from "express";
 import type { AddressInfo } from "node:net";
 import { createServer, request } from "node:http";
 import { postUploads } from "@workspace/db";
+import { PublishPostBody } from "@workspace/api-zod";
 import { createPostsRouter } from "../routes/posts";
-import { byteRange, checkFinalize, hasMediaSignature, PostError, requireOwner, requireSessionBearer, validateObject, validateTicket } from "./postValidation";
+import { byteRange, checkFinalize, hasMediaSignature, PostError, requireOwner, requireSessionBearer, validateObject, validateRecordingLocation, validateTicket } from "./postValidation";
 
 function rejects(status: number, run: () => unknown) {
   assert.throws(run, (error) => error instanceof PostError && error.status === status);
@@ -49,10 +50,32 @@ test("video range policy supports suffix, open-ended, clamped and rejects multi-
   for (const range of ["bytes=100-", "bytes=1-0", "bytes=-0", "bytes=0-1,3-4", "garbage"]) rejects(416, () => byteRange(range, 100));
 });
 
-test("HTTP contract: auth, strict validation, owner-only deletion and idempotent finalize", async () => {
+test("recording metadata: full ISO list, strict shape, calendar dates and five-minute skew", () => {
+  const now = Date.parse("2026-01-01T12:00:00Z");
+  const location = {countryCode: "AX", recordedAt: "2025-12-31T23:00:00+01:00"};
+  assert.equal(PublishPostBody.shape.recordingLocation.unwrap().shape.countryCode.options.length, 249);
+  for (const countryCode of PublishPostBody.shape.recordingLocation.unwrap().shape.countryCode.options) {
+    assert.equal(validateRecordingLocation({...location, countryCode}, now)?.countryCode, countryCode);
+  }
+  assert.equal(validateRecordingLocation(undefined, now), null);
+  assert.equal(validateRecordingLocation(location, now)?.recordedAt.toISOString(), "2025-12-31T22:00:00.000Z");
+  assert.ok(validateRecordingLocation({...location, recordedAt: "2026-01-01T12:05:00Z"}, now));
+  for (const value of [
+    null, {...location, countryCode: "ZZ"}, {...location, countryCode: "UK"},
+    {...location, countryCode: "XK"}, {...location, countryCode: "us"},
+    {...location, latitude: 1}, {...location, longitude: 1}, {...location, coordinates: [1, 2]},
+    {countryCode: "US"}, {recordedAt: location.recordedAt},
+    ...["invalid", "2025-02-29T12:00:00Z", "2025-04-31T12:00:00Z", "2025-13-01T00:00:00Z",
+      "2025-12-31", "2025-12-31T12:00:00", "2026-01-01T12:05:00.001Z", 0, null]
+      .map((recordedAt) => ({...location, recordedAt})),
+  ]) rejects(400, () => validateRecordingLocation(value, now));
+});
+
+for (const kind of ["photo", "video"] as const) {
+test(`HTTP ${kind} contract: auth, strict validation, recording metadata, deletion and immutable retries`, async () => {
   const id = "00000000-0000-4000-8000-000000000001";
   const ticket = {
-    id, ownerId: "owner", kind: "photo", contentType: "image/png", size: 8,
+    id, ownerId: "owner", kind, contentType: kind === "photo" ? "image/png" : "video/mp4", size: 8,
     expiresAt: new Date(Date.now() + 60000), finalizedAt: null as Date | null,
   };
   let stored: Record<string, unknown> | undefined;
@@ -60,9 +83,10 @@ test("HTTP contract: auth, strict validation, owner-only deletion and idempotent
   const fakeDb = {
     select: () => ({
       from: (table: unknown) => ({
+        orderBy: async () => stored ? [stored] : [],
         where: () => {
           const rows = table === postUploads ? [ticket] : stored ? [stored] : [];
-          return Object.assign(Promise.resolve(rows), {for: () => Promise.resolve(rows)});
+          return Object.assign(Promise.resolve(rows), {for: () => Promise.resolve(rows), orderBy: () => Promise.resolve(rows)});
         },
       }),
     }),
@@ -109,24 +133,58 @@ test("HTTP contract: auth, strict validation, owner-only deletion and idempotent
     assert.equal((await call("/posts/uploads", "POST", "owner", {contentType: "image/svg+xml", kind: "photo", size: 8})).status, 400);
     assert.equal((await call("/posts/uploads", "POST", "owner", {contentType: "image/png", kind: "photo", size: 8, ownerId: "other"})).status, 400);
     assert.equal((await call("/posts", "POST", "other", {uploadId: id, caption: "caption"})).status, 404);
-    const first = await call("/posts", "POST", "owner", {uploadId: id, caption: "caption"});
+    const recordingLocation = {countryCode: "AX", recordedAt: "2025-01-01T12:00:00.000Z"};
+    for (const invalid of [
+      {...recordingLocation, countryCode: "ZZ"}, {...recordingLocation, countryCode: "us"},
+      {...recordingLocation, recordedAt: "2025-02-30T00:00:00Z"},
+      {...recordingLocation, recordedAt: new Date(Date.now() + 600000).toISOString()},
+      {...recordingLocation, recordedAt: 0}, {...recordingLocation, recordedAt: "2025-01-01"},
+      {...recordingLocation, coordinates: [0, 0]}, {...recordingLocation, latitude: 0},
+      {...recordingLocation, longitude: 0}, null,
+    ]) {
+      assert.equal((await call("/posts", "POST", "owner", {uploadId: id, caption: "caption", recordingLocation: invalid})).status, 400);
+    }
+    if (kind === "photo") {
+      assert.equal((await call("/posts", "POST", "owner", {uploadId: id, caption: "caption", recordingLocation})).status, 400);
+    }
+    assert.equal(finalizeCount, 0, "invalid metadata must not finalize media");
+    const first = await call("/posts", "POST", "owner", {uploadId: id, caption: "caption", ...(kind === "video" ? {recordingLocation} : {})});
     assert.equal(first.status, 200);
-    const firstPost = await first.json() as {authorName: string; mediaUrl: string};
+    const firstPost = await first.json() as {authorName: string; mediaUrl: string; recordingLocation: unknown};
     assert.equal(firstPost.authorName, "Nino Display Name");
     assert.equal(firstPost.mediaUrl, `/api/posts/media/${id}`);
+    assert.deepEqual(firstPost.recordingLocation, kind === "video" ? recordingLocation : null);
+    assert.deepEqual(await (await call("/posts", "GET", "owner")).json(), {posts: [firstPost]});
+    assert.deepEqual(await (await call("/posts/mine", "GET", "owner")).json(), {posts: [firstPost]});
+    if (kind === "video") {
+      const changed = await call("/posts", "POST", "owner", {uploadId: id, caption: "different", recordingLocation: {...recordingLocation, countryCode: "US"}});
+      assert.deepEqual(await changed.json(), firstPost, "retry cannot change the original country");
+    }
     const retry = await call("/posts", "POST", "owner", {uploadId: id, caption: "different"});
     assert.deepEqual(await retry.json(), firstPost);
     assert.equal(finalizeCount, 1);
+    // Rows created before the metadata columns existed serialize as explicit null.
+    const original = stored;
+    stored = {...stored, countryCode: null, recordedAt: null};
+    const legacy = await (await call("/posts", "GET", "owner")).json() as {posts: {recordingLocation: unknown}[]};
+    assert.equal(legacy.posts[0].recordingLocation, null);
+    if (kind === "video") {
+      const legacyRetry = await call("/posts", "POST", "owner", {uploadId: id, caption: "different", recordingLocation});
+      assert.equal((await legacyRetry.json() as {recordingLocation: unknown}).recordingLocation, null, "retry cannot add metadata to an existing legacy video");
+    }
+    stored = original;
     assert.equal((await call(`/posts/${id}`, "DELETE", "other")).status, 404);
     assert.equal(removeCount, 0);
     assert.equal((await call(`/posts/${id}`, "DELETE", "owner")).status, 204);
     assert.equal(removeCount, 1);
+    assert.deepEqual(await (await call("/posts", "GET", "owner")).json(), {posts: []}, "shared feed excludes deleted posts, including Discover results");
     assert.equal((await call(`/posts/media/${id}`, "GET")).status, 404);
     assert.equal((await call("/posts", "POST", "owner", {uploadId: id, caption: "resurrect"})).status, 410);
   } finally {
     await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
   }
 });
+}
 
 test("media proxy: delayed upstream cancellation is contained and the next request stays healthy", {timeout: 10_000}, async () => {
   const id = "00000000-0000-4000-8000-000000000002";

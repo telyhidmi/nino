@@ -6,7 +6,7 @@ import { Readable, Transform } from "node:stream";
 import { and, desc, eq } from "drizzle-orm";
 import { db, posts, postUploads, type PostRow } from "@workspace/db";
 import { RequestPostUploadBody, PublishPostBody } from "@workspace/api-zod";
-import { byteRange, checkFinalize, PostError, requireOwner, requireSessionBearer, UPLOAD_TTL_MS, validateTicket } from "../lib/postValidation";
+import { byteRange, checkFinalize, PostError, requireOwner, requireSessionBearer, UPLOAD_TTL_MS, validateRecordingLocation, validateTicket } from "../lib/postValidation";
 import { finalizeMedia, mediaUrl, removeMedia, uploadUrl } from "../lib/postStorage";
 
 export function createPostsRouter(dependencies = {db, clerkClient, finalizeMedia, mediaUrl, removeMedia, uploadUrl, fetchMedia: globalThis.fetch}) {
@@ -17,6 +17,9 @@ function serialize(post: PostRow) {
     id: post.id, ownerId: post.ownerId, caption: post.caption, kind: post.kind,
     mediaUrl: `/api/posts/media/${post.id}`, createdAt: post.createdAt.toISOString(),
     authorName: post.authorName, authorAvatar: post.authorAvatar,
+    recordingLocation: post.countryCode && post.recordedAt
+      ? {countryCode: post.countryCode, recordedAt: post.recordedAt.toISOString()}
+      : null,
   };
 }
 async function user(req: Request) {
@@ -142,12 +145,15 @@ router.post("/posts", async (req, res) => {
   const parsed = PublishPostBody.strict().safeParse(req.body);
   if (!parsed.success) throw new PostError(400, "Invalid publish request");
   const {uploadId, caption} = parsed.data;
+  const recordingLocation = validateRecordingLocation(req.body.recordingLocation);
   const post = await database.transaction(async (tx) => {
     const [upload] = await tx.select().from(postUploads).where(eq(postUploads.id, uploadId)).for("update");
     if (!upload) throw new PostError(404, "Upload ticket not found");
     // Check ownership before returning an idempotent result.
     requireOwner(upload.ownerId, ownerId);
+    if (recordingLocation && upload.kind !== "video") throw new PostError(400, "Recording location is only allowed for videos");
     const [existing] = await tx.select().from(posts).where(eq(posts.id, uploadId));
+    // The first successful publish owns the metadata; retries never update it.
     if (checkFinalize(upload.ownerId, ownerId, upload.expiresAt, !!upload.finalizedAt, !!existing) === "existing") return existing;
     const profile = await clerk.users.getUser(ownerId);
     // unsafeMetadata is user-editable display data, never an authorization
@@ -161,6 +167,8 @@ router.post("/posts", async (req, res) => {
     const [created] = await tx.insert(posts).values({
       id: uploadId, ownerId, caption, kind: upload.kind, contentType: upload.contentType,
       size: upload.size, authorName, authorAvatar,
+      countryCode: recordingLocation?.countryCode ?? null,
+      recordedAt: recordingLocation?.recordedAt ?? null,
     }).returning();
     await tx.update(postUploads).set({finalizedAt: new Date()}).where(eq(postUploads.id, uploadId));
     return created;

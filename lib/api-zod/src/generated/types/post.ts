@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { PostKind } from './postKind';
+import type { RecordingLocation } from './recordingLocation';
 
 export interface Post {
   id: string;
@@ -17,4 +18,5 @@ export interface Post {
   authorName: string;
   /** @nullable */
   authorAvatar: string | null;
+  recordingLocation: RecordingLocation | null;
 }

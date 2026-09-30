@@ -3,8 +3,10 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { AppState, BackHandler, FlatList, Linking, Platform, Pressable, Share, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, AppState, BackHandler, FlatList, Linking, Platform, Pressable, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 import { DiscoverScreen } from '@/components/discover/DiscoverScreen';
+import { useDiscoverCopy } from '@/components/discover/copy';
+import { postIndexById } from '@/components/discover/publishedDiscovery';
 import { EarthGlobe } from '@/components/EarthGlobe';
 import { useInsets } from '@/components/ui';
 import { DemoProfile } from '@/components/profile/DemoProfile';
@@ -113,6 +115,7 @@ function PostView({ post, height, active, onOpen, onCreator, viewerComments, lik
 export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSection = 'home', renderProfile }: { viewer: FeedViewer; onProfile: () => void; renderProfile?: (ctx: ProfileCtx, active: boolean, postsResetToken: number) => React.ReactNode; preview?: boolean; onExitDemo?: () => void; initialSection?: 'home' | 'discover' | 'profile' }) {
   const c = useColors();
   const copy = usePostCopy();
+  const discoverCopy = useDiscoverCopy();
   const queryClient = useQueryClient();
   const persisted = useListPosts({ query: { queryKey: getListPostsQueryKey(), enabled: !preview, staleTime: 30_000, refetchOnMount: 'always', retry: false } });
   const ins = useInsets();
@@ -185,11 +188,15 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
     setOpen(null);
     if (section === 'home' && next !== 'home') setListStart(index);
     setSection(next);
-    if (next === 'home' && !preview) void persisted.refetch();
+    if ((next === 'home' || next === 'discover') && !preview) void persisted.refetch();
   };
 
   const openPost = (postId: string) => {
-    const target = Math.max(0, allPosts.findIndex((item) => item.id === postId));
+    const target = postIndexById(allPosts, postId);
+    if (target < 0) {
+      Alert.alert(discoverCopy.unavailable, discoverCopy.unavailableBody);
+      return;
+    }
     setTab('foryou'); setIndex(target); setListStart(target); setListVersion((v) => v + 1); setOpen(null); setSection('home');
   };
   const openCreator = (post: SamplePost) => {
@@ -308,7 +315,9 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
         </Pressable>}
       </View>}
 
-      <View style={{ flex: 1, display: section === 'discover' ? 'flex' : 'none' }}><DiscoverScreen active={section === 'discover'} onOpenPost={openPost} /></View>
+      <View style={{ flex: 1, display: section === 'discover' ? 'flex' : 'none' }}><DiscoverScreen active={section === 'discover'} preview={!!preview}
+        posts={persisted.data?.posts ?? []} loading={!preview && persisted.isPending} refreshing={!preview && persisted.isFetching}
+        error={!preview && persisted.isError ? persisted.error : undefined} onRetry={() => { if (!preview) void persisted.refetch(); }} onOpenPost={openPost} /></View>
       {section === 'creator' && creator ? <CreatorProfile creator={creator} following={isFollowing(creator)}
         onFollow={() => toggleFollow(creator)} onBack={() => setSection('home')} onOpenPost={openPost} /> : null}
       {hasProfile ? (

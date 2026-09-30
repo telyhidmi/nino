@@ -2,6 +2,7 @@ import { Feather } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions, useMicrophonePermissions, type CameraType } from 'expo-camera';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
+import * as Location from 'expo-location';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -12,8 +13,9 @@ import { useAuth } from '@clerk/expo';
 import { useRequestPostUpload, usePublishPost, type Post, type PostUploadTicket } from '@workspace/api-client-react';
 import { usePostCopy } from '@/lib/postTranslations';
 import { readUploadMedia, uploadMedia, type CapturedMedia, type ByteProgress, type UploadMedia } from '@/lib/uploadMedia';
+import { captureRecordingCountry, useRecordingLocationCopy, type RecordingLocation, type LocationNotice } from '@/lib/recordingLocation';
 
-type Captured = CapturedMedia;
+type Captured = CapturedMedia & { recordingLocation?: RecordingLocation };
 type PermissionProblem = { message: string; settings: boolean };
 type Mode = 'photo' | 600 | 60 | 30 | 15;
 
@@ -37,6 +39,7 @@ function VideoPreview({ uri }: { uri: string }) {
 export function CreatePost({ visible, onClose, onSave, allowPublish = true }: { visible: boolean; onClose: () => void; onSave: (item: Post) => void | Promise<void>; allowPublish?: boolean }) {
   const c = useColors();
   const copy = usePostCopy();
+  const locationCopy = useRecordingLocationCopy();
   const { isSignedIn, userId, getToken } = useAuth();
   const apiAbort = useRef(new AbortController());
   const requestUpload = useRequestPostUpload({ request: { signal: apiAbort.current.signal } });
@@ -60,6 +63,9 @@ export function CreatePost({ visible, onClose, onSave, allowPublish = true }: { 
   const readyRef = useRef(false);
   const fgRef = useRef(true);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const locationAbort = useRef<AbortController | null>(null);
+  const visibleRef = useRef(visible);
+  visibleRef.current = visible;
 
   const [foreground, setForeground] = useState(AppState.currentState === 'active' || IS_WEB);
   fgRef.current = foreground;
@@ -76,12 +82,14 @@ export function CreatePost({ visible, onClose, onSave, allowPublish = true }: { 
   const [problem, setProblem] = useState<PermissionProblem | null>(null);
   const [liveInfo, setLiveInfo] = useState(false);
   const [asked, setAsked] = useState(false);
+  const [locationNotice, setLocationNotice] = useState<LocationNotice | null>(null);
+  const [locating, setLocating] = useState(false);
 
   const isVideoMode = mode !== 'photo';
   const maxSeconds = isVideoMode ? (mode as number) : 0;
   const granted = !!camPerm?.granted;
   const cameraActive = visible && foreground && !asset && !picking && granted;
-  const alive = (t: number) => mounted.current && session.current === t;
+  const alive = (t: number) => mounted.current && visibleRef.current && session.current === t;
   const markReady = (v: boolean) => { readyRef.current = v; setReady(v); };
 
   const clearTimer = () => { if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; } };
@@ -98,6 +106,7 @@ export function CreatePost({ visible, onClose, onSave, allowPublish = true }: { 
       cancelUpload.current?.();
       apiAbort.current.abort();
       session.current++;
+      locationAbort.current?.abort();
       discardId.current = recId.current;
       clearTimer();
       stopNative();
@@ -106,6 +115,8 @@ export function CreatePost({ visible, onClose, onSave, allowPublish = true }: { 
 
   useEffect(() => {
     const apply = (fg: boolean) => {
+      fgRef.current = fg;
+      if (!fg) locationAbort.current?.abort();
       if (!fg && recordingRef.current) { discardId.current = recId.current; stopNative(); }
       if (mounted.current) { setForeground(fg); if (!fg) markReady(false); }
     };
@@ -125,8 +136,19 @@ export function CreatePost({ visible, onClose, onSave, allowPublish = true }: { 
   }, [visible, camPerm, asked, requestCam]);
 
   useEffect(() => { if (!cameraActive) markReady(false); }, [cameraActive]);
+  useEffect(() => {
+    if (!visible) {
+      session.current++;
+      locationAbort.current?.abort();
+      if (recordingRef.current) { discardId.current = recId.current; stopNative(); }
+      if (!recordingRef.current) lock.current = false;
+      setBusy(false); setLocating(false);
+    }
+  }, [visible, stopNative]);
 
   const reset = () => {
+    locationAbort.current?.abort(); locationAbort.current = null;
+    setLocationNotice(null); setLocating(false);
     ticket.current = null; setBytes(null); setPhase(null);
     setAsset(null); setCaption(''); setError(null); setProblem(null); setLiveInfo(false);
     setElapsed(0); markReady(false); setAsked(false); setBusy(false); setPicking(false);
@@ -150,7 +172,7 @@ export function CreatePost({ visible, onClose, onSave, allowPublish = true }: { 
     setBusy(true);
     try {
       const pic = await cam.takePictureAsync({ quality: 0.85 });
-      if (alive(t) && pic?.uri) setAsset({ uri: pic.uri, type: 'image', mimeType: 'image/jpeg' });
+      if (alive(t) && pic?.uri) { setLocationNotice('unlocated'); setAsset({ uri: pic.uri, type: 'image', mimeType: 'image/jpeg', recordingLocation: undefined }); }
     } catch (e) {
       if (alive(t)) setError(`Could not take photo: ${errText(e)}`);
     } finally {
@@ -173,21 +195,58 @@ export function CreatePost({ visible, onClose, onSave, allowPublish = true }: { 
       return;
     }
     if (!alive(t)) return;
-    setBusy(false);
     if (!mic.granted) {
+      setBusy(false);
       setProblem({ message: `Nino needs microphone access to record video. ${mic.canAskAgain ? 'Tap record again to retry.' : 'Enable it in device settings.'}`, settings: !mic.canAskAgain });
       lock.current = false; return;
     }
-    // The permission prompt may have backgrounded/remounted the camera; never record on a not-ready view.
+    // Permission prompts may background/remount the camera. Check after each
+    // prompt, and again after lookup before touching the native camera.
+    const cameraAvailable = () => alive(t) && fgRef.current && readyRef.current && !!cameraRef.current;
+    if (!cameraAvailable()) {
+      setError(locationCopy.cameraReady); setBusy(false); lock.current = false; return;
+    }
+    let countryCode: RecordingLocation['countryCode'] | undefined;
+    let notice: LocationNotice | null = null;
+    let lookupCanceled = false;
+    try {
+      const permission = await Location.requestForegroundPermissionsAsync();
+      if (!alive(t)) return;
+      if (!permission.granted) setLocationNotice('denied');
+      if (!cameraAvailable()) {
+        setError(locationCopy.cameraReady); setBusy(false); lock.current = false; return;
+      }
+      if (!permission.granted) {
+        notice = 'denied';
+      } else {
+        const controller = new AbortController();
+        locationAbort.current = controller;
+        setLocating(true);
+        try {
+          countryCode = await captureRecordingCountry(controller.signal);
+          if (!countryCode) notice = 'unavailable';
+        } catch {
+          // Never surface native location errors, which could include coordinates.
+          notice = 'unavailable';
+        } finally {
+          lookupCanceled = controller.signal.aborted;
+          if (locationAbort.current === controller) locationAbort.current = null;
+        }
+      }
+    } catch {
+      notice = 'unavailable';
+    }
+    if (!alive(t)) return;
+    setLocating(false); setBusy(false); setLocationNotice(notice);
     const cam = cameraRef.current;
-    if (!cam || !readyRef.current || !fgRef.current) {
-      setError('Microphone ready. Tap record again once the camera is back.');
-      lock.current = false; return;
+    if (lookupCanceled || !cameraAvailable() || !cam) {
+      setError(locationCopy.cameraReady); lock.current = false; return;
     }
     const id = ++recId.current;
     recordingRef.current = true;
     setRecording(true); setElapsed(0);
     const started = Date.now();
+    const recordingLocation = countryCode ? { countryCode, recordedAt: new Date(started).toISOString() } : undefined;
     clearTimer();
     timerRef.current = setInterval(() => {
       if (mounted.current) setElapsed(Math.min(maxSeconds, (Date.now() - started) / 1000));
@@ -195,7 +254,7 @@ export function CreatePost({ visible, onClose, onSave, allowPublish = true }: { 
     lock.current = false;
     try {
       const result = await cam.recordAsync({ maxDuration: maxSeconds });
-      if (alive(t) && discardId.current !== id && result?.uri) setAsset({ uri: result.uri, type: 'video' });
+      if (alive(t) && discardId.current !== id && result?.uri) setAsset({ uri: result.uri, type: 'video', recordingLocation });
     } catch (e) {
       if (alive(t) && discardId.current !== id) setError(`Recording stopped: ${errText(e)}`);
     } finally {
@@ -231,7 +290,7 @@ export function CreatePost({ visible, onClose, onSave, allowPublish = true }: { 
       if (!alive(t)) return;
       const a = res.canceled ? null : res.assets[0];
       if (a) {
-        if (a.type === 'video' || a.type === 'image') setAsset({ uri: a.uri, type: a.type, mimeType: a.mimeType, file: a.file });
+        if (a.type === 'video' || a.type === 'image') { setLocationNotice('unlocated'); setAsset({ uri: a.uri, type: a.type, mimeType: a.mimeType, file: a.file, recordingLocation: undefined }); }
         else setError('This media format is not supported. Choose a photo or video.');
       }
     } catch (e) {
@@ -243,6 +302,8 @@ export function CreatePost({ visible, onClose, onSave, allowPublish = true }: { 
 
   const retake = () => {
     if (busy || uploading.current) return;
+    locationAbort.current?.abort(); locationAbort.current = null;
+    session.current++; setLocationNotice(null); setLocating(false);
     ticket.current = null; setBytes(null); setPhase(null);
     setAsset(null); setCaption(''); setError(null); setElapsed(0);
   };
@@ -274,7 +335,8 @@ export function CreatePost({ visible, onClose, onSave, allowPublish = true }: { 
         cancelUpload.current = null;
       }
       setPhase('finalize');
-      const post = await publish.mutateAsync({ data: { uploadId: pending.uploadId, caption: caption.trim() } });
+      const post = await publish.mutateAsync({ data: { uploadId: pending.uploadId, caption: caption.trim(),
+        ...(asset.type === 'video' && asset.recordingLocation ? { recordingLocation: asset.recordingLocation } : {}) } });
       if (!alive(t)) return;
       // Never mark published before the server has finalized. Same ticket survives errors,
       // including a lost finalize response, so the server's idempotency prevents duplicates.
@@ -296,6 +358,13 @@ export function CreatePost({ visible, onClose, onSave, allowPublish = true }: { 
 
   const feedback = (
     <>
+      {isVideoMode ? (
+        <View style={[styles.toast, { backgroundColor: c.overlay, borderColor: c.border }]} accessibilityLiveRegion="polite">
+          <Text testID="create-location-notice" style={[styles.toastText, { color: c.secondary }]}>
+            {locating ? locationCopy.checking : locationNotice ? locationCopy[locationNotice] : locationCopy.rationale}
+          </Text>
+        </View>
+      ) : null}
       {problem ? (
         <View style={[styles.toast, { backgroundColor: c.overlay, borderColor: c.danger }]}>
           <Text style={[styles.toastText, { color: c.text }]}>{problem.message}</Text>
@@ -341,6 +410,12 @@ export function CreatePost({ visible, onClose, onSave, allowPublish = true }: { 
         <TextInput testID="create-caption" value={caption} onChangeText={setCaption} multiline maxLength={500} editable={!busy}
           placeholder={copy.caption} placeholderTextColor={c.muted} accessibilityLabel={copy.caption}
           style={[styles.input, { color: c.text, borderColor: c.border, backgroundColor: c.cardSoft }]} />
+        <View style={[styles.notice, { backgroundColor: c.accentWash, borderColor: c.border }]}>
+          <Feather name="map-pin" size={16} color={c.accent} />
+          <Text testID="create-recording-country" style={[styles.body, { color: c.secondary, flex: 1 }]}>
+            {a.recordingLocation ? locationCopy.countryNotice(a.recordingLocation.countryCode) : locationCopy[locationNotice ?? 'unlocated']}
+          </Text>
+        </View>
         <View style={[styles.notice, { backgroundColor: c.accentWash, borderColor: c.border }]}>
           <Feather name="smartphone" size={16} color={c.accent} />
           <Text style={[styles.body, { color: c.secondary, flex: 1 }]}>{allowPublish && isSignedIn ? copy.notice : copy.signIn}</Text>

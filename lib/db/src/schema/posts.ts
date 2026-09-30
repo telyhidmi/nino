@@ -26,12 +26,15 @@ export const posts = pgTable("posts", {
   size: integer("size").notNull(),
   authorName: text("author_name").notNull(),
   authorAvatar: text("author_avatar"),
+  countryCode: text("country_code"),
+  recordedAt: timestamp("recorded_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => [
   index("posts_created_idx").on(t.createdAt),
   index("posts_owner_created_idx").on(t.ownerId, t.createdAt),
   check("posts_kind_check", sql`${t.kind} in ('photo','video')`),
   check("posts_caption_check", sql`length(${t.caption}) <= 2200`),
+  check("posts_recording_location_check", sql`(${t.countryCode} is null and ${t.recordedAt} is null) or (${t.kind} = 'video' and ${t.countryCode} is not null and ${t.countryCode} ~ '^[A-Z]{2}$' and ${t.recordedAt} is not null)`),
 ]);
 
 export type PostRow = typeof posts.$inferSelect;
