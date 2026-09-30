@@ -9,10 +9,12 @@ import { EarthGlobe } from '@/components/EarthGlobe';
 import { useInsets } from '@/components/ui';
 import { DemoProfile } from '@/components/profile/DemoProfile';
 import { CreatorProfile } from '@/components/profile/CreatorProfile';
+import type { ProfileItem } from '@/components/profile/ProfileView';
 import type { ProfileCtx } from '@/components/profile/profileCtx';
 import { useColors } from '@/hooks/useColors';
 import { compact, SampleComment, SAMPLE_POSTS, SamplePost } from './data';
 import { FeedVideo } from './FeedVideo';
+import { CreatePost } from './CreatePost';
 import { CommentsSheet, PreviewTag, Sheet, SoonSheet, TranslateSheet } from './Sheets';
 
 type Tab = 'foryou' | 'following' | 'live';
@@ -118,6 +120,7 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
   const [webVisible, setWebVisible] = useState(true);
   const [section, setSection] = useState<'home' | 'discover' | 'profile' | 'creator'>(initialSection);
   const [creatorHandle, setCreatorHandle] = useState<string | null>(null);
+  const [uploads, setUploads] = useState<ProfileItem[]>([]);
 
   useFocusEffect(useCallback(() => {
     setFocused(true);
@@ -183,6 +186,9 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
   const creator = SAMPLE_POSTS.find((post) => post.handle === creatorHandle);
 
   const profileCtx: ProfileCtx = {
+    uploads,
+    onAdd: () => setOpen('create'),
+    onRemove: (item) => setUploads((items) => items.filter((x) => x.id !== item.id)),
     following: SAMPLE_POSTS.filter((p, i) => SAMPLE_POSTS.findIndex((other) => other.handle === p.handle) === i && isFollowing(p)).map((p) => ({ id: p.handle, name: p.author, handle: p.handle, flag: p.flag, image: p.image })),
     liked: SAMPLE_POSTS.filter((p) => likes[p.id]).map((p) => ({ id: `liked-${p.id}`, kind: p.video ? 'video' as const : 'photo' as const, image: p.image, video: p.video, label: `${p.author} · ${p.location}`, caption: p.translation, views: p.likes + 1, tag: 'LIKED · SAMPLE' })),
     onUnfollow: (handle) => { setFollows((old) => ({ ...old, [handle]: false })); if (tab === 'following') { setIndex(0); setListStart(0); setListVersion((v) => v + 1); } },
@@ -301,7 +307,11 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
 
       <CommentsSheet key={`comments-${current.id}`} post={current} visible={open === 'comments'} onClose={() => setOpen(null)} extra={local[current.id] ?? []} onAdd={addComment} />
       <TranslateSheet key={`translate-${current.id}`} post={current} visible={open === 'translate'} onClose={() => setOpen(null)} />
-      <SoonSheet visible={open === 'create'} onClose={() => setOpen(null)} icon="video" title="Create" body="Posting stories with built-in subtitles in every language is on its way. Nothing is uploaded from this preview." />
+      <CreatePost visible={open === 'create'} onClose={() => setOpen(null)} onSave={(item) => {
+        setUploads((items) => [item, ...items]);
+        setOpen(null);
+        setSection('profile');
+      }} />
       <SoonSheet visible={open === 'messages'} onClose={() => setOpen(null)} icon="message-circle" title="Messages" body="Chat across languages with auto-translated messages is coming soon. There are no messages yet." />
       <Sheet visible={open === 'more'} onClose={() => setOpen(null)} title="About this post" testID="post-info-sheet">
         <PreviewTag text="Curated sample content" />

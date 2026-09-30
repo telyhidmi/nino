@@ -59,9 +59,10 @@ export function RealProfile({ ctx, onBack, active = true }: { ctx?: ProfileCtx; 
         followingEmpty={ctx ? 'You aren’t following anyone yet. Follow creators from the feed and they’ll show up here for this session.' : 'Following isn’t saved to your account yet. Follows you make in the feed show here during that session.'}
         onUnfollow={ctx?.onUnfollow}
         onEdit={edit} onShare={share} onMenu={() => setMenu(true)} onBack={onBack}
-        uploadNote="Publishing isn’t connected yet, so uploads can’t be posted from your account. Nothing has been uploaded."
+         onAdd={ctx?.onAdd} addLabel="Create a local post" onRemove={ctx?.onRemove}
+         uploadNote="Local posts use temporary files for this session · not published to your account"
         tabs={{
-          posts: { items: [], emptyTitle: 'No posts yet', emptyBody: 'Publishing to Nino isn’t connected yet. When it is, your videos and photos will live here.' },
+           posts: { items: ctx?.uploads ?? [], emptyTitle: 'No local posts yet', emptyBody: 'Tap + to add a photo or video to this session. Publishing to Nino isn’t connected.' },
           private: { items: [], emptyTitle: 'No private posts', emptyBody: 'Private posts will appear here once publishing is available.' },
           reposts: { items: [], emptyTitle: 'No reposts', emptyBody: 'Reposting isn’t connected yet.' },
           liked: { items: ctx?.liked ?? [], emptyTitle: 'Nothing liked yet', emptyBody: 'Sample posts you like in the feed this session show here. Likes aren’t saved to your account yet.' },

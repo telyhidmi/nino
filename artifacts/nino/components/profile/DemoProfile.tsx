@@ -7,7 +7,8 @@ import { PreviewTag, Sheet } from '@/components/feed/Sheets';
 import { useColors } from '@/hooks/useColors';
 import { SAMPLE_POSTS } from '@/components/feed/data';
 import type { ProfileCtx } from './profileCtx';
-import { ProfileItem, ProfileView } from './ProfileView';
+import { ProfileView } from './ProfileView';
+import type { ProfileItem } from './ProfileView';
 
 const SAMPLE_UPLOADS: ProfileItem[] = [
   { id: 'demo-falls', kind: 'video', image: require('@/assets/images/feed-kyoto.jpg'), video: require('@/assets/videos/falls.mp4'), label: 'Mist at the falls', caption: 'Sample clip · CC-licensed footage bundled with the demo', views: 4210, pinned: true },
@@ -20,7 +21,6 @@ const SAMPLE_UPLOADS: ProfileItem[] = [
 
 export function DemoProfile({ name, ctx, onExitDemo, active = true }: { name: string; ctx: ProfileCtx; onExitDemo?: () => void; active?: boolean }) {
   const c = useColors();
-  const [uploads, setUploads] = useState<ProfileItem[]>([]);
   const [shownName, setShownName] = useState(name);
   const [bio, setBio] = useState('Exploring the world one story and one language at a time. City walks, local food, new people.');
   const [editing, setEditing] = useState(false);
@@ -39,23 +39,6 @@ export function DemoProfile({ name, ctx, onExitDemo, active = true }: { name: st
   const saveEdit = () => { setShownName(draftName.trim() || name); setBio(draftBio.trim()); setPhoto(draftPhoto); setEditing(false); };
   const input = { color: c.text, fontFamily: 'Poppins_400Regular', fontSize: 15, borderWidth: 1, borderColor: c.border, backgroundColor: c.cardSoft, borderRadius: 12, paddingHorizontal: 12, minHeight: 44, marginTop: 6 } as const;
   const label = { color: c.secondary, fontFamily: 'Poppins_500Medium', fontSize: 12, marginTop: 14 } as const;
-
-  const pick = async () => {
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) {
-      Alert.alert('Photo access needed', 'Allow photo library access to add a local demo upload.');
-      return;
-    }
-    const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images', 'videos'], quality: 0.8 });
-    if (res.canceled || !res.assets[0]) return;
-    const a = res.assets[0];
-    const video = a.type === 'video';
-    setUploads((u) => [{
-      id: `local-${Date.now()}`, kind: video ? 'video' : 'photo', local: true,
-      image: video ? undefined : { uri: a.uri }, video: video ? { uri: a.uri } : undefined,
-      label: video ? 'Your video' : 'Your photo', caption: 'Stored only in this demo session. Not uploaded or published.',
-    }, ...u]);
-  };
 
   const share = () => {
     Share.share({ message: `${shownName} is exploring Nino, a multilingual story app (demo profile — not a real account).` }).catch(() => undefined);
@@ -79,11 +62,11 @@ export function DemoProfile({ name, ctx, onExitDemo, active = true }: { name: st
       following={ctx.following} followingEmpty="You aren't following anyone in this demo yet. Tap Follow on a post in For You."
       onUnfollow={ctx.onUnfollow}
       onEdit={openEdit} onShare={share} onMenu={onExitDemo ? menu : undefined}
-      onAdd={pick} addLabel="Add a local demo upload"
-      uploadNote="Uploads stay on this device for this session only · nothing is published"
-      onRemove={(it) => setUploads((u) => u.filter((x) => x.id !== it.id))}
+       onAdd={ctx.onAdd} addLabel="Create a local demo post"
+       uploadNote="Local posts use temporary files for this session · nothing is published"
+       onRemove={ctx.onRemove}
       tabs={{
-        posts: { items: [...uploads, ...SAMPLE_UPLOADS], emptyTitle: '', emptyBody: '' },
+         posts: { items: [...ctx.uploads, ...SAMPLE_UPLOADS], emptyTitle: '', emptyBody: '' },
         private: { items: [], emptyTitle: 'No private posts', emptyBody: 'Private posts aren’t available in the demo.' },
         reposts: { items: [], emptyTitle: 'No reposts yet', emptyBody: 'Reposting isn’t connected yet.' },
         liked: { items: ctx.liked, emptyTitle: 'Nothing liked yet', emptyBody: `Posts you like in the feed this session appear here. ${SAMPLE_POSTS.length} sample posts to explore.` },

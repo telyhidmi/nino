@@ -174,7 +174,7 @@ export function ProfileView(props: {
                 {it.image ? <Image source={it.image} style={StyleSheet.absoluteFill} contentFit="cover" /> : <View style={[StyleSheet.absoluteFill, { backgroundColor: c.card, alignItems: 'center', justifyContent: 'center' }]}><Feather name="film" size={24} color={c.accent} /></View>}
                 <View style={s.tileTop}>
                   {it.pinned ? <View style={[s.chip, { backgroundColor: c.danger }]}><Text style={s.chipText}>PINNED</Text></View> : null}
-                  <View style={[s.chip, { backgroundColor: 'rgba(8,20,24,0.78)' }]}><Text style={s.chipText}>{it.local ? 'THIS SESSION' : it.tag ?? 'SAMPLE'}</Text></View>
+                   <View style={[s.chip, { backgroundColor: 'rgba(8,20,24,0.78)' }]}><Text style={s.chipText}>{it.local ? 'LOCAL · NOT PUBLISHED' : it.tag ?? 'SAMPLE'}</Text></View>
                 </View>
                 <View style={s.tileBottom}>
                   <Feather name={it.kind === 'video' ? 'play' : 'image'} size={11} color="#FFF" />
@@ -216,7 +216,7 @@ export function ProfileView(props: {
 
       <MediaViewer item={props.active === false ? null : openItem} onClose={() => setOpenItem(null)} onRemove={props.onRemove && openItem?.local ? () => {
         const it = openItem;
-        confirmAction('Remove this upload?', 'It only exists in this session and will be removed from your demo profile.', 'Remove', () => { props.onRemove?.(it); setOpenItem(null); });
+         confirmAction('Remove this local post?', 'It will be removed from this session’s profile. Nothing was published.', 'Remove', () => { props.onRemove?.(it); setOpenItem(null); });
       } : undefined} />
     </View>
   );
@@ -242,7 +242,7 @@ function MediaViewer({ item, onClose, onRemove }: { item: ProfileItem | null; on
         </View>
         {item ? (
           <View style={[s.viewerCap, { bottom: ins.bottom + 90, borderColor: c.border }]} pointerEvents="none">
-            <Text style={[s.badgeText, { color: c.accent }]}>{item.local ? 'LOCAL · THIS SESSION ONLY · NOT PUBLISHED' : 'SAMPLE UPLOAD · DEMO'}</Text>
+             <Text style={[s.badgeText, { color: c.accent }]}>{item.local ? 'LOCAL · THIS SESSION ONLY · NOT PUBLISHED' : 'SAMPLE UPLOAD · DEMO'}</Text>
             <Text style={[s.actionText, { color: c.text }]}>{item.label}</Text>
             {item.caption ? <Text style={[s.small, { color: c.secondary }]}>{item.caption}</Text> : null}
           </View>
