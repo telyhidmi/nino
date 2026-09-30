@@ -26,11 +26,22 @@
     },
     "plugins": [
       "expo-router",
-      ["expo-image-picker", {
-        "photosPermission": "Allow Nino to select photos and videos for local-only posts and profile pictures.",
-        "cameraPermission": "Allow Nino to capture photos and videos for local-only posts.",
-        "microphonePermission": "Allow Nino to record audio for local-only videos."
-      }],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Nino to select photos and videos for local-only posts and profile pictures.",
+          "cameraPermission": "Allow Nino to capture photos and videos for local-only posts.",
+          "microphonePermission": "Allow Nino to record audio for local-only videos."
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow Nino to use your camera to capture photos and videos for local-only posts.",
+          "microphonePermission": "Allow Nino to record audio with local-only videos.",
+          "recordAudioAndroid": true
+        }
+      ],
       "@clerk/expo",
       "expo-secure-store"
     ],
