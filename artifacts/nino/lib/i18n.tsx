@@ -84,6 +84,19 @@ const en = {
   missingFields: 'Please fill in every field.',
   secondFactor: 'This account uses two-step verification, which is not supported in this version yet.',
   memberSince: 'Member since',
+  continueGoogle: 'Continue with Google',
+  continueApple: 'Continue with Apple',
+  orEmail: 'or continue with email',
+  socialCanceled: 'Sign-in canceled. You can try again.',
+  socialError: 'Social sign-in could not start. Try again in a separate browser tab and allow popups.',
+  socialRequirements: 'Clerk needs more account details or verification. Start over to use email registration, or contact support',
+  socialLinkVerification: 'Verify your existing account before it can be linked. Start over and sign in with your original method. Clerk will only link verified accounts.',
+  socialExtraVerification: 'This account needs an additional security check. Social sign-in is not complete. Start over to use your original sign-in method, or contact support.',
+  socialIncomplete: 'Social sign-in is not complete. Start over and try again, or use email.',
+  socialSessionTask: 'Your account has a pending security task. Access to Nino is paused until it is completed. Contact support or sign out to try another account.',
+  socialReturning: 'Returning to Nino',
+  socialReturnBody: 'Please return to the window where you started sign-in.',
+  socialCallbackError: 'This callback could not reconnect to the original sign-in window. Close this window and try again from Nino in a separate browser tab.',
 };
 type Dict = typeof en;
 
@@ -161,6 +174,19 @@ const ar: Dict = {
   missingFields: 'يرجى ملء جميع الحقول.',
   secondFactor: 'هذا الحساب يستخدم التحقق بخطوتين، وهو غير مدعوم في هذا الإصدار بعد.',
   memberSince: 'عضو منذ',
+  continueGoogle: 'المتابعة باستخدام Google',
+  continueApple: 'المتابعة باستخدام Apple',
+  orEmail: 'أو المتابعة بالبريد الإلكتروني',
+  socialCanceled: 'أُلغي تسجيل الدخول. يمكنك المحاولة مجددًا.',
+  socialError: 'تعذّر بدء تسجيل الدخول. حاول في علامة تبويب منفصلة واسمح بالنوافذ المنبثقة.',
+  socialRequirements: 'يطلب Clerk تفاصيل أو تحققًا إضافيًا. ابدأ من جديد للتسجيل بالبريد أو تواصل مع الدعم',
+  socialLinkVerification: 'تحقق من حسابك الحالي قبل ربطه. ابدأ من جديد وسجّل بطريقتك الأصلية. يربط Clerk الحسابات المتحقق منها فقط.',
+  socialExtraVerification: 'يحتاج حسابك إلى تحقق أمني إضافي. لم يكتمل الدخول. ابدأ من جديد بطريقتك الأصلية أو تواصل مع الدعم.',
+  socialIncomplete: 'لم يكتمل تسجيل الدخول. ابدأ من جديد أو استخدم البريد الإلكتروني.',
+  socialSessionTask: 'لحسابك مهمة أمنية معلقة. الوصول إلى نينو متوقف حتى إكمالها. تواصل مع الدعم أو سجّل الخروج لتجربة حساب آخر.',
+  socialReturning: 'العودة إلى نينو',
+  socialReturnBody: 'ارجع إلى النافذة التي بدأت فيها تسجيل الدخول.',
+  socialCallbackError: 'تعذّر الاتصال بنافذة تسجيل الدخول الأصلية. أغلق هذه النافذة وحاول مجددًا من نينو في علامة تبويب منفصلة.',
 };
 
 const pt: Dict = {
@@ -237,6 +263,19 @@ const pt: Dict = {
   missingFields: 'Preencha todos os campos.',
   secondFactor: 'Esta conta usa verificação em duas etapas, ainda não suportada nesta versão.',
   memberSince: 'Membro desde',
+  continueGoogle: 'Continuar com Google',
+  continueApple: 'Continuar com Apple',
+  orEmail: 'ou continuar com e-mail',
+  socialCanceled: 'Entrada cancelada. Você pode tentar novamente.',
+  socialError: 'Não foi possível iniciar. Tente em outra aba e permita pop-ups.',
+  socialRequirements: 'O Clerk precisa de mais dados ou verificação. Recomece para cadastrar por e-mail ou contate o suporte',
+  socialLinkVerification: 'Verifique sua conta existente antes de vinculá-la. Recomece e entre pelo método original. O Clerk vincula apenas contas verificadas.',
+  socialExtraVerification: 'Esta conta precisa de uma verificação de segurança adicional. A entrada não foi concluída. Recomece pelo método original ou contate o suporte.',
+  socialIncomplete: 'A entrada não foi concluída. Recomece ou use e-mail.',
+  socialSessionTask: 'Sua conta tem uma tarefa de segurança pendente. O acesso ao Nino está pausado até concluí-la. Contate o suporte ou saia para tentar outra conta.',
+  socialReturning: 'Voltando ao Nino',
+  socialReturnBody: 'Volte à janela onde você começou a entrar.',
+  socialCallbackError: 'Não foi possível reconectar à janela original. Feche esta janela e tente novamente no Nino em outra aba.',
 };
 
 const es: Dict = {
@@ -313,6 +352,19 @@ const es: Dict = {
   missingFields: 'Completa todos los campos.',
   secondFactor: 'Esta cuenta usa verificación en dos pasos, aún no compatible en esta versión.',
   memberSince: 'Miembro desde',
+  continueGoogle: 'Continuar con Google',
+  continueApple: 'Continuar con Apple',
+  orEmail: 'o continuar con correo',
+  socialCanceled: 'Inicio cancelado. Puedes intentarlo de nuevo.',
+  socialError: 'No se pudo iniciar. Prueba en otra pestaña y permite ventanas emergentes.',
+  socialRequirements: 'Clerk necesita más datos o verificación. Empieza de nuevo para registrarte por correo o contacta con soporte',
+  socialLinkVerification: 'Verifica tu cuenta existente antes de vincularla. Empieza de nuevo con tu método original. Clerk solo vincula cuentas verificadas.',
+  socialExtraVerification: 'Esta cuenta necesita una comprobación adicional. El inicio no se ha completado. Empieza de nuevo con tu método original o contacta con soporte.',
+  socialIncomplete: 'El inicio no se ha completado. Empieza de nuevo o usa correo.',
+  socialSessionTask: 'Tu cuenta tiene una tarea de seguridad pendiente. El acceso a Nino está pausado hasta completarla. Contacta con soporte o sal para probar otra cuenta.',
+  socialReturning: 'Volviendo a Nino',
+  socialReturnBody: 'Vuelve a la ventana donde comenzaste a iniciar sesión.',
+  socialCallbackError: 'No se pudo reconectar con la ventana original. Cierra esta ventana e inténtalo desde Nino en otra pestaña.',
 };
 
 const DICTS: Record<Lang, Dict> = { en, ar, pt, es };

@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import React, { useState } from 'react';
 import { AuthHeader, LinkRow, TextLink } from '@/components/AuthBits';
 import { Shell } from '@/components/Shell';
+import { SocialAuth } from '@/components/SocialAuth';
 import { Banner, Card, Field, PillButton, Title } from '@/components/ui';
 import { clerkErrorMessage } from '@/lib/data';
 import { useI18n } from '@/lib/i18n';
@@ -15,7 +16,9 @@ export default function SignInScreen() {
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
-  const busy = fetchStatus === 'fetching';
+  const [socialBusy, setSocialBusy] = useState(false);
+  const [socialActive, setSocialActive] = useState(false);
+  const busy = fetchStatus === 'fetching' || socialBusy;
 
   const finish = () => signIn.finalize({ navigate: () => router.replace('/') });
 
@@ -44,7 +47,7 @@ export default function SignInScreen() {
     else setError(t('genericError'));
   };
 
-  if (signIn.status === 'needs_client_trust') {
+  if (signIn.status === 'needs_client_trust' && !socialActive) {
     return (
       <Shell fallback="/">
         <AuthHeader />
@@ -65,12 +68,13 @@ export default function SignInScreen() {
     <Shell fallback="/">
       <AuthHeader />
       <Title title={t('welcomeBack')} body={t('welcomeBackBody')} />
+      <SocialAuth disabled={fetchStatus === 'fetching'} onBusyChange={setSocialBusy} onFlowChange={setSocialActive} />
       <Card style={{ gap: 16 }}>
         <Field testID="email" label={t('email')} value={email} onChangeText={setEmail} autoCapitalize="none" autoComplete="email" keyboardType="email-address" placeholder={t('emailPh')} error={errors.fields.identifier?.message} />
         <Field testID="password" label={t('password')} value={password} onChangeText={setPassword} secureTextEntry autoComplete="password" placeholder="••••••••" error={errors.fields.password?.message} />
         <TextLink testID="forgot" center={false} label={t('forgot')} onPress={() => router.push('/forgot-password')} />
         <Banner text={error} />
-        <PillButton testID="sign-in" label={t('signIn')} onPress={submit} loading={busy} disabled={!email || !password} />
+        <PillButton testID="sign-in" label={t('signIn')} onPress={submit} loading={busy} disabled={!email || !password || socialActive} />
       </Card>
       <LinkRow testID="to-sign-up" prompt={t('noAccount')} action={t('signUp')} href="/sign-up" />
     </Shell>

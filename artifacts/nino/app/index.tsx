@@ -1,4 +1,4 @@
-import { useAuth, useUser } from '@clerk/expo';
+import { useAuth, useClerk, useUser } from '@clerk/expo';
 import { Redirect, router } from 'expo-router';
 import React, { useEffect } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -18,10 +18,13 @@ function Rise({ delay, children }: { delay: number; children: React.ReactNode })
 
 export default function Welcome() {
   const { isSignedIn } = useAuth();
+  const { session } = useClerk();
   const { user } = useUser();
   const c = useColors();
   const ins = useInsets();
   const { t, font, languageChosen, rtl } = useI18n();
+
+  if (session?.currentTask) return <Redirect href="/sign-in" />;
 
   if (isSignedIn) {
     return <Redirect href={readProfile(user?.unsafeMetadata).profileComplete ? '/feed' : '/setup'} />;

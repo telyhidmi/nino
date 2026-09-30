@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { Platform, View } from 'react-native';
 import { AuthHeader, LinkRow, TextLink } from '@/components/AuthBits';
 import { Shell } from '@/components/Shell';
+import { SocialAuth } from '@/components/SocialAuth';
 import { Banner, Card, Field, PillButton, Title } from '@/components/ui';
 import { clerkErrorMessage } from '@/lib/data';
 import { useI18n } from '@/lib/i18n';
@@ -16,7 +17,9 @@ export default function SignUpScreen() {
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
-  const busy = fetchStatus === 'fetching';
+  const [socialBusy, setSocialBusy] = useState(false);
+  const [socialActive, setSocialActive] = useState(false);
+  const busy = fetchStatus === 'fetching' || socialBusy;
 
   const verifying =
     signUp.status === 'missing_requirements' && signUp.unverifiedFields.includes('email_address') && signUp.missingFields.length === 0;
@@ -54,7 +57,7 @@ export default function SignUpScreen() {
     else setInfo(t('codeSent'));
   };
 
-  if (verifying) {
+  if (verifying && !socialActive) {
     return (
       <Shell fallback="/">
         <AuthHeader />
@@ -75,6 +78,7 @@ export default function SignUpScreen() {
     <Shell fallback="/">
       <AuthHeader />
       <Title title={t('createAccount')} body={t('createAccountBody')} />
+      <SocialAuth disabled={fetchStatus === 'fetching'} onBusyChange={setSocialBusy} onFlowChange={setSocialActive} />
       <Card style={{ gap: 16 }}>
         <Field testID="email" label={t('email')} value={email} onChangeText={setEmail} autoCapitalize="none" autoComplete="email" keyboardType="email-address" placeholder={t('emailPh')} error={errors.fields.emailAddress?.message} />
         <Field testID="password" label={t('password')} value={password} onChangeText={setPassword} secureTextEntry autoComplete="new-password" placeholder={t('passwordPh')} error={errors.fields.password?.message} />
@@ -85,7 +89,7 @@ export default function SignUpScreen() {
             <View nativeID="clerk-captcha" />
           </View>
         )}
-        <PillButton testID="sign-up" label={t('signUp')} onPress={submit} loading={busy} disabled={!email || !password} />
+        <PillButton testID="sign-up" label={t('signUp')} onPress={submit} loading={busy} disabled={!email || !password || socialActive} />
       </Card>
       <LinkRow testID="to-sign-in" prompt={t('alreadyAccount')} action={t('signIn')} href="/sign-in" />
       {Platform.OS !== 'web' && <View nativeID="clerk-captcha" />}
