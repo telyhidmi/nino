@@ -13,6 +13,7 @@ import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Wordmark } from '@/components/Brand';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { RequiredLocationGate } from '@/components/RequiredLocationGate';
 import { Background, Card } from '@/components/ui';
 import colors from '@/constants/colors';
 import { I18nProvider } from '@/lib/i18n';
@@ -91,12 +92,16 @@ export default function RootLayout() {
               <I18nProvider>
                 {publishableKey ? (
                   <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache} proxyUrl={proxyUrl}>
-                    <ClerkLoaded>
-                      <RootNav />
-                    </ClerkLoaded>
+                    <RequiredLocationGate>
+                      <ClerkLoaded>
+                        <RootNav />
+                      </ClerkLoaded>
+                    </RequiredLocationGate>
                   </ClerkProvider>
                 ) : (
-                  <MissingAuthConfig />
+                  <RequiredLocationGate>
+                    <MissingAuthConfig />
+                  </RequiredLocationGate>
                 )}
               </I18nProvider>
             </KeyboardProvider>

@@ -167,12 +167,32 @@ export function CreatePost({ visible, onClose, onSave, allowPublish = true }: { 
     onClose();
   };
 
+  // Never treat a permission error as a country-lookup failure. A fresh grant is
+  // mandatory, including after returning from Settings or an OS permission prompt.
+  const requireLocationPermission = async (t: number, request = false) => {
+    try {
+      const permission = request
+        ? await Location.requestForegroundPermissionsAsync()
+        : await Location.getForegroundPermissionsAsync();
+      if (!alive(t)) return false;
+      if (permission.granted) return true;
+      setLocationNotice('denied');
+      setError(locationCopy.denied);
+      setProblem({ message: locationCopy.denied, settings: !permission.canAskAgain });
+    } catch {
+      // Native error text can contain location details; use safe localized copy.
+      if (alive(t)) setError(locationCopy.permissionUnavailable);
+    }
+    return false;
+  };
+
   const takePhoto = async () => {
     const cam = cameraRef.current;
     if (!cam) { lock.current = false; return; }
     const t = session.current;
     setBusy(true);
     try {
+      if (!(await requireLocationPermission(t)) || !fgRef.current || !readyRef.current) return;
       const pic = await cam.takePictureAsync({ quality: 0.85 });
       if (alive(t) && pic?.uri) { setLocationNotice('unlocated'); setAsset({ uri: pic.uri, type: 'image', mimeType: 'image/jpeg', recordingLocation: undefined }); }
     } catch (e) {
@@ -208,40 +228,43 @@ export function CreatePost({ visible, onClose, onSave, allowPublish = true }: { 
     if (!cameraAvailable()) {
       setError(locationCopy.cameraReady); setBusy(false); lock.current = false; return;
     }
+    if (!(await requireLocationPermission(t, true))) {
+      if (alive(t)) { setBusy(false); lock.current = false; }
+      return;
+    }
+    if (!cameraAvailable()) {
+      setError(locationCopy.cameraReady); setBusy(false); lock.current = false; return;
+    }
     let countryCode: RecordingLocation['countryCode'] | undefined;
     let notice: LocationNotice | null = null;
-    let lookupCanceled = false;
+    const controller = new AbortController();
+    locationAbort.current = controller;
+    setLocating(true);
     try {
-      const permission = await Location.requestForegroundPermissionsAsync();
-      if (!alive(t)) return;
-      if (!permission.granted) setLocationNotice('denied');
-      if (!cameraAvailable()) {
-        setError(locationCopy.cameraReady); setBusy(false); lock.current = false; return;
-      }
-      if (!permission.granted) {
-        notice = 'denied';
-      } else {
-        const controller = new AbortController();
-        locationAbort.current = controller;
-        setLocating(true);
-        try {
-          countryCode = await captureRecordingCountry(controller.signal);
-          if (!countryCode) notice = 'unavailable';
-        } catch {
-          // Never surface native location errors, which could include coordinates.
-          notice = 'unavailable';
-        } finally {
-          lookupCanceled = controller.signal.aborted;
-          if (locationAbort.current === controller) locationAbort.current = null;
-        }
-      }
+      countryCode = await captureRecordingCountry(controller.signal);
+      if (!countryCode) notice = 'unavailable';
     } catch {
+      // A GPS/geocoder failure may proceed only after a fresh permission check.
+      // Never surface native location errors, which could include coordinates.
       notice = 'unavailable';
+    } finally {
+      if (locationAbort.current === controller) locationAbort.current = null;
     }
     if (!alive(t)) return;
-    setLocating(false); setBusy(false); setLocationNotice(notice);
+    setLocating(false);
+    if (controller.signal.aborted) {
+      setError(locationCopy.cameraReady); setBusy(false); lock.current = false; return;
+    }
+    // Permission may have been revoked during a slow lookup. Verification errors
+    // also fail closed; only country resolution itself is allowed to fail open.
+    if (!(await requireLocationPermission(t))) {
+      if (alive(t)) { setBusy(false); lock.current = false; }
+      return;
+    }
+    if (!alive(t)) return;
+    setBusy(false); setLocationNotice(notice);
     const cam = cameraRef.current;
-    if (lookupCanceled || !cameraAvailable() || !cam) {
+    if (!cameraAvailable() || !cam) {
       setError(locationCopy.cameraReady); lock.current = false; return;
     }
     const id = ++recId.current;
@@ -256,7 +279,10 @@ export function CreatePost({ visible, onClose, onSave, allowPublish = true }: { 
     lock.current = false;
     try {
       const result = await cam.recordAsync({ maxDuration: maxSeconds });
-      if (alive(t) && discardId.current !== id && result?.uri) setAsset({ uri: result.uri, type: 'video', recordingLocation });
+      if (alive(t) && discardId.current !== id && result?.uri) {
+        if (!(await requireLocationPermission(t))) return;
+        if (alive(t) && fgRef.current && discardId.current !== id) setAsset({ uri: result.uri, type: 'video', recordingLocation });
+      }
     } catch (e) {
       if (alive(t) && discardId.current !== id) setError(`Recording stopped: ${errText(e)}`);
     } finally {
@@ -281,6 +307,7 @@ export function CreatePost({ visible, onClose, onSave, allowPublish = true }: { 
     setError(null); setProblem(null);
     if (!IS_WEB) setPicking(true);
     try {
+      if (!(await requireLocationPermission(t))) return;
       if (!IS_WEB) {
         const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (!perm.granted) {
@@ -317,6 +344,7 @@ export function CreatePost({ visible, onClose, onSave, allowPublish = true }: { 
     setBusy(true); setError(null);
     const t = session.current;
     try {
+      if (!(await requireLocationPermission(t))) return;
       if (!(await getToken())) throw new Error(copy.signIn);
       if (!alive(t)) return;
       if (ticket.current && ticket.current.ownerId !== userId) throw new Error(copy.signIn);

@@ -15,6 +15,12 @@ Friendly global social app connecting people across languages. Expo (SDK 57) + E
 ## Not built yet (later phases)
 Real-time translation.
 
+## Location permission and recording country
+- Foreground location permission is required to use Nino. Denying or revoking it blocks access until permission is granted; there is no skip or continue-without-location option.
+- Camera video recording checks permission before country lookup and again immediately before recording. A temporary location or geocoding failure does not block recording if foreground permission remains granted, but the resulting video has no recording country and is excluded from country Discover.
+- Only a recognized country code and recording timestamp may be attached to camera videos. Coordinates are used transiently for country lookup and are never stored, uploaded, or logged. Photos and library videos have no recording country.
+- Nino does not request background location or enable background location services. The native permission rationale in `app.json` requires a new installed build to update the operating system prompt.
+
 ## Native Live broadcasting
 - Discover → Live now lists real backend broadcasts. Go Live is also available from the camera.
 - Live video requires a freshly installed iPhone or Android build containing the LiveKit native SDK and the two Expo plugins in `app.json`. A Metro refresh or Expo Go cannot add these native modules. The browser and Expo Go stay usable and show an installed-build-required explanation instead of pretend video.

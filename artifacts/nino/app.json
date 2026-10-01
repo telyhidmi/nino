@@ -62,7 +62,7 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Allow Nino to identify the country where you record a video for country Discover. Only the country and recording time are saved, never coordinates. You can decline and still record and post.",
+          "locationWhenInUsePermission": "Location access while using the app is required to use Nino. Your current location identifies the country where you record a video for country Discover. Only the country and recording time are saved, never coordinates. Nino does not use background location.",
           "locationAlwaysAndWhenInUsePermission": false,
           "locationAlwaysPermission": false,
           "isIosBackgroundLocationEnabled": false,
