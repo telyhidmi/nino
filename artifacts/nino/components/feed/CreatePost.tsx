@@ -608,7 +608,9 @@ const styles = StyleSheet.create({
   modes: { paddingHorizontal: 16, gap: 6, alignItems: 'center', flexGrow: 1, justifyContent: 'center' },
   mode: { minWidth: 52, height: 36, paddingHorizontal: 14, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
   modeText: { fontFamily: 'Poppins_600SemiBold', fontSize: 13 },
-  permWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32, gap: 12 },
+  // Reserve space for the absolute bottom controls and location notice so the
+  // permission CTA cannot be covered on compact screens.
+  permWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32, paddingBottom: 260, gap: 12 },
   permIcon: { width: 72, height: 72, borderRadius: 36, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   permTitle: { fontFamily: 'Poppins_600SemiBold', fontSize: 20, textAlign: 'center' },
   permBody: { fontFamily: 'Poppins_400Regular', fontSize: 13, lineHeight: 20, textAlign: 'center' },
