@@ -23,6 +23,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { getListMessagingConversationsQueryKey, useListMessagingConversations } from '@workspace/api-client-react';
 import { useMessagesCopy } from '@/lib/messagesCopy';
+import { useI18n } from '@/lib/i18n';
+import { PeopleSearch } from '@/components/search/PeopleSearch';
 import { POLL_MS, useActive } from '@/lib/messaging';
 import { usePostCopy } from '@/lib/postTranslations';
 import { postError } from '@/lib/posts';
@@ -120,6 +122,7 @@ function PostView({ post, height, active, onOpen, onCreator, viewerComments, lik
 export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSection = 'home', renderProfile }: { viewer: FeedViewer; onProfile: () => void; renderProfile?: (ctx: ProfileCtx, active: boolean, postsResetToken: number) => React.ReactNode; preview?: boolean; onExitDemo?: () => void; initialSection?: 'home' | 'discover' | 'profile' }) {
   const c = useColors();
   const copy = usePostCopy();
+  const { t } = useI18n();
   const discoverCopy = useDiscoverCopy();
   const queryClient = useQueryClient();
   const persisted = useListPosts({ query: { queryKey: getListPostsQueryKey(), enabled: !preview, staleTime: 30_000, refetchOnMount: 'always', retry: false } });
@@ -355,7 +358,8 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
           </Pressable>
         ) : null}
       </Sheet>
-      <Sheet visible={open === 'search'} onClose={() => setOpen(null)} title="Discover" testID="search-sheet">
+      <Sheet visible={open === 'search'} onClose={() => setOpen(null)} title={preview ? "Discover" : t("search")} testID="search-sheet">
+        {!preview ? <PeopleSearch onOpened={() => setOpen(null)} /> : <>
         <PreviewTag text="Browsing fictional sample posts" />
         <View style={[st.searchInput, { borderColor: c.border, backgroundColor: c.cardSoft }]}>
           <Feather name="search" size={16} color={c.secondary} />
@@ -378,6 +382,7 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
             </View>
           </Pressable>
         ))}
+        </>}
       </Sheet>
     </View>
   );

@@ -47,7 +47,7 @@ function Initials({ name, size }: { name: string; size: number }) {
 }
 
 export function ProfileView(props: {
-  name: string; handle: string; imageUrl?: string | null; imageSource?: ImageSourcePropType; flag?: string; countryCode?: string;
+  name: string; handle?: string; imageUrl?: string | null; imageSource?: ImageSourcePropType; flag?: string; countryCode?: string;
   badge?: string; speaks?: string; understands?: string[]; bio: string;
   stats: { following: number | null; followers: number | null; likes: number | null };
   statsNote?: string;
@@ -93,7 +93,7 @@ export function ProfileView(props: {
           ) : (
             <View style={[s.brand]} accessibilityLabel="Nino"><Text style={s.brandText}>Nin</Text><EarthGlobe size={18} /></View>
           )}
-          <Text style={[s.handleTop, { color: c.text }]} numberOfLines={1}>@{props.handle}</Text>
+          <Text style={[s.handleTop, { color: c.text }]} numberOfLines={1}>{props.handle ? `@${props.handle}` : ""}</Text>
           {props.onMenu ? (
             <Pressable testID="profile-menu" onPress={props.onMenu} accessibilityRole="button" accessibilityLabel="Profile menu" style={[s.iconBtn, { backgroundColor: c.cardSoft, borderColor: c.border }]}>
               <Feather name="menu" size={20} color={c.text} />
@@ -115,7 +115,7 @@ export function ProfileView(props: {
             <Text style={[s.name, { color: c.text }]} numberOfLines={1}>{props.name}</Text>
             {props.badge ? <View style={[s.badge, { backgroundColor: c.accentWash, borderColor: c.border }]}><Text style={[s.badgeText, { color: c.accent }]}>{props.badge}</Text></View> : null}
           </View>
-          <Text style={[s.small, { color: c.secondary, marginTop: 2 }]}>@{props.handle}</Text>
+          <Text style={[s.small, { color: c.secondary, marginTop: 2 }]}>{props.handle ? `@${props.handle}` : ""}</Text>
           {props.speaks ? (
             <View style={[s.langs, { backgroundColor: c.cardSoft, borderColor: c.border }]}>
               <Feather name="mic" size={12} color={c.accent} />

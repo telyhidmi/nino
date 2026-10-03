@@ -13,6 +13,7 @@ import { useInsets } from '@/components/ui';
 import { useColors } from '@/hooks/useColors';
 import { useI18n } from '@/lib/i18n';
 import { useMessagesCopy } from '@/lib/messagesCopy';
+import { normalizePeopleQuery } from '@/lib/peopleQuery';
 import { POLL_MS, invalidateInbox, shortTime, useActive } from '@/lib/messaging';
 import { postError } from '@/lib/posts';
 
@@ -61,7 +62,7 @@ function Inbox() {
   const create = useCreateMessagingConversation();
   const creatingFor = useRef<string | null>(null);
 
-  useEffect(() => { const h = setTimeout(() => setDq(q.trim()), 300); return () => clearTimeout(h); }, [q]);
+  useEffect(() => { const h = setTimeout(() => setDq(normalizePeopleQuery(q)), 300); return () => clearTimeout(h); }, [q]);
   const search = useSearchMessagingPeople({ q: dq }, { query: { queryKey: getSearchMessagingPeopleQueryKey({ q: dq }), enabled: searching && dq.length >= 2, staleTime: 15_000 } });
 
   const nextCursor = cursor === undefined ? first.data?.nextCursor ?? null : cursor;

@@ -54,14 +54,14 @@ export function RealProfile({ ctx, onBack, active = true, postsResetToken }: { c
   const p = readProfile(user.unsafeMetadata);
   if (!p.profileComplete) return <Redirect href="/setup" />;
   const ctry = countryBy(p.country);
-  const handle = (user.username ?? p.displayName.toLowerCase().replace(/[^a-z0-9]+/g, '.').replace(/^\.|\.$/g, '')) || 'me';
+  const handle = user.username ?? null; // real, searchable username only — never fabricated
 
   const doSignOut = async () => {
     setError(null);
     try { await closeActiveLiveSession(); await signOut(); router.replace('/'); } catch (e) { setError(clerkErrorMessage(e, t('genericError'))); }
   };
   const share = () => {
-    Share.share({ message: `Find me on Nino as ${p.displayName} (@${handle}).` }).catch(() => undefined);
+    Share.share({ message: `Find me on Nino as ${p.displayName}${handle ? ` (@${handle})` : ""}.` }).catch(() => undefined);
   };
   const edit = () => { setMenu(false); router.push('/setup?mode=edit'); };
   const understands = p.understands.map((k) => languageBy(k)?.native ?? k);
@@ -79,7 +79,7 @@ export function RealProfile({ ctx, onBack, active = true, postsResetToken }: { c
         active={active}
         postsResetToken={postsResetToken}
         testID="real-profile"
-        name={p.displayName} handle={handle} imageUrl={user.hasImage ? user.imageUrl : null}
+        name={p.displayName} handle={handle ?? undefined} imageUrl={user.hasImage ? user.imageUrl : null}
         flag={ctry?.flag} countryCode={ctry?.code}
         speaks={languageBy(p.nativeLanguage)?.native ?? p.nativeLanguage} understands={understands}
         bio={user.primaryEmailAddress?.emailAddress ?? ''}
