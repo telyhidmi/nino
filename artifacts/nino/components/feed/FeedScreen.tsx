@@ -249,7 +249,7 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
             }}
             scrollEventThrottle={16}
             onMomentumScrollEnd={(e) => setIndex(Math.max(0, Math.min(posts.length - 1, Math.round(e.nativeEvent.contentOffset.y / h))))}
-              renderItem={({ item, index: itemIndex }) => isPublished(item) ? <PublishedPost post={item} height={h} onAuthor={!preview && viewer?.id === item.ownerId ? openOwnerPosts : undefined} active={itemIndex === index && focused && foreground && webVisible && open === null && section === 'home'} /> : <PostView post={item} height={h} active={itemIndex === index && focused && foreground && webVisible && open === null && section === 'home'}
+              renderItem={({ item, index: itemIndex }) => isPublished(item) ? <PublishedPost post={item} height={h} followable={!preview && !!viewer?.id && viewer.id !== item.ownerId} onAuthor={!preview && viewer?.id === item.ownerId ? openOwnerPosts : undefined} active={itemIndex === index && focused && foreground && webVisible && open === null && section === 'home'} /> : <PostView post={item} height={h} active={itemIndex === index && focused && foreground && webVisible && open === null && section === 'home'}
               onOpen={setOpen} viewerComments={(local[item.id] ?? []).length}
                liked={!!likes[item.id]} following={isFollowing(item)} onCreator={() => openCreator(item)}
               onLike={() => setLikes((old) => ({ ...old, [item.id]: !old[item.id] }))}

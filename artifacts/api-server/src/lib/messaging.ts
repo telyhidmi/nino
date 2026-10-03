@@ -1,5 +1,5 @@
 import type { Pool, PoolClient, QueryResultRow } from "@workspace/db";
-import type { MessagingProfile, MessagingMessage, MessagingConversation } from "@workspace/api-zod";
+import type { MessagingProfile, MessagingMessage, MessagingConversation, MessagingRelationship, MessagingPermission } from "@workspace/api-zod";
 
 export class MessagingError extends Error {
   constructor(public status: number, message: string) { super(message); }
@@ -7,6 +7,7 @@ export class MessagingError extends Error {
 interface ConversationRow extends QueryResultRow {
   id: string; member_low: string; member_high: string; sequence: number;
   read_low: number; read_high: number; unread_low: number; unread_high: number; updated_at: Date;
+  messaging_unlocked: boolean;
 }
 interface MessageRow extends QueryResultRow {
   id: string; conversation_id: string; sender_id: string; client_nonce: string;
@@ -51,6 +52,54 @@ export class MessagingService {
       ORDER BY lower(display_name),id LIMIT 20`, [userId, pattern]);
     return result.rows as MessagingProfile[];
   }
+  private async lockPair(client: PoolClient, userId: string, peerId: string) {
+    // Namespaced, unambiguous key; same lock for both follow directions and sends.
+    await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))",
+      [`messaging-pair:${JSON.stringify([userId,peerId].sort())}`]);
+  }
+  private async relationshipWith(client: Pool | PoolClient, userId: string, peerId: string): Promise<MessagingRelationship> {
+    const result = await client.query<{following: boolean; followsYou: boolean}>(`SELECT
+      EXISTS(SELECT 1 FROM messaging_follows WHERE follower_id=$1 AND followed_id=$2) AS following,
+      EXISTS(SELECT 1 FROM messaging_follows WHERE follower_id=$2 AND followed_id=$1) AS "followsYou"`, [userId,peerId]);
+    const r = result.rows[0];
+    return {...r, mutual:r.following && r.followsYou};
+  }
+  async relationship(userId: string, peerId: string) {
+    if (userId === peerId) throw new MessagingError(400,"You cannot follow yourself");
+    return this.relationshipWith(this.pool,userId,peerId);
+  }
+  async setRelationship(userId: string, peerId: string, following: boolean) {
+    if (userId === peerId) throw new MessagingError(400,"You cannot follow yourself");
+    return this.transaction(async (client) => {
+      await this.lockPair(client,userId,peerId);
+      if (following) await client.query(`INSERT INTO messaging_follows(follower_id,followed_id)
+        VALUES($1,$2) ON CONFLICT(follower_id,followed_id) DO NOTHING`, [userId,peerId]);
+      else await client.query("DELETE FROM messaging_follows WHERE follower_id=$1 AND followed_id=$2", [userId,peerId]);
+      return this.relationshipWith(client,userId,peerId);
+    });
+  }
+  private async policies(client: Pool | PoolClient, ids: string[], userId: string) {
+    const result = await client.query<{id: string; own_count: number; peer_sent: boolean; messaging_unlocked: boolean;
+      following: boolean; follows_you: boolean}>(`SELECT c.id,c.messaging_unlocked,
+      (SELECT count(*)::integer FROM messaging_messages m WHERE m.conversation_id=c.id AND m.sender_id=$2) AS own_count,
+      EXISTS(SELECT 1 FROM messaging_messages m WHERE m.conversation_id=c.id
+        AND m.sender_id=CASE WHEN c.member_low=$2 THEN c.member_high ELSE c.member_low END) AS peer_sent,
+      EXISTS(SELECT 1 FROM messaging_follows f WHERE f.follower_id=$2
+        AND f.followed_id=CASE WHEN c.member_low=$2 THEN c.member_high ELSE c.member_low END) AS following,
+      EXISTS(SELECT 1 FROM messaging_follows f WHERE f.followed_id=$2
+        AND f.follower_id=CASE WHEN c.member_low=$2 THEN c.member_high ELSE c.member_low END) AS follows_you
+      FROM messaging_conversations c WHERE c.id=ANY($1::uuid[])`, [ids,userId]);
+    return new Map(result.rows.map((r) => {
+      const relationship: MessagingRelationship = {following:r.following,followsYou:r.follows_you,mutual:r.following && r.follows_you};
+      // Legacy conversations are unlocked from real history, not reset by migration.
+      const unlocked = r.messaging_unlocked || (r.own_count > 0 && r.peer_sent);
+      const unrestricted = unlocked || relationship.mutual || r.peer_sent;
+      const remaining = unrestricted ? null : Math.max(0,2-r.own_count);
+      const permission: MessagingPermission = {canSend:remaining === null || remaining > 0,
+        remainingInitialMessages:remaining,awaitingReply:remaining === 0,isMutual:relationship.mutual};
+      return [r.id,{relationship,messagingPermission:permission,peerSent:r.peer_sent}] as const;
+    }));
+  }
   private async member(client: Pool | PoolClient, id: string, userId: string, lock = false) {
     const result = await client.query<ConversationRow>(
       `SELECT * FROM messaging_conversations WHERE id=$1 AND (member_low=$2 OR member_high=$2)${lock ? " FOR UPDATE" : ""}`, [id,userId]);
@@ -60,7 +109,7 @@ export class MessagingService {
   private async summaries(client: Pool | PoolClient, rows: ConversationRow[], userId: string): Promise<MessagingConversation[]> {
     if (!rows.length) return [];
     const ids = rows.map((c) => c.id);
-    // Two bounded batch queries; no per-conversation SDK or database calls.
+    // Bounded batch queries; no per-conversation SDK or database calls.
     const profiles = await client.query(`SELECT id,display_name AS "displayName",username,avatar_url AS "avatarUrl"
       FROM messaging_profiles WHERE id=ANY($1::text[])`, [rows.map((c) => c.member_low === userId ? c.member_high : c.member_low)]);
     const messages = await client.query<MessageRow>(`SELECT m.* FROM messaging_conversations c
@@ -68,10 +117,13 @@ export class MessagingService {
       WHERE c.id=ANY($1::uuid[])`, [ids]);
     const byProfile = new Map<string, MessagingProfile>(profiles.rows.map((p) => [p.id, p as MessagingProfile]));
     const byMessage = new Map(messages.rows.map((m) => [m.conversation_id, message(m)]));
+    const policies = await this.policies(client,ids,userId);
     return rows.map((c) => {
       const peer = byProfile.get(c.member_low === userId ? c.member_high : c.member_low);
       if (!peer) throw new Error("Public profile missing");
       return {id: c.id, peer, lastMessage: byMessage.get(c.id) ?? null,
+        relationship:policies.get(c.id)!.relationship,
+        messagingPermission:policies.get(c.id)!.messagingPermission,
         unreadCount: c.member_low === userId ? c.unread_low : c.unread_high,
         updatedAt: c.updated_at.toISOString()};
     });
@@ -129,13 +181,19 @@ export class MessagingService {
         if (m.conversation_id !== id || m.text !== text) throw new MessagingError(409,"This message nonce was already used");
         return message(m);
       }
+      const peerId = conversation.member_low === userId ? conversation.member_high : conversation.member_low;
+      await this.lockPair(client,userId,peerId);
+      const policy = (await this.policies(client,[id],userId)).get(id)!;
+      if (!policy.messagingPermission.canSend)
+        throw new MessagingError(403,"You can send only two initial messages. Wait for this member to reply or follow each other.");
       const sequence = conversation.sequence + 1;
       const result = await client.query<MessageRow>(`INSERT INTO messaging_messages(conversation_id,sender_id,client_nonce,text,sequence,created_at)
         VALUES($1,$2,$3,$4,$5,clock_timestamp()) RETURNING *`, [id,userId,nonce,text,sequence]);
       const receiverColumn = conversation.member_low === userId ? "unread_high" : "unread_low";
       // Millisecond precision is intentional: inbox cursors serialize JS dates without precision loss.
       await client.query(`UPDATE messaging_conversations SET sequence=$2,${receiverColumn}=${receiverColumn}+1,
-        updated_at=greatest(date_trunc('milliseconds',clock_timestamp()),updated_at+interval '1 millisecond') WHERE id=$1`, [id,sequence]);
+        messaging_unlocked=messaging_unlocked OR $3,
+        updated_at=greatest(date_trunc('milliseconds',clock_timestamp()),updated_at+interval '1 millisecond') WHERE id=$1`, [id,sequence,policy.peerSent]);
       return message(result.rows[0]);
     });
   }

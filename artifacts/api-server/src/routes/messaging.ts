@@ -6,6 +6,8 @@ import {
   CreateMessagingConversationBody, CreateMessagingConversationResponse,
   ListMessagingMessagesParams, ListMessagingMessagesQueryParams, ListMessagingMessagesResponse,
   SendMessagingMessageBody, SendMessagingMessageResponse, MarkMessagingReadBody, MarkMessagingReadResponse,
+  GetMessagingRelationshipParams, GetMessagingRelationshipResponse,
+  SetMessagingRelationshipBody, SetMessagingRelationshipResponse,
   type MessagingProfile,
 } from "@workspace/api-zod";
 import { MessagingError, messagingService } from "../lib/messaging";
@@ -44,6 +46,16 @@ export function createMessagingRouter(deps = {clerkClient, service:messagingServ
     const profile = publicMessagingProfile(await deps.clerkClient.users.getUser(id));
     return (await deps.service()).syncProfile(profile);
   }
+  async function syncPair(userId: string, peerId: string) {
+    if (peerId === userId) throw new MessagingError(400,"You cannot target yourself");
+    await sync(userId);
+    try { await sync(peerId); }
+    catch (error) {
+      if (typeof error === "object" && error !== null && "status" in error && error.status === 404)
+        throw new MessagingError(404,"Member not found");
+      throw error;
+    }
+  }
   function parse<T>(schema: {safeParse: (value: unknown) => {success: boolean; data?: T}}, input: unknown): T {
     const result = schema.safeParse(input);
     if (!result.success) throw new MessagingError(400,"Invalid messaging request");
@@ -61,6 +73,19 @@ export function createMessagingRouter(deps = {clerkClient, service:messagingServ
     const service = await deps.service();
     res.json(SearchMessagingPeopleResponse.parse(await service.search(userId,q.trim())));
   });
+  router.get("/messaging/people/:id/relationship", async (req,res) => {
+    const userId = deps.user(req); limit(userId,"relationship",60);
+    const {id} = parse(GetMessagingRelationshipParams,req.params);
+    await syncPair(userId,id);
+    res.json(GetMessagingRelationshipResponse.parse(await (await deps.service()).relationship(userId,id)));
+  });
+  router.put("/messaging/people/:id/relationship", async (req,res) => {
+    const userId = deps.user(req); limit(userId,"follow",60);
+    const {id} = parse(GetMessagingRelationshipParams,req.params);
+    const {following} = parse(SetMessagingRelationshipBody.strict(),req.body);
+    await syncPair(userId,id);
+    res.json(SetMessagingRelationshipResponse.parse(await (await deps.service()).setRelationship(userId,id,following)));
+  });
   router.get("/messaging/conversations", async (req,res) => {
     const userId = deps.user(req); limit(userId,"inbox",120);
     const {cursor} = parse(ListMessagingConversationsQueryParams,req.query);
@@ -69,14 +94,7 @@ export function createMessagingRouter(deps = {clerkClient, service:messagingServ
   router.post("/messaging/conversations", async (req,res) => {
     const userId = deps.user(req); limit(userId,"create",20);
     const {peerId} = parse(CreateMessagingConversationBody.strict(),req.body);
-    if (peerId === userId) throw new MessagingError(400,"You cannot message yourself");
-    await sync(userId);
-    try { await sync(peerId); }
-    catch (error) {
-      if (typeof error === "object" && error !== null && "status" in error && error.status === 404)
-        throw new MessagingError(404,"Member not found");
-      throw error;
-    }
+    await syncPair(userId,peerId);
     res.json(CreateMessagingConversationResponse.parse(await (await deps.service()).create(userId,peerId)));
   });
   router.get("/messaging/conversations/:id/messages", async (req,res) => {

@@ -37,6 +37,46 @@ export const SearchMessagingPeopleResponseItem = zod.object({
 export const SearchMessagingPeopleResponse = zod.array(SearchMessagingPeopleResponseItem)
 
 
+/**
+ * Authenticated persisted follow relationship. Verifies the target exists in Clerk and syncs public profiles. Self targets receive 400, missing members 404.
+ */
+export const getMessagingRelationshipPathIdMax = 200;
+
+
+
+export const GetMessagingRelationshipParams = zod.object({
+  "id": zod.coerce.string().min(1).max(getMessagingRelationshipPathIdMax)
+})
+
+export const GetMessagingRelationshipResponse = zod.object({
+  "following": zod.boolean(),
+  "followsYou": zod.boolean(),
+  "mutual": zod.boolean()
+})
+
+
+/**
+ * Idempotently follow or unfollow a verified Clerk member as the authenticated caller. Client demo follows are not authoritative.
+ */
+export const setMessagingRelationshipPathIdMax = 200;
+
+
+
+export const SetMessagingRelationshipParams = zod.object({
+  "id": zod.coerce.string().min(1).max(setMessagingRelationshipPathIdMax)
+})
+
+export const SetMessagingRelationshipBody = zod.object({
+  "following": zod.boolean()
+})
+
+export const SetMessagingRelationshipResponse = zod.object({
+  "following": zod.boolean(),
+  "followsYou": zod.boolean(),
+  "mutual": zod.boolean()
+})
+
+
 export const listMessagingConversationsQueryCursorMax = 300;
 
 
@@ -44,6 +84,11 @@ export const listMessagingConversationsQueryCursorMax = 300;
 export const ListMessagingConversationsQueryParams = zod.object({
   "cursor": zod.coerce.string().max(listMessagingConversationsQueryCursorMax).optional()
 })
+
+export const listMessagingConversationsResponseConversationsItemMessagingPermissionRemainingInitialMessagesMin = 0;
+export const listMessagingConversationsResponseConversationsItemMessagingPermissionRemainingInitialMessagesMax = 2;
+
+
 
 export const ListMessagingConversationsResponse = zod.object({
   "conversations": zod.array(zod.object({
@@ -64,7 +109,18 @@ export const ListMessagingConversationsResponse = zod.object({
   "createdAt": zod.string()
 }),zod.null()]),
   "unreadCount": zod.number().int(),
-  "updatedAt": zod.string()
+  "updatedAt": zod.string(),
+  "relationship": zod.object({
+  "following": zod.boolean(),
+  "followsYou": zod.boolean(),
+  "mutual": zod.boolean()
+}),
+  "messagingPermission": zod.object({
+  "canSend": zod.boolean(),
+  "remainingInitialMessages": zod.number().int().min(listMessagingConversationsResponseConversationsItemMessagingPermissionRemainingInitialMessagesMin).max(listMessagingConversationsResponseConversationsItemMessagingPermissionRemainingInitialMessagesMax).nullable().describe('Null when unrestricted; otherwise 2 minus this sender\'s existing messages, floored at zero.'),
+  "awaitingReply": zod.boolean().describe('True only when the initial quota is exhausted and sending is blocked pending a peer reply or mutual follows.'),
+  "isMutual": zod.boolean()
+})
 })),
   "nextCursor": zod.string().nullable()
 })
@@ -77,6 +133,11 @@ export const createMessagingConversationBodyPeerIdMax = 200;
 export const CreateMessagingConversationBody = zod.object({
   "peerId": zod.string().min(1).max(createMessagingConversationBodyPeerIdMax)
 })
+
+export const createMessagingConversationResponseMessagingPermissionRemainingInitialMessagesMin = 0;
+export const createMessagingConversationResponseMessagingPermissionRemainingInitialMessagesMax = 2;
+
+
 
 export const CreateMessagingConversationResponse = zod.object({
   "id": zod.string().uuid(),
@@ -96,7 +157,18 @@ export const CreateMessagingConversationResponse = zod.object({
   "createdAt": zod.string()
 }),zod.null()]),
   "unreadCount": zod.number().int(),
-  "updatedAt": zod.string()
+  "updatedAt": zod.string(),
+  "relationship": zod.object({
+  "following": zod.boolean(),
+  "followsYou": zod.boolean(),
+  "mutual": zod.boolean()
+}),
+  "messagingPermission": zod.object({
+  "canSend": zod.boolean(),
+  "remainingInitialMessages": zod.number().int().min(createMessagingConversationResponseMessagingPermissionRemainingInitialMessagesMin).max(createMessagingConversationResponseMessagingPermissionRemainingInitialMessagesMax).nullable().describe('Null when unrestricted; otherwise 2 minus this sender\'s existing messages, floored at zero.'),
+  "awaitingReply": zod.boolean().describe('True only when the initial quota is exhausted and sending is blocked pending a peer reply or mutual follows.'),
+  "isMutual": zod.boolean()
+})
 })
 
 
@@ -111,6 +183,11 @@ export const listMessagingMessagesQueryCursorMax = 300;
 export const ListMessagingMessagesQueryParams = zod.object({
   "cursor": zod.coerce.string().max(listMessagingMessagesQueryCursorMax).optional()
 })
+
+export const listMessagingMessagesResponseConversationMessagingPermissionRemainingInitialMessagesMin = 0;
+export const listMessagingMessagesResponseConversationMessagingPermissionRemainingInitialMessagesMax = 2;
+
+
 
 export const ListMessagingMessagesResponse = zod.object({
   "conversation": zod.object({
@@ -131,7 +208,18 @@ export const ListMessagingMessagesResponse = zod.object({
   "createdAt": zod.string()
 }),zod.null()]),
   "unreadCount": zod.number().int(),
-  "updatedAt": zod.string()
+  "updatedAt": zod.string(),
+  "relationship": zod.object({
+  "following": zod.boolean(),
+  "followsYou": zod.boolean(),
+  "mutual": zod.boolean()
+}),
+  "messagingPermission": zod.object({
+  "canSend": zod.boolean(),
+  "remainingInitialMessages": zod.number().int().min(listMessagingMessagesResponseConversationMessagingPermissionRemainingInitialMessagesMin).max(listMessagingMessagesResponseConversationMessagingPermissionRemainingInitialMessagesMax).nullable().describe('Null when unrestricted; otherwise 2 minus this sender\'s existing messages, floored at zero.'),
+  "awaitingReply": zod.boolean().describe('True only when the initial quota is exhausted and sending is blocked pending a peer reply or mutual follows.'),
+  "isMutual": zod.boolean()
+})
 }),
   "messages": zod.array(zod.object({
   "id": zod.string().uuid(),
@@ -146,6 +234,9 @@ export const ListMessagingMessagesResponse = zod.object({
 })
 
 
+/**
+ * Transactionally allows mutual followers unrestricted messages; otherwise each sender can send two initial messages until the peer replies. Once both have sent a message the conversation is permanently unrestricted even after unfollowing. Existing messages count. An identical nonce retry returns the existing message before policy checks.
+ */
 export const SendMessagingMessageParams = zod.object({
   "id": zod.coerce.string().uuid()
 })

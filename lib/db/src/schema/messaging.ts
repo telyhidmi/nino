@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, uuid, integer, timestamp, index, uniqueIndex, check } from "drizzle-orm/pg-core";
+import { pgTable, text, uuid, integer, boolean, timestamp, index, uniqueIndex, check } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 
 export const messagingProfiles = pgTable("messaging_profiles", {
@@ -12,11 +12,20 @@ export const messagingProfiles = pgTable("messaging_profiles", {
   index("messaging_name_search_idx").on(sql`lower(${t.displayName}) text_pattern_ops`),
   index("messaging_username_search_idx").on(sql`lower(${t.username}) text_pattern_ops`),
 ]);
+export const messagingFollows = pgTable("messaging_follows", {
+  followerId: text("follower_id").notNull().references(() => messagingProfiles.id),
+  followedId: text("followed_id").notNull().references(() => messagingProfiles.id),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  uniqueIndex("messaging_follow_pair_idx").on(t.followerId, t.followedId),
+  check("messaging_no_self_follow", sql`${t.followerId} <> ${t.followedId}`),
+]);
 export const messagingConversations = pgTable("messaging_conversations", {
   id: uuid("id").primaryKey().defaultRandom(),
   memberLow: text("member_low").notNull().references(() => messagingProfiles.id),
   memberHigh: text("member_high").notNull().references(() => messagingProfiles.id),
   sequence: integer("sequence").notNull().default(0),
+  messagingUnlocked: boolean("messaging_unlocked").notNull().default(false),
   readLow: integer("read_low").notNull().default(0),
   readHigh: integer("read_high").notNull().default(0),
   unreadLow: integer("unread_low").notNull().default(0),
@@ -40,6 +49,7 @@ export const messagingMessages = pgTable("messaging_messages", {
 }, (t) => [
   uniqueIndex("messaging_sender_nonce_idx").on(t.senderId, t.clientNonce),
   uniqueIndex("messaging_thread_sequence_idx").on(t.conversationId, t.sequence),
+  index("messaging_thread_sender_idx").on(t.conversationId, t.senderId),
   check("messaging_text_bounds", sql`length(${t.text}) between 1 and 2000 and length(btrim(${t.text})) > 0`),
 ]);
 export const insertMessagingProfileSchema = createInsertSchema(messagingProfiles);

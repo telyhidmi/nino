@@ -38,6 +38,40 @@ paths:
               schema: {type: array, items: {$ref: "#/components/schemas/MessagingProfile"}}
         default:
           $ref: "#/components/responses/MessagingFailure"
+  /messaging/people/{id}/relationship:
+    get:
+      operationId: getMessagingRelationship
+      security: [{bearerAuth: []}]
+      parameters:
+        - {in: path, name: id, required: true, schema: {type: string, minLength: 1, maxLength: 200}}
+      description: Authenticated persisted follow relationship. Verifies the target exists in Clerk and syncs public profiles. Self targets receive 400, missing members 404.
+      responses:
+        "200":
+          description: Relationship from your perspective
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/MessagingRelationship"}
+        default:
+          $ref: "#/components/responses/MessagingFailure"
+    put:
+      operationId: setMessagingRelationship
+      security: [{bearerAuth: []}]
+      parameters:
+        - {in: path, name: id, required: true, schema: {type: string, minLength: 1, maxLength: 200}}
+      description: Idempotently follow or unfollow a verified Clerk member as the authenticated caller. Client demo follows are not authoritative.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/MessagingRelationshipInput"}
+      responses:
+        "200":
+          description: Updated persisted relationship
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/MessagingRelationship"}
+        default:
+          $ref: "#/components/responses/MessagingFailure"
   /messaging/conversations:
     get:
       operationId: listMessagingConversations
@@ -85,6 +119,7 @@ paths:
           $ref: "#/components/responses/MessagingFailure"
     post:
       operationId: sendMessagingMessage
+      description: Transactionally allows mutual followers unrestricted messages; otherwise each sender can send two initial messages until the peer replies. Once both have sent a message the conversation is permanently unrestricted even after unfollowing. Existing messages count. An identical nonce retry returns the existing message before policy checks.
       security: [{bearerAuth: []}]
       parameters:
         - {in: path, name: id, required: true, schema: {type: string, format: uuid}}
@@ -99,6 +134,11 @@ paths:
           content:
             application/json:
               schema: {$ref: "#/components/schemas/MessagingMessage"}
+        "403":
+          description: Two initial messages already sent; wait for the peer to reply or become mutual followers.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/MessagingFailure"}
         default:
           $ref: "#/components/responses/MessagingFailure"
   /messaging/conversations/{id}/read:
@@ -381,6 +421,33 @@ components:
       required: [peerId]
       properties:
         peerId: {type: string, minLength: 1, maxLength: 200}
+    MessagingRelationshipInput:
+      type: object
+      additionalProperties: false
+      required: [following]
+      properties:
+        following: {type: boolean}
+    MessagingRelationship:
+      type: object
+      required: [following, followsYou, mutual]
+      properties:
+        following: {type: boolean}
+        followsYou: {type: boolean}
+        mutual: {type: boolean}
+    MessagingPermission:
+      type: object
+      required: [canSend, remainingInitialMessages, awaitingReply, isMutual]
+      properties:
+        canSend: {type: boolean}
+        remainingInitialMessages:
+          type: ["integer", "null"]
+          minimum: 0
+          maximum: 2
+          description: Null when unrestricted; otherwise 2 minus this sender's existing messages, floored at zero.
+        awaitingReply:
+          type: boolean
+          description: True only when the initial quota is exhausted and sending is blocked pending a peer reply or mutual follows.
+        isMutual: {type: boolean}
     MessagingMessageInput:
       type: object
       required: [text, clientNonce]
@@ -405,7 +472,7 @@ components:
         createdAt: {type: string}
     MessagingConversation:
       type: object
-      required: [id, peer, lastMessage, unreadCount, updatedAt]
+      required: [id, peer, lastMessage, unreadCount, updatedAt, relationship, messagingPermission]
       properties:
         id: {type: string, format: uuid}
         peer: {$ref: "#/components/schemas/MessagingProfile"}
@@ -415,6 +482,8 @@ components:
             - {type: "null"}
         unreadCount: {type: integer}
         updatedAt: {type: string}
+        relationship: {$ref: "#/components/schemas/MessagingRelationship"}
+        messagingPermission: {$ref: "#/components/schemas/MessagingPermission"}
     MessagingInbox:
       type: object
       required: [conversations, nextCursor]

@@ -8,7 +8,7 @@ import {
   getListMessagingConversationsQueryKey, getSearchMessagingPeopleQueryKey, listMessagingConversations, useCreateMessagingConversation,
   useGetMessagingProfile, useListMessagingConversations, useSearchMessagingPeople, type MessagingConversation,
 } from '@workspace/api-client-react';
-import { PersonAvatar, threadHref } from '@/components/MessagingParts';
+import { PersonAvatar, RelationChip, threadHref } from '@/components/MessagingParts';
 import { useInsets } from '@/components/ui';
 import { useColors } from '@/hooks/useColors';
 import { useI18n } from '@/lib/i18n';
@@ -113,7 +113,9 @@ function Inbox() {
         <PersonAvatar p={cv.peer} size={52} />
         <View style={{ flex: 1, gap: 3 }}>
           <View style={{ flexDirection: row, alignItems: 'center', gap: 8 }}>
-            <Text numberOfLines={1} style={[txt(unread ? 'bold' : 'semibold', 15), { flex: 1 }]}>{cv.peer.displayName}</Text>
+            <Text numberOfLines={1} style={[txt(unread ? 'bold' : 'semibold', 15), { flexShrink: 1 }]}>{cv.peer.displayName}</Text>
+            <RelationChip rel={cv.relationship} testID={`conversation-relation-${cv.id}`} />
+            <View style={{ flex: 1 }} />
             <Text style={txt('regular', 12, unread ? c.accent : c.muted)}>{shortTime(cv.updatedAt, lang)}</Text>
           </View>
           <View style={{ flexDirection: row, alignItems: 'center', gap: 8 }}>

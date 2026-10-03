@@ -10,17 +10,18 @@ import {
   getListMessagingMessagesQueryKey, listMessagingMessages, useGetMessagingProfile, useListMessagingMessages, useMarkMessagingRead,
   useSendMessagingMessage, type MessagingMessage, type MessagingMessageInput, type MessagingThread,
 } from '@workspace/api-client-react';
-import { PersonAvatar } from '@/components/MessagingParts';
+import { FollowButton, PersonAvatar, RelationChip } from '@/components/MessagingParts';
 import { useInsets } from '@/components/ui';
 import { useColors } from '@/hooks/useColors';
 import { useI18n } from '@/lib/i18n';
-import { useMessagesCopy } from '@/lib/messagesCopy';
+import { fill, useMessagesCopy } from '@/lib/messagesCopy';
 import { POLL_MS, invalidateInbox, invalidateThread, shortTime, useActive } from '@/lib/messaging';
 import { postError } from '@/lib/posts';
 
 type Pending = { nonce: string; text: string; status: 'sending' | 'failed' | 'sent'; error?: string; message?: MessagingMessage };
 type Item = { kind: 'msg'; m: MessagingMessage } | { kind: 'pending'; p: Pending };
 const MAX = 2000;
+const is403 = (e: unknown) => typeof e === 'object' && e !== null && (e as { status?: unknown }).status === 403;
 
 export default function Conversation() {
   const { isSignedIn } = useAuth();
@@ -64,6 +65,12 @@ function Thread({ id }: { id: string }) {
     return [...map.values()].sort((a, b) => b.sequence - a.sequence);
   }, [older, first.data]);
   const known = useMemo(() => new Set(messages.map((m) => m.clientNonce)), [messages]);
+  const perm = conv?.messagingPermission;
+  // Reservations: local sends the server list doesn't yet reflect (in flight, or accepted but not refetched).
+  const reserved = pending.filter((p) => !known.has(p.nonce) && (p.status === 'sending' || p.status === 'sent')).length;
+  const limited = perm ? perm.remainingInitialMessages !== null : false;
+  const left = perm && perm.remainingInitialMessages !== null ? Math.max(0, perm.remainingInitialMessages - reserved) : null;
+  const locked = !!perm && (!perm.canSend || (left !== null && left <= 0));
 
   // Drop local copies once the server list contains them (deduped by clientNonce).
   useEffect(() => { setPending((p) => (p.some((x) => known.has(x.nonce)) ? p.filter((x) => !known.has(x.nonce)) : p)); }, [known]);
@@ -83,14 +90,18 @@ function Thread({ id }: { id: string }) {
         setPending((p) => p.map((x) => (x.nonce === nonce ? { ...x, status: 'sent', message: m } : x)));
         void invalidateThread(qc, id); void invalidateInbox(qc);
       },
-      onError: (e) => setPending((p) => p.map((x) => (x.nonce === nonce ? { ...x, status: 'failed', error: postError(e) } : x))),
+      onError: (e) => {
+        setPending((p) => p.map((x) => (x.nonce === nonce ? { ...x, status: 'failed', error: is403(e) ? t.blocked : postError(e) } : x)));
+        // Quota race: server is authoritative — refresh permission so the composer locks/unlocks truthfully.
+        if (is403(e)) { void invalidateThread(qc, id); void invalidateInbox(qc); }
+      },
       onSettled: () => { inFlight.current.delete(nonce); },
     });
-  }, [id, qc]);
+  }, [id, qc, t.blocked]);
 
   const submit = () => {
     const body = text.trim();
-    if (!body) return;
+    if (!body || locked || !perm) return; // keep the draft; nothing is reserved
     const nonce = Crypto.randomUUID();
     setPending((p) => [...p, { nonce, text: body, status: 'sending' }]);
     setText('');
@@ -133,6 +144,7 @@ function Thread({ id }: { id: string }) {
     });
   }, [active, visibleTop, unread, id, qc]);
 
+  const canSubmit = !!text.trim() && !!perm && !locked;
   const back = () => (router.canGoBack() ? router.back() : router.replace('/messages' as never));
   const title = conv?.peer.displayName ?? '';
   const sub = conv?.peer.username ? `@${conv.peer.username}` : t.privateNote;
@@ -174,8 +186,12 @@ function Thread({ id }: { id: string }) {
         <View style={{ flex: 1 }}>
           {conv ? <Text numberOfLines={1} style={{ color: c.text, fontFamily: font('semibold'), fontSize: 16, textAlign: align }}>{title}</Text>
             : <View style={{ height: 12, width: 120, borderRadius: 6, backgroundColor: c.card, marginBottom: 6 }} />}
-          <Text numberOfLines={1} style={{ color: c.muted, fontFamily: font('regular'), fontSize: 12, textAlign: align }}>{conv ? sub : ''}</Text>
+          <View style={{ flexDirection: row, alignItems: 'center', gap: 6 }}>
+            <Text numberOfLines={1} style={{ color: c.muted, fontFamily: font('regular'), fontSize: 12, textAlign: align, flexShrink: 1 }}>{conv ? sub : ''}</Text>
+            <RelationChip rel={conv?.relationship} testID="thread-relation" />
+          </View>
         </View>
+        {conv ? <FollowButton peerId={conv.peer.id} name={conv.peer.displayName} rel={conv.relationship} testID="thread-follow" /> : null}
       </View>
 
       <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
@@ -213,13 +229,33 @@ function Thread({ id }: { id: string }) {
               </View>
             } />
         )}
+        {conv && perm ? (
+          perm.isMutual ? null : locked ? (
+            <View testID="quota-locked" accessible accessibilityLiveRegion="polite" accessibilityLabel={`${t.locked}. ${fill(t.lockedBody, title)}`}
+              style={[s.quota, { flexDirection: row, backgroundColor: c.cardSoft, borderTopColor: c.border }]}>
+              <View style={[s.quotaIcon, { backgroundColor: c.card }]}><Feather name="lock" size={14} color={c.secondary} /></View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: c.text, fontFamily: font('semibold'), fontSize: 13, textAlign: align }}>{t.locked}</Text>
+                <Text style={{ color: c.secondary, fontFamily: font('regular'), fontSize: 12, lineHeight: 17, textAlign: align }}>{fill(t.lockedBody, title)}</Text>
+              </View>
+            </View>
+          ) : limited && left !== null ? (
+            <View testID="quota-remaining" accessible accessibilityLiveRegion="polite" accessibilityLabel={left >= 2 ? t.starters2 : t.starters1}
+              style={[s.quota, { flexDirection: row, backgroundColor: c.accentWash, borderTopColor: c.border, paddingVertical: 8 }]}>
+              <View style={{ flexDirection: row, gap: 4 }}>
+                {[0, 1].map((i) => <View key={i} style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: i < left ? c.accent : 'transparent', borderWidth: 1, borderColor: c.accent }} />)}
+              </View>
+              <Text style={{ flex: 1, color: c.text, fontFamily: font('medium'), fontSize: 12.5, textAlign: align }}>{left >= 2 ? t.starters2 : t.starters1}</Text>
+            </View>
+          ) : null
+        ) : null}
         <View style={[s.composer, { flexDirection: row, paddingBottom: Math.max(ins.bottom, 10), borderTopColor: c.border, backgroundColor: c.bgBottom }]}>
           <TextInput testID="composer" value={text} onChangeText={setText} placeholder={t.composer} placeholderTextColor={c.muted} multiline maxLength={MAX}
             accessibilityLabel={t.composer} editable={!first.isPending && !(first.isError && !first.data)}
             style={[s.input, { color: c.text, backgroundColor: c.cardSoft, borderColor: c.border, fontFamily: font('regular'), textAlign: align }]} />
-          <Pressable testID="send" onPress={submit} disabled={!text.trim()} accessibilityRole="button" accessibilityLabel={t.send}
-            style={[s.send, { backgroundColor: text.trim() ? c.accent : c.card }]}>
-            <Feather name="arrow-up" size={20} color={text.trim() ? c.onAccent : c.muted} style={align === 'right' ? { transform: [{ scaleX: -1 }] } : undefined} />
+          <Pressable testID="send" onPress={submit} disabled={!canSubmit} accessibilityRole="button" accessibilityLabel={locked ? `${t.send}, ${t.locked}` : t.send}
+            accessibilityState={{ disabled: !canSubmit }} style={[s.send, { backgroundColor: canSubmit ? c.accent : c.card }]}>
+            <Feather name={locked ? 'lock' : 'arrow-up'} size={locked ? 17 : 20} color={canSubmit ? c.onAccent : c.muted} style={align === 'right' ? { transform: [{ scaleX: -1 }] } : undefined} />
           </Pressable>
         </View>
       </KeyboardAvoidingView>
@@ -236,5 +272,7 @@ const s = StyleSheet.create({
   pill: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 18, minHeight: 40, justifyContent: 'center', alignItems: 'center' },
   composer: { alignItems: 'flex-end', gap: 10, paddingHorizontal: 12, paddingTop: 10, borderTopWidth: StyleSheet.hairlineWidth },
   input: { flex: 1, minHeight: 44, maxHeight: 140, borderWidth: 1, borderRadius: 22, paddingHorizontal: 16, paddingTop: 11, paddingBottom: 11, fontSize: 15 },
+  quota: { alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 10, borderTopWidth: StyleSheet.hairlineWidth },
+  quotaIcon: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   send: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
 });

@@ -30,6 +30,7 @@ import type {
   LiveUnavailableResponse,
   MessagingConversation,
   MessagingConversationInput,
+  MessagingFailure,
   MessagingFailureResponse,
   MessagingInbox,
   MessagingMessage,
@@ -37,6 +38,8 @@ import type {
   MessagingProfile,
   MessagingReadInput,
   MessagingReadState,
+  MessagingRelationship,
+  MessagingRelationshipInput,
   MessagingThread,
   NotFoundResponse,
   Post,
@@ -226,6 +229,166 @@ export function useSearchMessagingPeople<TData = Awaited<ReturnType<typeof searc
 
 
 
+
+export const getGetMessagingRelationshipUrl = (id: string,) => {
+
+
+
+
+  return `/api/messaging/people/${id}/relationship`
+}
+
+/**
+ * Authenticated persisted follow relationship. Verifies the target exists in Clerk and syncs public profiles. Self targets receive 400, missing members 404.
+ */
+export const getMessagingRelationship = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<MessagingRelationship> => {
+
+  return customFetch<MessagingRelationship>(getGetMessagingRelationshipUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetMessagingRelationshipQueryKey = (id: string,) => {
+    return [
+    `/api/messaging/people/${id}/relationship`
+    ] as const;
+    }
+
+
+export const getGetMessagingRelationshipQueryOptions = <TData = Awaited<ReturnType<typeof getMessagingRelationship>>, TError = ErrorType<MessagingFailureResponse>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMessagingRelationship>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetMessagingRelationshipQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getMessagingRelationship>>> = ({ signal }) => getMessagingRelationship(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getMessagingRelationship>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetMessagingRelationshipQueryResult = NonNullable<Awaited<ReturnType<typeof getMessagingRelationship>>>
+export type GetMessagingRelationshipQueryError = ErrorType<MessagingFailureResponse>
+
+
+
+export function useGetMessagingRelationship<TData = Awaited<ReturnType<typeof getMessagingRelationship>>, TError = ErrorType<MessagingFailureResponse>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMessagingRelationship>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetMessagingRelationshipQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSetMessagingRelationshipUrl = (id: string,) => {
+
+
+
+
+  return `/api/messaging/people/${id}/relationship`
+}
+
+/**
+ * Idempotently follow or unfollow a verified Clerk member as the authenticated caller. Client demo follows are not authoritative.
+ */
+export const setMessagingRelationship = async (id: string,
+    messagingRelationshipInput: MessagingRelationshipInput, options?: Parameters<typeof customFetch>[1]): Promise<MessagingRelationship> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<MessagingRelationship>(getSetMessagingRelationshipUrl(id),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(messagingRelationshipInput)
+  }
+);}
+
+
+
+
+
+export const getSetMessagingRelationshipMutationKey = () => ['setMessagingRelationship'] as const;
+
+export const getSetMessagingRelationshipMutationOptions = <TError = ErrorType<MessagingFailureResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setMessagingRelationship>>, TError,SetMessagingRelationshipMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof setMessagingRelationship>>, TError,SetMessagingRelationshipMutationVariables, TContext> => {
+
+const mutationKey = getSetMessagingRelationshipMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof setMessagingRelationship>>, SetMessagingRelationshipMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  setMessagingRelationship(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SetMessagingRelationshipMutationResult = NonNullable<Awaited<ReturnType<typeof setMessagingRelationship>>>
+    export type SetMessagingRelationshipMutationBody = BodyType<MessagingRelationshipInput>
+    export type SetMessagingRelationshipMutationError = ErrorType<MessagingFailureResponse>
+    export type SetMessagingRelationshipMutationVariables = {id: string;data: BodyType<MessagingRelationshipInput>}
+
+    export const useSetMessagingRelationship = <TError = ErrorType<MessagingFailureResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setMessagingRelationship>>, TError,SetMessagingRelationshipMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof setMessagingRelationship>>,
+        TError,
+        SetMessagingRelationshipMutationVariables,
+        TContext
+      > => {
+      return useMutation(getSetMessagingRelationshipMutationOptions(options));
+    }
 
 export const getListMessagingConversationsUrl = (params?: ListMessagingConversationsParams,) => {
   const normalizedParams = new URLSearchParams();
@@ -478,6 +641,9 @@ export const getSendMessagingMessageUrl = (id: string,) => {
   return `/api/messaging/conversations/${id}/messages`
 }
 
+/**
+ * Transactionally allows mutual followers unrestricted messages; otherwise each sender can send two initial messages until the peer replies. Once both have sent a message the conversation is permanently unrestricted even after unfollowing. Existing messages count. An identical nonce retry returns the existing message before policy checks.
+ */
 export const sendMessagingMessage = async (id: string,
     messagingMessageInput: MessagingMessageInput, options?: Parameters<typeof customFetch>[1]): Promise<MessagingMessage> => {
 
@@ -510,7 +676,7 @@ return customFetch<MessagingMessage>(getSendMessagingMessageUrl(id),
 
 export const getSendMessagingMessageMutationKey = () => ['sendMessagingMessage'] as const;
 
-export const getSendMessagingMessageMutationOptions = <TError = ErrorType<MessagingFailureResponse>,
+export const getSendMessagingMessageMutationOptions = <TError = ErrorType<MessagingFailure | MessagingFailureResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendMessagingMessage>>, TError,SendMessagingMessageMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof sendMessagingMessage>>, TError,SendMessagingMessageMutationVariables, TContext> => {
 
@@ -539,10 +705,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type SendMessagingMessageMutationResult = NonNullable<Awaited<ReturnType<typeof sendMessagingMessage>>>
     export type SendMessagingMessageMutationBody = BodyType<MessagingMessageInput>
-    export type SendMessagingMessageMutationError = ErrorType<MessagingFailureResponse>
+    export type SendMessagingMessageMutationError = ErrorType<MessagingFailure | MessagingFailureResponse>
     export type SendMessagingMessageMutationVariables = {id: string;data: BodyType<MessagingMessageInput>}
 
-    export const useSendMessagingMessage = <TError = ErrorType<MessagingFailureResponse>,
+    export const useSendMessagingMessage = <TError = ErrorType<MessagingFailure | MessagingFailureResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendMessagingMessage>>, TError,SendMessagingMessageMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof sendMessagingMessage>>,

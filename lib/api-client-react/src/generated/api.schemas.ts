@@ -26,6 +26,30 @@ export interface MessagingConversationInput {
   peerId: string;
 }
 
+export interface MessagingRelationshipInput {
+  following: boolean;
+}
+
+export interface MessagingRelationship {
+  following: boolean;
+  followsYou: boolean;
+  mutual: boolean;
+}
+
+export interface MessagingPermission {
+  canSend: boolean;
+  /**
+     * Null when unrestricted; otherwise 2 minus this sender's existing messages, floored at zero.
+     * @minimum 0
+     * @maximum 2
+     * @nullable
+     */
+  remainingInitialMessages: number | null;
+  /** True only when the initial quota is exhausted and sending is blocked pending a peer reply or mutual follows. */
+  awaitingReply: boolean;
+  isMutual: boolean;
+}
+
 export interface MessagingMessageInput {
   /**
      * @minLength 1
@@ -55,6 +79,8 @@ export interface MessagingConversation {
   lastMessage: MessagingMessage | null;
   unreadCount: number;
   updatedAt: string;
+  relationship: MessagingRelationship;
+  messagingPermission: MessagingPermission;
 }
 
 export interface MessagingInbox {

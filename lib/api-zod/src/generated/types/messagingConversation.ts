@@ -6,7 +6,9 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { MessagingMessage } from './messagingMessage';
+import type { MessagingPermission } from './messagingPermission';
 import type { MessagingProfile } from './messagingProfile';
+import type { MessagingRelationship } from './messagingRelationship';
 
 export interface MessagingConversation {
   id: string;
@@ -14,4 +16,6 @@ export interface MessagingConversation {
   lastMessage: MessagingMessage | null;
   unreadCount: number;
   updatedAt: string;
+  relationship: MessagingRelationship;
+  messagingPermission: MessagingPermission;
 }

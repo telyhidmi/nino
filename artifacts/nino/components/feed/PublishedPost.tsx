@@ -5,7 +5,8 @@ import { useVideoPlayer, VideoView } from 'expo-video';
 import { Feather } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import { Pressable, Share, StyleSheet, Text, View } from 'react-native';
-import type { Post } from '@workspace/api-client-react';
+import { getGetMessagingRelationshipQueryKey, useGetMessagingRelationship, type Post } from '@workspace/api-client-react';
+import { FollowButton, RelationChip } from '@/components/MessagingParts';
 import { useColors } from '@/hooks/useColors';
 import { mediaUrl, postError } from '@/lib/posts';
 import { usePostCopy } from '@/lib/postTranslations';
@@ -35,7 +36,9 @@ function PublishedVideo({ uri }: { uri: string }) {
   </>;
 }
 
-export function PublishedPost({ post, height, active, onAuthor }: { post: Post; height: number; active: boolean; onAuthor?: () => void }) {
+export function PublishedPost({ post, height, active, onAuthor, followable }: { post: Post; height: number; active: boolean; onAuthor?: () => void; followable?: boolean }) {
+  // Real follow state for real authors only (never for the viewer's own posts or demo/sample content).
+  const rel = useGetMessagingRelationship(post.ownerId, { query: { queryKey: getGetMessagingRelationshipQueryKey(post.ownerId), enabled: !!followable, staleTime: 15_000, retry: false } });
   const c = useColors();
   const copy = usePostCopy();
   const [attempt, setAttempt] = useState(0);
@@ -58,6 +61,12 @@ export function PublishedPost({ post, height, active, onAuthor }: { post: Post; 
         {post.authorAvatar ? <Image source={{ uri: post.authorAvatar }} style={s.avatar} contentFit="cover" /> : <Feather name="user" size={24} color={c.text} />}
         <Text style={[s.author, { color: c.text }]}>{post.authorName}</Text>
       </Pressable>
+      {followable && !rel.isError ? (
+        <View style={s.followRow}>
+          <FollowButton peerId={post.ownerId} name={post.authorName} rel={rel.data} testID={`post-follow-${post.id}`} onDark />
+          <RelationChip rel={rel.data} testID={`post-relation-${post.id}`} />
+        </View>
+      ) : null}
       <Text style={[s.text, { color: c.text }]}>{post.caption}</Text>
       <Text style={[s.date, { color: c.secondary }]}>{new Date(post.createdAt).toLocaleDateString()}</Text>
     </View>
@@ -71,6 +80,7 @@ const s = StyleSheet.create({
   button: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
   caption: { position: 'absolute', bottom: 48, left: 16, right: 78, gap: 8 },
   authorRow: { flexDirection: 'row', gap: 10, alignItems: 'center', minHeight: 44 },
+  followRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   avatar: { width: 32, height: 32, borderRadius: 16 },
   author: { fontSize: 17, fontWeight: '700', flexShrink: 1 },
   text: { fontSize: 15, lineHeight: 22 },
