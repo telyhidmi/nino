@@ -77,6 +77,14 @@ function RootNav() {
   );
 }
 
+function SignedInLocationGate({ children }: { children: React.ReactNode }) {
+  const { isSignedIn, userId } = useAuth();
+  // Do not even mount permission checks during registration, verification,
+  // password recovery or OAuth. A completed sign-up also creates a session.
+  if (!isSignedIn) return <>{children}</>;
+  return <RequiredLocationGate key={userId}>{children}</RequiredLocationGate>;
+}
+
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
     Poppins_400Regular, Poppins_500Medium, Poppins_600SemiBold, Poppins_700Bold, Cairo_400Regular, Cairo_600SemiBold, Cairo_700Bold,
@@ -98,16 +106,14 @@ export default function RootLayout() {
               <I18nProvider>
                 {publishableKey ? (
                   <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache} proxyUrl={proxyUrl}>
-                    <RequiredLocationGate>
-                      <ClerkLoaded>
+                    <ClerkLoaded>
+                      <SignedInLocationGate>
                         <RootNav />
-                      </ClerkLoaded>
-                    </RequiredLocationGate>
+                      </SignedInLocationGate>
+                    </ClerkLoaded>
                   </ClerkProvider>
                 ) : (
-                  <RequiredLocationGate>
-                    <MissingAuthConfig />
-                  </RequiredLocationGate>
+                  <MissingAuthConfig />
                 )}
               </I18nProvider>
             </KeyboardProvider>

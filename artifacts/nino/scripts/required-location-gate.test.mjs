@@ -108,7 +108,7 @@ function browserHarness({ permissionState = 'prompt', queryUnsupported = false, 
   };
 }
 
-test('only explicitly granted permits visible/interactive access, including demo and deep-linked routes', () => {
+test('only explicitly granted permits signed-in access; public authentication stays outside the gate', () => {
   for (const status of ['checking', 'requesting', 'prompt', 'denied', 'unsupported', 'error', 'servicesDisabled']) {
     assert.equal(locationGateAllowsAccess(value(status)), false, status);
   }
@@ -121,8 +121,10 @@ test('only explicitly granted permits visible/interactive access, including demo
     assert.equal(locationGateKeepsRoutesMounted({ ...value(status), retainRoutes: true }), false, status);
   }
   const layout = readFileSync(new URL('../app/_layout.tsx', import.meta.url), 'utf8');
-  assert.match(layout, /<RequiredLocationGate>\s*<ClerkLoaded>\s*<RootNav/);
-  assert.match(layout, /<RequiredLocationGate>\s*<MissingAuthConfig/);
+  assert.match(layout, /<ClerkLoaded>\s*<SignedInLocationGate>\s*<RootNav/);
+  assert.match(layout, /if \(!isSignedIn\) return <>\{children\}<\/>;/);
+  assert.match(layout, /<RequiredLocationGate key=\{userId\}>\{children\}<\/RequiredLocationGate>/);
+  assert.doesNotMatch(layout, /<RequiredLocationGate>\s*<MissingAuthConfig/);
   assert.doesNotMatch(layout, /signOut|closeActiveLiveSession/);
 });
 
