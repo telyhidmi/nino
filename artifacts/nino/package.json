@@ -12,7 +12,7 @@
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
-    "@clerk/expo": "^4.7.1",
+    "@clerk/expo": "^4.8.0",
     "@expo-google-fonts/cairo": "^0.4.2",
     "@expo-google-fonts/inter": "^0.4.0",
     "@expo-google-fonts/poppins": "^0.4.1",
@@ -31,8 +31,8 @@
     "expo-blur": "~57.0.2",
     "expo-constants": "~57.0.6",
     "expo-crypto": "~57.0.3",
-    "expo-font": "~57.0.1",
     "expo-file-system": "~57.0.7",
+    "expo-font": "~57.0.1",
     "expo-glass-effect": "~57.0.1",
     "expo-haptics": "~57.0.1",
     "expo-image": "~57.0.1",
@@ -64,11 +64,11 @@
     "zod-validation-error": "^3.4.0"
   },
   "dependencies": {
-    "@livekit/react-native": "^3.0.0",
-    "@livekit/react-native-webrtc": "^144.2.0",
-    "@livekit/react-native-expo-plugin": "^1.0.3",
     "@config-plugins/react-native-webrtc": "^15.0.2",
-    "livekit-client": "^2.19.0",
-    "expo-camera": "~57.0.6"
+    "@livekit/react-native": "^3.0.0",
+    "@livekit/react-native-expo-plugin": "^1.0.3",
+    "@livekit/react-native-webrtc": "^144.2.0",
+    "expo-camera": "~57.0.6",
+    "livekit-client": "^2.19.0"
   }
 }

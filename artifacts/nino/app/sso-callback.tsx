@@ -1,6 +1,6 @@
 import * as WebBrowser from 'expo-web-browser';
-import { useSignIn, useSignUp } from '@clerk/expo';
-import React, { useState } from 'react';
+import { useClerk, useSignIn, useSignUp } from '@clerk/expo';
+import React, { useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import { AuthHeader, TextLink } from '@/components/AuthBits';
 import { Shell } from '@/components/Shell';
@@ -21,13 +21,27 @@ function completeBrowserSession() {
     return false;
   }
 }
-const browserCompleted = completeBrowserSession();
+const browserCompleted = Platform.OS === 'web' && completeBrowserSession();
 
 export default function SSOCallback() {
   const { t } = useI18n();
+  const clerk = useClerk();
   const { signIn } = useSignIn();
   const { signUp } = useSignUp();
   const [error, setError] = useState<string | null>(null);
+  const started = useRef(false);
+  useEffect(() => {
+    if (Platform.OS !== 'web' || browserCompleted || started.current) return;
+    started.current = true;
+    // Clerk validates and completes the redirect in this tab. No opener, Expo
+    // popup storage or cross-window messaging is needed for browser sign-in.
+    void clerk.handleRedirectCallback({
+      signInUrl: '/sign-in',
+      signUpUrl: '/sign-up',
+      signInFallbackRedirectUrl: '/',
+      signUpFallbackRedirectUrl: '/',
+    }).catch((err: unknown) => setError(clerkErrorMessage(err, t('socialError'))));
+  }, [clerk, t]);
   const requirements = [...signUp.missingFields, ...signUp.unverifiedFields];
   const nativeMessage = signUp.status === 'missing_requirements'
     ? `${t('socialRequirements')}${requirements.length ? ` (${requirements.join(', ')})` : ''}`
@@ -53,7 +67,7 @@ export default function SSOCallback() {
       <Title title={t('socialReturning')} body={t('socialReturnBody')} />
       <Banner
         text={Platform.OS === 'web'
-          ? (!browserCompleted ? t('socialCallbackError') : null)
+          ? null
           : nativeMessage}
       />
       <Banner text={error} />

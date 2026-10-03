@@ -4,7 +4,7 @@ import { FontAwesome } from '@expo/vector-icons';
 import * as AuthSession from 'expo-auth-session';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { router } from 'expo-router';
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { TextLink } from '@/components/AuthBits';
 import { Banner } from '@/components/ui';
@@ -45,6 +45,14 @@ export function SocialAuth({
 
   const start = async (provider: Provider) => {
     if (disabled || lock.current) return;
+    if (Platform.OS === 'web' && window.self !== window.top) {
+      // Providers refuse embedded browsers. Start a self-contained redirect flow
+      // in a top-level tab, not an AuthSession popup tied to this iframe.
+      const url = new URL('/sign-in', window.location.origin);
+      url.searchParams.set('sso_provider', provider);
+      window.open(url.toString(), '_blank', 'noopener,noreferrer');
+      return;
+    }
     lock.current = true;
     setPending(provider);
     setError(null);
@@ -53,6 +61,15 @@ export function SocialAuth({
     onBusyChange(true);
     onFlowChange(true);
     try {
+      if (Platform.OS === 'web') {
+        const result = await signIn.sso({
+          strategy: provider === 'google' ? 'oauth_google' : 'oauth_apple',
+          redirectUrl: new URL('/', window.location.origin).toString(),
+          redirectCallbackUrl: socialRedirectUri(),
+        });
+        if (result.error) throw result.error;
+        return;
+      }
       // Core 3's experimental hook finalizes/activates sessions itself.
       // Clerk owns verified-account matching and transfers; never merge by email ourselves.
       const result = await startSSOFlow({
@@ -96,6 +113,16 @@ export function SocialAuth({
       onBusyChange(false);
     }
   };
+
+  useEffect(() => {
+    if (Platform.OS !== 'web' || window.self !== window.top || disabled) return;
+    const url = new URL(window.location.href);
+    const provider = url.searchParams.get('sso_provider');
+    if (provider !== 'google' && provider !== 'apple') return;
+    url.searchParams.delete('sso_provider');
+    window.history.replaceState(window.history.state, '', url.toString());
+    void start(provider);
+  }, [disabled]);
 
   const reset = async () => {
     try {

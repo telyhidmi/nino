@@ -5,3 +5,4 @@
 - [Discover country attribution](discover-country-attribution.md) — country means recording location, never profile country or upload location.
 - [Native Live scope](native-live-scope.md) — the user explicitly chose installed-app broadcasting over browser-first live.
 - [Message requests](message-requests.md) — mutual followers message freely; others get two unanswered introductory messages.
+- [Browser social sign-in](browser-social-sign-in.md) — keep browser OAuth independent of Expo popup/opener state in embedded previews.
