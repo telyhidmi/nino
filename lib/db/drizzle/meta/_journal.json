@@ -8,6 +8,20 @@
       "when": 1790803614064,
       "tag": "0000_simple_maggott",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791052854048,
+      "tag": "0001_free_maria_hill",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791053074320,
+      "tag": "0002_burly_thunderbolt",
+      "breakpoints": true
     }
   ]
 }

@@ -19,6 +19,7 @@ import colors from '@/constants/colors';
 import { I18nProvider } from '@/lib/i18n';
 import { setAuthTokenGetter, setBaseUrl } from '@workspace/api-client-react';
 import { apiOrigin } from '@/lib/posts';
+import { clearMessaging } from '@/lib/messaging';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -54,7 +55,10 @@ function RootNav() {
   useEffect(() => {
     // Do not allow account-specific post data to survive sign-out/account switches.
     const oldUser = previousUser.current;
-    if (oldUser && oldUser !== userId) queryClient.removeQueries({ queryKey: ['/api/posts/mine', oldUser] });
+    if (oldUser && oldUser !== userId) {
+      queryClient.removeQueries({ queryKey: ['/api/posts/mine', oldUser] });
+      clearMessaging(queryClient); // private messages are account-scoped
+    }
     previousUser.current = userId;
   }, [userId]);
   return (
@@ -67,6 +71,8 @@ function RootNav() {
       <Stack.Screen name="feed-preview" />
       <Stack.Screen name="profile" />
       <Stack.Screen name="live" />
+      <Stack.Screen name="messages" options={{ animation: 'slide_from_right' }} />
+      <Stack.Screen name="conversation" options={{ animation: 'slide_from_right' }} />
     </Stack>
   );
 }

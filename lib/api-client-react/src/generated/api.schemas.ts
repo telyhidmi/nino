@@ -5,6 +5,76 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export interface MessagingFailure {
+  error: string;
+}
+
+export interface MessagingProfile {
+  id: string;
+  displayName: string;
+  /** @nullable */
+  username: string | null;
+  /** @nullable */
+  avatarUrl: string | null;
+}
+
+export interface MessagingConversationInput {
+  /**
+     * @minLength 1
+     * @maxLength 200
+     */
+  peerId: string;
+}
+
+export interface MessagingMessageInput {
+  /**
+     * @minLength 1
+     * @maxLength 2000
+     */
+  text: string;
+  clientNonce: string;
+}
+
+export interface MessagingReadInput {
+  messageId: string;
+}
+
+export interface MessagingMessage {
+  id: string;
+  conversationId: string;
+  senderId: string;
+  text: string;
+  clientNonce: string;
+  sequence: number;
+  createdAt: string;
+}
+
+export interface MessagingConversation {
+  id: string;
+  peer: MessagingProfile;
+  lastMessage: MessagingMessage | null;
+  unreadCount: number;
+  updatedAt: string;
+}
+
+export interface MessagingInbox {
+  conversations: MessagingConversation[];
+  /** @nullable */
+  nextCursor: string | null;
+}
+
+export interface MessagingThread {
+  conversation: MessagingConversation;
+  messages: MessagingMessage[];
+  /** @nullable */
+  nextCursor: string | null;
+}
+
+export interface MessagingReadState {
+  readSequence: number;
+  unreadCount: number;
+}
+
 export interface LiveStreamInput {
   /**
      * @minLength 1
@@ -378,6 +448,11 @@ export interface HealthStatus {
 }
 
 /**
+ * 400 invalid input/self-message/cursor; 401 no verified Clerk session; 404 missing resource or non-member; 409 sender nonce reused with different payload; 429 rate limit (Retry-After 60); 503 sanitized temporary service failure.
+ */
+export type MessagingFailureResponse = MessagingFailure;
+
+/**
  * Live broadcasting unavailable; sanitized error message
  */
 export type LiveUnavailableResponse = void;
@@ -396,4 +471,26 @@ export type BadRequestResponse = void;
  * Not found or not owned by current user
  */
 export type NotFoundResponse = void;
+
+export type SearchMessagingPeopleParams = {
+/**
+ * @minLength 2
+ * @maxLength 80
+ */
+q: string;
+};
+
+export type ListMessagingConversationsParams = {
+/**
+ * @maxLength 300
+ */
+cursor?: string;
+};
+
+export type ListMessagingMessagesParams = {
+/**
+ * @maxLength 300
+ */
+cursor?: string;
+};
 

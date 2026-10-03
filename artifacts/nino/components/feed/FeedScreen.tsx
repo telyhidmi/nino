@@ -17,9 +17,13 @@ import { useColors } from '@/hooks/useColors';
 import { compact, SampleComment, SAMPLE_POSTS, SamplePost } from './data';
 import { FeedVideo } from './FeedVideo';
 import { CreatePost } from './CreatePost';
-import { CommentsSheet, PreviewTag, Sheet, SoonSheet, TranslateSheet } from './Sheets';
+import { CommentsSheet, PreviewTag, Sheet, TranslateSheet } from './Sheets';
 import { getListMyPostsQueryKey, getListPostsQueryKey, useListPosts, type Post } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
+import { router } from 'expo-router';
+import { getListMessagingConversationsQueryKey, useListMessagingConversations } from '@workspace/api-client-react';
+import { useMessagesCopy } from '@/lib/messagesCopy';
+import { POLL_MS, useActive } from '@/lib/messaging';
 import { usePostCopy } from '@/lib/postTranslations';
 import { postError } from '@/lib/posts';
 import { PublishedPost } from './PublishedPost';
@@ -29,7 +33,7 @@ type FeedPost = SamplePost | Post;
 const isPublished = (post: FeedPost): post is Post => 'mediaUrl' in post;
 
 type Tab = 'foryou' | 'following' | 'live';
-type Open = null | 'comments' | 'translate' | 'search' | 'create' | 'messages' | 'more';
+type Open = null | 'comments' | 'translate' | 'search' | 'create' | 'more';
 
 export type FeedViewer = { id?: string; name?: string; imageUrl?: string | null } | null;
 
@@ -325,7 +329,7 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
         <Pressable testID="nav-create" onPress={() => setOpen('create')} accessibilityRole="button" accessibilityLabel="Create post" style={st.navItem}>
           <View style={[st.create, { borderColor: c.accent, backgroundColor: c.accent }]}><Feather name="plus" size={26} color={c.onAccent} /></View>
         </Pressable>
-        <NavItem testID="nav-messages" icon="message-square" label="Messages" onPress={() => setOpen('messages')} />
+        <MessagesNav preview={!!preview} />
         <Pressable testID="nav-profile" onPress={hasProfile ? () => changeSection('profile') : onProfile} accessibilityRole="button" accessibilityLabel="Profile" style={st.navItem}>
           <View style={[st.navAv, { borderColor: section === 'profile' ? c.text : c.border }]}>
             {viewer?.imageUrl ? <Image source={{ uri: viewer.imageUrl }} style={{ width: 26, height: 26, borderRadius: 13 }} /> : <Initials name={viewer?.name} size={26} />}
@@ -340,7 +344,6 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
         await cachePublishedPost(queryClient, item, getListPostsQueryKey(), getListMyPostsQueryKey());
         openOwnerPosts();
       }} />
-      <SoonSheet visible={open === 'messages'} onClose={() => setOpen(null)} icon="message-circle" title="Messages" body="Chat across languages with auto-translated messages is coming soon. There are no messages yet." />
       <Sheet visible={open === 'more'} onClose={() => setOpen(null)} title="About this post" testID="post-info-sheet">
         <PreviewTag text="Curated sample content" />
         {current.videoCredit && current.videoSourceUrl ? (
@@ -386,6 +389,28 @@ function NavItem({ icon, label, active, onPress, testID }: { icon: keyof typeof 
     <Pressable testID={testID} onPress={onPress} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ selected: !!active }} style={st.navItem}>
       <Feather name={icon} size={22} color={active ? c.text : c.secondary} />
       <Text style={[st.navLabel, { color: active ? c.text : c.secondary }]}>{label}</Text>
+    </Pressable>
+  );
+}
+
+function MessagesNav({ preview }: { preview: boolean }) {
+  const c = useColors();
+  const t = useMessagesCopy();
+  const active = useActive();
+  // Read-only badge poll: every 5s only while the feed is focused and the app is foregrounded. Never marks read.
+  const inbox = useListMessagingConversations(undefined, { query: { queryKey: getListMessagingConversationsQueryKey(), enabled: !preview,
+    refetchInterval: active && !preview ? POLL_MS : false, refetchIntervalInBackground: false } });
+  const unread = (inbox.data?.conversations ?? []).reduce((n, cv) => n + cv.unreadCount, 0);
+  return (
+    <Pressable testID="nav-messages" disabled={preview} onPress={() => router.push('/messages' as never)} accessibilityRole="button"
+      accessibilityLabel={unread ? `${t.title}, ${unread} ${t.unread}` : t.title} accessibilityState={{ disabled: preview }} style={[st.navItem, preview && { opacity: 0.4 }]}>
+      <View>
+        <Feather name="message-square" size={22} color={c.secondary} />
+        {unread > 0 ? <View style={{ position: 'absolute', top: -5, right: -9, minWidth: 17, height: 17, borderRadius: 9, paddingHorizontal: 4, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: c.bgTop }}>
+          <Text style={{ color: c.onAccent, fontFamily: 'Poppins_600SemiBold', fontSize: 9 }}>{unread > 99 ? '99+' : unread}</Text>
+        </View> : null}
+      </View>
+      <Text numberOfLines={1} style={[st.navLabel, { color: c.secondary }]}>{t.title}</Text>
     </Pressable>
   );
 }

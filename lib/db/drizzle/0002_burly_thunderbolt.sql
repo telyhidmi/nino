@@ -1,0 +1,2 @@
+CREATE INDEX "messaging_name_search_idx" ON "messaging_profiles" USING btree (lower("display_name") text_pattern_ops);--> statement-breakpoint
+CREATE INDEX "messaging_username_search_idx" ON "messaging_profiles" USING btree (lower("username") text_pattern_ops);

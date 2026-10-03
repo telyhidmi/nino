@@ -9,6 +9,185 @@ import * as zod from 'zod';
 
 
 /**
+ * Sync the signed-in member's public profile for display-name discovery. Call on authenticated app entry.
+ */
+export const GetMessagingProfileResponse = zod.object({
+  "id": zod.string(),
+  "displayName": zod.string(),
+  "username": zod.string().nullable(),
+  "avatarUrl": zod.string().nullable()
+})
+
+
+export const searchMessagingPeopleQueryQMin = 2;
+export const searchMessagingPeopleQueryQMax = 80;
+
+
+
+export const SearchMessagingPeopleQueryParams = zod.object({
+  "q": zod.coerce.string().min(searchMessagingPeopleQueryQMin).max(searchMessagingPeopleQueryQMax)
+})
+
+export const SearchMessagingPeopleResponseItem = zod.object({
+  "id": zod.string(),
+  "displayName": zod.string(),
+  "username": zod.string().nullable(),
+  "avatarUrl": zod.string().nullable()
+})
+export const SearchMessagingPeopleResponse = zod.array(SearchMessagingPeopleResponseItem)
+
+
+export const listMessagingConversationsQueryCursorMax = 300;
+
+
+
+export const ListMessagingConversationsQueryParams = zod.object({
+  "cursor": zod.coerce.string().max(listMessagingConversationsQueryCursorMax).optional()
+})
+
+export const ListMessagingConversationsResponse = zod.object({
+  "conversations": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "peer": zod.object({
+  "id": zod.string(),
+  "displayName": zod.string(),
+  "username": zod.string().nullable(),
+  "avatarUrl": zod.string().nullable()
+}),
+  "lastMessage": zod.union([zod.object({
+  "id": zod.string().uuid(),
+  "conversationId": zod.string().uuid(),
+  "senderId": zod.string(),
+  "text": zod.string(),
+  "clientNonce": zod.string().uuid(),
+  "sequence": zod.number().int(),
+  "createdAt": zod.string()
+}),zod.null()]),
+  "unreadCount": zod.number().int(),
+  "updatedAt": zod.string()
+})),
+  "nextCursor": zod.string().nullable()
+})
+
+
+export const createMessagingConversationBodyPeerIdMax = 200;
+
+
+
+export const CreateMessagingConversationBody = zod.object({
+  "peerId": zod.string().min(1).max(createMessagingConversationBodyPeerIdMax)
+})
+
+export const CreateMessagingConversationResponse = zod.object({
+  "id": zod.string().uuid(),
+  "peer": zod.object({
+  "id": zod.string(),
+  "displayName": zod.string(),
+  "username": zod.string().nullable(),
+  "avatarUrl": zod.string().nullable()
+}),
+  "lastMessage": zod.union([zod.object({
+  "id": zod.string().uuid(),
+  "conversationId": zod.string().uuid(),
+  "senderId": zod.string(),
+  "text": zod.string(),
+  "clientNonce": zod.string().uuid(),
+  "sequence": zod.number().int(),
+  "createdAt": zod.string()
+}),zod.null()]),
+  "unreadCount": zod.number().int(),
+  "updatedAt": zod.string()
+})
+
+
+export const ListMessagingMessagesParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const listMessagingMessagesQueryCursorMax = 300;
+
+
+
+export const ListMessagingMessagesQueryParams = zod.object({
+  "cursor": zod.coerce.string().max(listMessagingMessagesQueryCursorMax).optional()
+})
+
+export const ListMessagingMessagesResponse = zod.object({
+  "conversation": zod.object({
+  "id": zod.string().uuid(),
+  "peer": zod.object({
+  "id": zod.string(),
+  "displayName": zod.string(),
+  "username": zod.string().nullable(),
+  "avatarUrl": zod.string().nullable()
+}),
+  "lastMessage": zod.union([zod.object({
+  "id": zod.string().uuid(),
+  "conversationId": zod.string().uuid(),
+  "senderId": zod.string(),
+  "text": zod.string(),
+  "clientNonce": zod.string().uuid(),
+  "sequence": zod.number().int(),
+  "createdAt": zod.string()
+}),zod.null()]),
+  "unreadCount": zod.number().int(),
+  "updatedAt": zod.string()
+}),
+  "messages": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "conversationId": zod.string().uuid(),
+  "senderId": zod.string(),
+  "text": zod.string(),
+  "clientNonce": zod.string().uuid(),
+  "sequence": zod.number().int(),
+  "createdAt": zod.string()
+})),
+  "nextCursor": zod.string().nullable()
+})
+
+
+export const SendMessagingMessageParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const sendMessagingMessageBodyTextMax = 2000;
+
+
+
+export const SendMessagingMessageBody = zod.object({
+  "text": zod.string().min(1).max(sendMessagingMessageBodyTextMax),
+  "clientNonce": zod.string().uuid()
+})
+
+export const SendMessagingMessageResponse = zod.object({
+  "id": zod.string().uuid(),
+  "conversationId": zod.string().uuid(),
+  "senderId": zod.string(),
+  "text": zod.string(),
+  "clientNonce": zod.string().uuid(),
+  "sequence": zod.number().int(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * Only call while viewing the thread, with the newest actually displayed message ID. Monotonic watermark never reads concurrent later sends.
+ */
+export const MarkMessagingReadParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const MarkMessagingReadBody = zod.object({
+  "messageId": zod.string().uuid()
+})
+
+export const MarkMessagingReadResponse = zod.object({
+  "readSequence": zod.number().int(),
+  "unreadCount": zod.number().int()
+})
+
+
+/**
  * Only Nino rooms with a connected host publishing an unmuted camera track are discoverable.
  */
 export const listLiveStreamsResponseStreamsItemViewerCountMin = 0;

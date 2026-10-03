@@ -11,6 +11,116 @@ tags:
   - name: health
     description: Health operations
 paths:
+  /messaging/profile:
+    get:
+      operationId: getMessagingProfile
+      security: [{bearerAuth: []}]
+      description: Sync the signed-in member's public profile for display-name discovery. Call on authenticated app entry.
+      responses:
+        "200":
+          description: Your public profile
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/MessagingProfile"}
+        default:
+          $ref: "#/components/responses/MessagingFailure"
+  /messaging/people:
+    get:
+      operationId: searchMessagingPeople
+      security: [{bearerAuth: []}]
+      parameters:
+        - {in: query, name: q, required: true, schema: {type: string, minLength: 2, maxLength: 80}}
+      responses:
+        "200":
+          description: Up to 20 public profiles by case-insensitive display-name or username prefix, excluding yourself. Directory members sync their profile on signed-in app entry. Never searches or returns email.
+          content:
+            application/json:
+              schema: {type: array, items: {$ref: "#/components/schemas/MessagingProfile"}}
+        default:
+          $ref: "#/components/responses/MessagingFailure"
+  /messaging/conversations:
+    get:
+      operationId: listMessagingConversations
+      security: [{bearerAuth: []}]
+      parameters:
+        - {in: query, name: cursor, schema: {type: string, maxLength: 300}}
+      responses:
+        "200":
+          description: Most recently active first, 30 per page. Fetching does not mark read.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/MessagingInbox"}
+        default:
+          $ref: "#/components/responses/MessagingFailure"
+    post:
+      operationId: createMessagingConversation
+      security: [{bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/MessagingConversationInput"}
+      responses:
+        "200":
+          description: Existing or new deduplicated one-to-one conversation
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/MessagingConversation"}
+        default:
+          $ref: "#/components/responses/MessagingFailure"
+  /messaging/conversations/{id}/messages:
+    get:
+      operationId: listMessagingMessages
+      security: [{bearerAuth: []}]
+      parameters:
+        - {in: path, name: id, required: true, schema: {type: string, format: uuid}}
+        - {in: query, name: cursor, schema: {type: string, maxLength: 300}}
+      responses:
+        "200":
+          description: 50 messages newest first, cursor fetches older messages. Does not mark read. Outsiders receive 404.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/MessagingThread"}
+        default:
+          $ref: "#/components/responses/MessagingFailure"
+    post:
+      operationId: sendMessagingMessage
+      security: [{bearerAuth: []}]
+      parameters:
+        - {in: path, name: id, required: true, schema: {type: string, format: uuid}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/MessagingMessageInput"}
+      responses:
+        "200":
+          description: Persisted message. Reuse nonce on retry; different content or conversation with same sender nonce receives 409.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/MessagingMessage"}
+        default:
+          $ref: "#/components/responses/MessagingFailure"
+  /messaging/conversations/{id}/read:
+    post:
+      operationId: markMessagingRead
+      security: [{bearerAuth: []}]
+      parameters:
+        - {in: path, name: id, required: true, schema: {type: string, format: uuid}}
+      description: Only call while viewing the thread, with the newest actually displayed message ID. Monotonic watermark never reads concurrent later sends.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/MessagingReadInput"}
+      responses:
+        "200":
+          description: Updated read state
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/MessagingReadState"}
+        default:
+          $ref: "#/components/responses/MessagingFailure"
   /live:
     get:
       operationId: listLiveStreams
@@ -239,6 +349,11 @@ components:
       scheme: bearer
       bearerFormat: JWT
   responses:
+    MessagingFailure:
+      description: "400 invalid input/self-message/cursor; 401 no verified Clerk session; 404 missing resource or non-member; 409 sender nonce reused with different payload; 429 rate limit (Retry-After 60); 503 sanitized temporary service failure."
+      content:
+        application/json:
+          schema: {$ref: "#/components/schemas/MessagingFailure"}
     LiveUnavailable:
       description: Live broadcasting unavailable; sanitized error message
     Unauthorized:
@@ -248,6 +363,77 @@ components:
     NotFound:
       description: Not found or not owned by current user
   schemas:
+    MessagingFailure:
+      type: object
+      required: [error]
+      properties:
+        error: {type: string}
+    MessagingProfile:
+      type: object
+      required: [id, displayName, username, avatarUrl]
+      properties:
+        id: {type: string}
+        displayName: {type: string}
+        username: {type: ["string", "null"]}
+        avatarUrl: {type: ["string", "null"]}
+    MessagingConversationInput:
+      type: object
+      required: [peerId]
+      properties:
+        peerId: {type: string, minLength: 1, maxLength: 200}
+    MessagingMessageInput:
+      type: object
+      required: [text, clientNonce]
+      properties:
+        text: {type: string, minLength: 1, maxLength: 2000}
+        clientNonce: {type: string, format: uuid}
+    MessagingReadInput:
+      type: object
+      required: [messageId]
+      properties:
+        messageId: {type: string, format: uuid}
+    MessagingMessage:
+      type: object
+      required: [id, conversationId, senderId, text, clientNonce, sequence, createdAt]
+      properties:
+        id: {type: string, format: uuid}
+        conversationId: {type: string, format: uuid}
+        senderId: {type: string}
+        text: {type: string}
+        clientNonce: {type: string, format: uuid}
+        sequence: {type: integer}
+        createdAt: {type: string}
+    MessagingConversation:
+      type: object
+      required: [id, peer, lastMessage, unreadCount, updatedAt]
+      properties:
+        id: {type: string, format: uuid}
+        peer: {$ref: "#/components/schemas/MessagingProfile"}
+        lastMessage:
+          oneOf:
+            - {$ref: "#/components/schemas/MessagingMessage"}
+            - {type: "null"}
+        unreadCount: {type: integer}
+        updatedAt: {type: string}
+    MessagingInbox:
+      type: object
+      required: [conversations, nextCursor]
+      properties:
+        conversations: {type: array, items: {$ref: "#/components/schemas/MessagingConversation"}}
+        nextCursor: {type: ["string", "null"]}
+    MessagingThread:
+      type: object
+      required: [conversation, messages, nextCursor]
+      properties:
+        conversation: {$ref: "#/components/schemas/MessagingConversation"}
+        messages: {type: array, items: {$ref: "#/components/schemas/MessagingMessage"}}
+        nextCursor: {type: ["string", "null"]}
+    MessagingReadState:
+      type: object
+      required: [readSequence, unreadCount]
+      properties:
+        readSequence: {type: integer}
+        unreadCount: {type: integer}
     LiveStreamInput:
       type: object
       additionalProperties: false
