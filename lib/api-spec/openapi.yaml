@@ -313,6 +313,18 @@ paths:
           description: Upload expired or post already deleted
         "422":
           description: Uploaded object size, type, or signature does not match ticket
+  /posts/following:
+    get:
+      operationId: listFollowingPosts
+      tags: [posts]
+      security: [{bearerAuth: []}]
+      responses:
+        "200":
+          description: Posts from accounts the authenticated member follows
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PostList"
   /posts/mine:
     get:
       operationId: listMyPosts

@@ -41,6 +41,7 @@ export function RealProfile({ ctx, onBack, active = true, postsResetToken }: { c
       queryClient.setQueryData<PostList>(getListPostsQueryKey(), (previous) => previous ? { posts: previous.posts.filter((post) => post.id !== item.id) } : previous);
       void queryClient.invalidateQueries({ queryKey: getListMyPostsQueryKey() });
       void queryClient.invalidateQueries({ queryKey: getListPostsQueryKey() });
+      void queryClient.invalidateQueries({ queryKey: ['/api/posts/following'] });
     } catch (e) {
       setDeleteError(`${copy.deleteFailed}: ${postError(e)}`);
       throw e;

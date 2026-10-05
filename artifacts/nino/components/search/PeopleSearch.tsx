@@ -90,7 +90,7 @@ function State({ icon, text, testID }: { icon: keyof typeof Feather.glyphMap; te
   </View>;
 }
 
-function PublicProfileCard({ person, onBack, onOpened }: { person: MessagingProfile; onBack: () => void; onOpened?: () => void }) {
+export function PublicProfileCard({ person, onBack, onOpened }: { person: MessagingProfile; onBack: () => void; onOpened?: () => void }) {
   const c = useColors();
   const t = useMessagesCopy();
   const { font, row, align } = useI18n();

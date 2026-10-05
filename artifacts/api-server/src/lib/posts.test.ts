@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import express from "express";
 import type { AddressInfo } from "node:net";
 import { createServer, request } from "node:http";
-import { postUploads } from "@workspace/db";
+import { db, posts, postUploads, messagingFollows } from "@workspace/db";
+import { eq, inArray } from "drizzle-orm";
 import { PublishPostBody } from "@workspace/api-zod";
 import { createPostsRouter } from "../routes/posts";
 import { byteRange, checkFinalize, hasMediaSignature, PostError, requireOwner, requireSessionBearer, validateObject, validateRecordingLocation, validateTicket } from "./postValidation";
@@ -11,6 +12,14 @@ import { byteRange, checkFinalize, hasMediaSignature, PostError, requireOwner, r
 function rejects(status: number, run: () => unknown) {
   assert.throws(run, (error) => error instanceof PostError && error.status === status);
 }
+test("following feed selects persisted follow targets scoped to the authenticated member", () => {
+  const followed = db.select({id: messagingFollows.followedId}).from(messagingFollows)
+    .where(eq(messagingFollows.followerId, "authenticated-member"));
+  const query = db.select().from(posts).where(inArray(posts.ownerId, followed)).toSQL();
+  assert.deepEqual(query.params, ["authenticated-member"]);
+  assert.match(query.sql, /"owner_id" in \(select "followed_id" from "messaging_follows"/);
+  assert.match(query.sql, /"follower_id" = \$1/);
+});
 test("API auth policy: missing, malformed and unverified bearer rejected", () => {
   rejects(401, () => requireSessionBearer(undefined, "cookie-user"));
   rejects(401, () => requireSessionBearer("Basic token", "user"));
@@ -129,6 +138,7 @@ test(`HTTP ${kind} contract: auth, strict validation, recording metadata, deleti
   }
   try {
     assert.equal((await call("/posts", "GET")).status, 401);
+    assert.equal((await call("/posts/following", "GET")).status, 401);
     assert.equal((await call("/posts", "GET", "forged")).status, 401);
     assert.equal((await call("/posts/uploads", "POST", "owner", {contentType: "image/svg+xml", kind: "photo", size: 8})).status, 400);
     assert.equal((await call("/posts/uploads", "POST", "owner", {contentType: "image/png", kind: "photo", size: 8, ownerId: "other"})).status, 400);

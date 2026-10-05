@@ -1350,6 +1350,77 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       return useMutation(getPublishPostMutationOptions(options));
     }
 
+export const getListFollowingPostsUrl = () => {
+
+
+
+
+  return `/api/posts/following`
+}
+
+export const listFollowingPosts = async ( options?: Parameters<typeof customFetch>[1]): Promise<PostList> => {
+
+  return customFetch<PostList>(getListFollowingPostsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListFollowingPostsQueryKey = () => {
+    return [
+    `/api/posts/following`
+    ] as const;
+    }
+
+
+export const getListFollowingPostsQueryOptions = <TData = Awaited<ReturnType<typeof listFollowingPosts>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listFollowingPosts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListFollowingPostsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listFollowingPosts>>> = ({ signal }) => listFollowingPosts({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listFollowingPosts>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListFollowingPostsQueryResult = NonNullable<Awaited<ReturnType<typeof listFollowingPosts>>>
+export type ListFollowingPostsQueryError = ErrorType<unknown>
+
+
+
+export function useListFollowingPosts<TData = Awaited<ReturnType<typeof listFollowingPosts>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listFollowingPosts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListFollowingPostsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
 export const getListMyPostsUrl = () => {
 
 

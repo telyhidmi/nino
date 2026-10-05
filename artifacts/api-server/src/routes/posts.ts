@@ -3,8 +3,8 @@ import { clerkClient } from "@clerk/express";
 import { randomUUID } from "node:crypto";
 import { pipeline } from "node:stream/promises";
 import { Readable, Transform } from "node:stream";
-import { and, desc, eq } from "drizzle-orm";
-import { db, posts, postUploads, type PostRow } from "@workspace/db";
+import { and, desc, eq, inArray } from "drizzle-orm";
+import { db, posts, postUploads, messagingFollows, type PostRow } from "@workspace/db";
 import { RequestPostUploadBody, PublishPostBody } from "@workspace/api-zod";
 import { byteRange, checkFinalize, PostError, requireOwner, requireSessionBearer, UPLOAD_TTL_MS, validateRecordingLocation, validateTicket } from "../lib/postValidation";
 import { finalizeMedia, mediaUrl, removeMedia, uploadUrl } from "../lib/postStorage";
@@ -135,6 +135,14 @@ router.post("/posts/uploads", async (req, res) => {
 router.get("/posts", async (req, res) => {
   await user(req);
   res.json({posts: (await database.select().from(posts).orderBy(desc(posts.createdAt), desc(posts.id))).map(serialize)});
+});
+router.get("/posts/following", async (req, res) => {
+  const ownerId = await user(req);
+  const followed = database.select({ id: messagingFollows.followedId })
+    .from(messagingFollows).where(eq(messagingFollows.followerId, ownerId));
+  res.json({ posts: (await database.select().from(posts)
+    .where(inArray(posts.ownerId, followed))
+    .orderBy(desc(posts.createdAt), desc(posts.id))).map(serialize) });
 });
 router.get("/posts/mine", async (req, res) => {
   const ownerId = await user(req);

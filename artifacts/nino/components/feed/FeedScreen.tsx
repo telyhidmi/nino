@@ -18,7 +18,8 @@ import { compact, SampleComment, SAMPLE_POSTS, SamplePost } from './data';
 import { FeedVideo } from './FeedVideo';
 import { CreatePost } from './CreatePost';
 import { CommentsSheet, PreviewTag, Sheet, TranslateSheet } from './Sheets';
-import { getListMyPostsQueryKey, getListPostsQueryKey, useListPosts, type Post } from '@workspace/api-client-react';
+import { getListMyPostsQueryKey, getListPostsQueryKey, useListPosts, useListFollowingPosts, type Post } from '@workspace/api-client-react';
+import { PublicProfileCard } from '@/components/search/PeopleSearch';
 import { useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { getListMessagingConversationsQueryKey, useListMessagingConversations } from '@workspace/api-client-react';
@@ -128,6 +129,8 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
   const persisted = useListPosts({ query: { queryKey: getListPostsQueryKey(), enabled: !preview, staleTime: 30_000, refetchOnMount: 'always', retry: false } });
   const ins = useInsets();
   const [tab, setTab] = useState<Tab>('foryou');
+  const followingPosts = useListFollowingPosts({ query: { queryKey: ['/api/posts/following'], enabled: !preview && tab === 'following', staleTime: 0, refetchInterval: 15_000, refetchIntervalInBackground: false, retry: false } });
+  const [publishedCreator, setPublishedCreator] = useState<Post | null>(null);
   const [open, setOpen] = useState<Open>(null);
   const [h, setH] = useState(0);
   const [index, setIndex] = useState(0);
@@ -168,7 +171,9 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
 
   const isFollowing = (post: SamplePost) => follows[post.handle] ?? SAMPLE_POSTS.find((p) => p.handle === post.handle)?.following ?? false;
   const allPosts: FeedPost[] = preview ? SAMPLE_POSTS : [...(persisted.data?.posts ?? []), ...SAMPLE_POSTS];
-  const posts: FeedPost[] = tab === 'live' ? [] : tab === 'following' ? SAMPLE_POSTS.filter(isFollowing) : allPosts;
+  const posts: FeedPost[] = tab === 'live' ? [] : tab === 'following'
+    ? preview ? SAMPLE_POSTS.filter(isFollowing) : followingPosts.data?.posts ?? []
+    : allPosts;
   const selectedPost = posts[Math.max(0, Math.min(index, posts.length - 1))];
   const current = selectedPost && !isPublished(selectedPost) ? selectedPost : SAMPLE_POSTS[0];
   const results = useMemo(() => {
@@ -242,8 +247,8 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
             initialScrollIndex={Math.min(listStart, posts.length - 1)}
             pagingEnabled
             showsVerticalScrollIndicator={false}
-            refreshing={!preview && persisted.isFetching}
-            onRefresh={() => { if (!preview) void persisted.refetch(); }}
+            refreshing={!preview && (tab === 'following' ? followingPosts.isFetching : persisted.isFetching)}
+            onRefresh={() => { if (!preview) void (tab === 'following' ? followingPosts.refetch() : persisted.refetch()); }}
             getItemLayout={(_, i) => ({ length: h, offset: h * i, index: i })}
             onScroll={(e) => {
               // Read the pooled native event synchronously, not in a state updater.
@@ -252,7 +257,7 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
             }}
             scrollEventThrottle={16}
             onMomentumScrollEnd={(e) => setIndex(Math.max(0, Math.min(posts.length - 1, Math.round(e.nativeEvent.contentOffset.y / h))))}
-              renderItem={({ item, index: itemIndex }) => isPublished(item) ? <PublishedPost post={item} height={h} followable={!preview && !!viewer?.id && viewer.id !== item.ownerId} onAuthor={!preview && viewer?.id === item.ownerId ? openOwnerPosts : undefined} active={itemIndex === index && focused && foreground && webVisible && open === null && section === 'home'} /> : <PostView post={item} height={h} active={itemIndex === index && focused && foreground && webVisible && open === null && section === 'home'}
+              renderItem={({ item, index: itemIndex }) => isPublished(item) ? <PublishedPost post={item} height={h} followable={!preview && !!viewer?.id && viewer.id !== item.ownerId} onAuthor={!preview ? viewer?.id === item.ownerId ? openOwnerPosts : () => setPublishedCreator(item) : undefined} active={itemIndex === index && focused && foreground && webVisible && open === null && !publishedCreator && section === 'home'} /> : <PostView post={item} height={h} active={itemIndex === index && focused && foreground && webVisible && open === null && section === 'home'}
               onOpen={setOpen} viewerComments={(local[item.id] ?? []).length}
                liked={!!likes[item.id]} following={isFollowing(item)} onCreator={() => openCreator(item)}
               onLike={() => setLikes((old) => ({ ...old, [item.id]: !old[item.id] }))}
@@ -263,10 +268,10 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
         ) : tab === 'following' ? (
           <View style={st.emptyFollowing}>
             <Feather name="users" size={32} color={c.accent} />
-            <Text style={[st.emptyTitle, { color: c.text }]}>Your demo Following feed is empty</Text>
-            <Text style={[st.emptyBody, { color: c.secondary }]}>Follow a sample creator in For You to see their posts here.</Text>
-            <Pressable onPress={() => changeTab('foryou')} accessibilityRole="button" style={[st.emptyButton, { borderColor: c.accent }]}>
-              <Text style={{ color: c.accent, fontFamily: 'Poppins_600SemiBold' }}>Explore sample posts</Text>
+            <Text style={[st.emptyTitle, { color: c.text }]}>{preview ? 'Your demo Following feed is empty' : followingPosts.isPending ? copy.loading : followingPosts.isError ? copy.loadFailed : copy.empty}</Text>
+            {preview ? <Text style={[st.emptyBody, { color: c.secondary }]}>Follow a sample creator in For You to see their posts here.</Text> : null}
+            <Pressable onPress={() => { if (!preview && followingPosts.isError) void followingPosts.refetch(); else if (!preview) setOpen('search'); else changeTab('foryou'); }} accessibilityRole="button" style={[st.emptyButton, { borderColor: c.accent }]}>
+              <Text style={{ color: c.accent, fontFamily: 'Poppins_600SemiBold' }}>{preview ? 'Explore sample posts' : followingPosts.isError ? copy.retry : t('search')}</Text>
             </Pressable>
           </View>
         ) : null}
@@ -287,11 +292,11 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
               );
             })}
           </View>
-          <Pressable testID="open-search" onPress={() => setOpen('search')} accessibilityRole="button" accessibilityLabel="Search posts" style={st.searchBtn}>
+          <Pressable testID="open-search" onPress={() => setOpen('search')} accessibilityRole="button" accessibilityLabel={t('search')} style={st.searchBtn}>
             <Feather name="search" size={20} color={c.text} />
           </Pressable>
         </View>
-        <View style={[st.badgeRow, { top: ins.top + 52 }]} pointerEvents="none">
+        <View style={[st.badgeRow, { top: ins.top + 52 }, !selectedPost && { display: 'none' }]} pointerEvents="none">
           <View style={[st.badge, { borderColor: c.border }]}>
             <Text style={st.badgeText}>{selectedPost && isPublished(selectedPost) ? copy.published : preview ? 'DEMO MODE · SAMPLE POSTS' : 'SAMPLE POSTS · DEMO'}</Text>
           </View>
@@ -357,6 +362,11 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
             <Text style={{ color: c.accent, marginTop: 12 }}>View source and license</Text>
           </Pressable>
         ) : null}
+      </Sheet>
+      <Sheet visible={!!publishedCreator} onClose={() => setPublishedCreator(null)} title={publishedCreator?.authorName ?? ''} testID="published-profile-sheet">
+        {publishedCreator ? <PublicProfileCard
+          person={{ id: publishedCreator.ownerId, displayName: publishedCreator.authorName, username: null, avatarUrl: publishedCreator.authorAvatar }}
+          onBack={() => setPublishedCreator(null)} onOpened={() => setPublishedCreator(null)} /> : null}
       </Sheet>
       <Sheet visible={open === 'search'} onClose={() => setOpen(null)} title={preview ? "Discover" : t("search")} testID="search-sheet">
         {!preview ? <PeopleSearch onOpened={() => setOpen(null)} /> : <>

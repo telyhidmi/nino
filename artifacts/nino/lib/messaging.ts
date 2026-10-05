@@ -53,6 +53,7 @@ const isThreadAny = (q: Query) => typeof q.queryKey[0] === 'string' && /^\/api\/
 
 /** Writes an authoritative server relationship into every cache that shows this peer, then refetches permissions. */
 export function applyRelationship(qc: QueryClient, peerId: string, rel: MessagingRelationship) {
+  void qc.invalidateQueries({ queryKey: ['/api/posts/following'] });
   qc.setQueryData(getGetMessagingRelationshipQueryKey(peerId), rel);
   for (const q of qc.getQueryCache().findAll({ predicate: isThreadAny })) {
     qc.setQueryData<MessagingThread>(q.queryKey, (old) => (old && old.conversation.peer.id === peerId ? { ...old, conversation: { ...old.conversation, relationship: rel } } : old));
