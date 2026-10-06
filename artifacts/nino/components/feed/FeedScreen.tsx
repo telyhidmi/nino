@@ -64,9 +64,9 @@ function RailButton({ icon, label, onPress, active, testID, a11y, compactLayout 
   );
 }
 
-function PostView({ post, height, active, onOpen, onCreator, viewerComments, liked, following, onLike, onFollow }: {
+function PostView({ post, height, active, preload, onOpen, onCreator, viewerComments, liked, following, onLike, onFollow }: {
   post: SamplePost; height: number; onOpen: (o: Open) => void; viewerComments: number;
-  active: boolean; liked: boolean; following: boolean; onLike: () => void; onFollow: () => void; onCreator: () => void;
+  active: boolean; preload: boolean; liked: boolean; following: boolean; onLike: () => void; onFollow: () => void; onCreator: () => void;
 }) {
   const c = useColors();
   const { t, font, row, align, rtl, lang } = useI18n();
@@ -78,7 +78,7 @@ function PostView({ post, height, active, onOpen, onCreator, viewerComments, lik
   };
   return (
     <View style={{ height, width: '100%' }}>
-      {post.video && active ? <FeedVideo post={post} active={active} /> :
+      {post.video && (active || preload) ? <FeedVideo post={post} active={active} /> :
         <Image source={post.image} style={StyleSheet.absoluteFill} contentFit="cover" accessibilityLabel={t('feedSamplePhoto').replace('{location}', post.location)} />}
       <LinearGradient colors={['rgba(12,12,14,0.55)', 'transparent', 'transparent', 'rgba(12,12,14,0.92)']} locations={[0, 0.22, 0.5, 1]} style={StyleSheet.absoluteFill} pointerEvents="none" />
 
@@ -138,6 +138,7 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
   const [open, setOpen] = useState<Open>(null);
   const [h, setH] = useState(0);
   const [index, setIndex] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
   const [listStart, setListStart] = useState(0);
   const [listVersion, setListVersion] = useState(0);
   const [query, setQuery] = useState('');
@@ -250,9 +251,23 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
             keyExtractor={(p) => p.id}
             initialScrollIndex={Math.min(listStart, posts.length - 1)}
             pagingEnabled
+            decelerationRate="fast"
+            snapToInterval={h}
+            snapToAlignment="start"
+            disableIntervalMomentum
+            initialNumToRender={2}
+            maxToRenderPerBatch={3}
+            windowSize={3}
+            removeClippedSubviews={false}
+            extraData={`${index}-${focused}-${foreground}-${webVisible}-${open}-${!!publishedCreator}`}
             showsVerticalScrollIndicator={false}
-            refreshing={!preview && (tab === 'following' ? followingPosts.isFetching : persisted.isFetching)}
-            onRefresh={() => { if (!preview) void (tab === 'following' ? followingPosts.refetch() : persisted.refetch()); }}
+            refreshing={refreshing}
+            onRefresh={async () => {
+              if (preview || refreshing) return;
+              setRefreshing(true);
+              try { await (tab === 'following' ? followingPosts.refetch() : persisted.refetch()); }
+              finally { setRefreshing(false); }
+            }}
             getItemLayout={(_, i) => ({ length: h, offset: h * i, index: i })}
             onScroll={(e) => {
               // Read the pooled native event synchronously, not in a state updater.
@@ -261,7 +276,7 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
             }}
             scrollEventThrottle={16}
             onMomentumScrollEnd={(e) => setIndex(Math.max(0, Math.min(posts.length - 1, Math.round(e.nativeEvent.contentOffset.y / h))))}
-              renderItem={({ item, index: itemIndex }) => isPublished(item) ? <PublishedPost post={item} height={h} followable={!preview && !!viewer?.id && viewer.id !== item.ownerId} onAuthor={!preview ? viewer?.id === item.ownerId ? openOwnerPosts : () => setPublishedCreator(item) : undefined} active={itemIndex === index && focused && foreground && webVisible && open === null && !publishedCreator && section === 'home'} /> : <PostView post={item} height={h} active={itemIndex === index && focused && foreground && webVisible && open === null && section === 'home'}
+              renderItem={({ item, index: itemIndex }) => isPublished(item) ? <PublishedPost post={item} height={h} preload={Platform.OS !== 'web' && Math.abs(itemIndex - index) <= 1 && focused && foreground && section === 'home'} followable={!preview && !!viewer?.id && viewer.id !== item.ownerId} onAuthor={!preview ? viewer?.id === item.ownerId ? openOwnerPosts : () => setPublishedCreator(item) : undefined} active={itemIndex === index && focused && foreground && webVisible && open === null && !publishedCreator && section === 'home'} /> : <PostView post={item} height={h} preload={Platform.OS !== 'web' && Math.abs(itemIndex - index) <= 1 && focused && foreground && section === 'home'} active={itemIndex === index && focused && foreground && webVisible && open === null && !publishedCreator && section === 'home'}
               onOpen={setOpen} viewerComments={(local[item.id] ?? []).length}
                liked={!!likes[item.id]} following={isFollowing(item)} onCreator={() => openCreator(item)}
               onLike={() => setLikes((old) => ({ ...old, [item.id]: !old[item.id] }))}

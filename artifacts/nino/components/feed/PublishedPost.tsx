@@ -11,7 +11,7 @@ import { useColors } from '@/hooks/useColors';
 import { mediaUrl, postError } from '@/lib/posts';
 import { usePostCopy } from '@/lib/postTranslations';
 
-function PublishedVideo({ uri }: { uri: string }) {
+function PublishedVideo({ uri, active }: { uri: string; active: boolean }) {
   const copy = usePostCopy();
   const [error, setError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
@@ -27,16 +27,17 @@ function PublishedVideo({ uri }: { uri: string }) {
     if (player.status === 'error') setError(copy.loadFailed);
   }, [player, copy.loadFailed]);
   useEffect(() => {
-    if (ready && !error) player.play();
+    if (active && ready && !error) player.play();
+    else player.pause();
     // useVideoPlayer owns release; do not call a released native player in cleanup.
-  }, [player, ready, error]);
+  }, [player, ready, error, active]);
   return <>
     <VideoView player={player} style={StyleSheet.absoluteFill} contentFit="cover" nativeControls playsInline />
     {error ? <Text style={s.status}>{error}</Text> : !ready ? <Text style={s.status}>{copy.loading}</Text> : null}
   </>;
 }
 
-export function PublishedPost({ post, height, active, onAuthor, followable }: { post: Post; height: number; active: boolean; onAuthor?: () => void; followable?: boolean }) {
+export function PublishedPost({ post, height, active, preload = false, onAuthor, followable }: { post: Post; height: number; active: boolean; preload?: boolean; onAuthor?: () => void; followable?: boolean }) {
   // Real follow state for real authors only (never for the viewer's own posts or demo/sample content).
   const rel = useGetMessagingRelationship(post.ownerId, { query: { queryKey: getGetMessagingRelationshipQueryKey(post.ownerId), enabled: !!followable, staleTime: 15_000, retry: false } });
   const c = useColors();
@@ -49,7 +50,7 @@ export function PublishedPost({ post, height, active, onAuthor, followable }: { 
   };
   return <View testID={`published-post-${post.id}`} style={{ height, width: '100%', backgroundColor: c.bgTop }}>
     {post.kind === 'photo' ? <Image key={attempt} source={{ uri }} style={StyleSheet.absoluteFill} contentFit="cover" onError={(event) => setImageError(event.error)} accessibilityLabel={post.caption || copy.published} /> :
-      active ? <PublishedVideo key={`${post.id}-${attempt}`} uri={uri} /> : <View style={s.inactive}><Feather name="video" size={36} color={c.accent} /></View>}
+      active || preload ? <PublishedVideo key={`${post.id}-${attempt}`} uri={uri} active={active} /> : <View style={s.inactive}><Feather name="video" size={36} color={c.accent} /></View>}
     <LinearGradient colors={['transparent', 'rgba(12,12,14,0.85)']} style={s.gradient} pointerEvents="none" />
     {imageError ? <Text style={[s.status, { color: c.danger }]}>{imageError}</Text> : null}
     <View style={s.actions}>

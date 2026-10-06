@@ -22,7 +22,7 @@ function supportedFormats(): VideoFormat[] {
   ];
 }
 
-// Mounted only for the visible post. useVideoPlayer releases its native player on unmount.
+// Nearby native reels stay prepared but paused. Unmount releases distant players.
 export function FeedVideo({ post, active }: { post: SamplePost; active: boolean }) {
   const [formats] = useState(supportedFormats);
   const [formatIndex, setFormatIndex] = useState(0);
