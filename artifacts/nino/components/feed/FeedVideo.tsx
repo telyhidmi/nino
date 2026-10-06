@@ -5,6 +5,7 @@ import { useVideoPlayer, VideoView } from 'expo-video';
 import React, { useEffect, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { SamplePost } from './data';
+import { useI18n } from '@/lib/i18n';
 
 type VideoFormat = 'mp4' | 'webm';
 
@@ -37,6 +38,7 @@ export function FeedVideo({ post, active }: { post: SamplePost; active: boolean 
 function Playback({ post, active, format, onError, retry }: {
   post: SamplePost; active: boolean; format: VideoFormat; onError: () => void; retry: () => void;
 }) {
+  const { t, font, row, rtl } = useI18n();
   // expo-video resolves the numeric require() asset ID to a local URI on both
   // native and web. Use the browser's codec probe before choosing the web asset.
   const player = useVideoPlayer(format === 'webm' ? post.videoWeb! : post.video!, (p) => {
@@ -45,14 +47,12 @@ function Playback({ post, active, format, onError, retry }: {
     p.staysActiveInBackground = false;
   });
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
-  const [error, setError] = useState('Unable to load this sample video.');
   const [firstFrame, setFirstFrame] = useState(false);
   const [paused, setPaused] = useState(false);
   const [muted, setMuted] = useState(true);
 
-  useEventListener(player, 'statusChange', ({ status: next, error: playbackError }) => {
+  useEventListener(player, 'statusChange', ({ status: next }) => {
     if (next === 'error') {
-      setError(playbackError?.message || 'Unable to load this sample video.');
       setStatus('error');
     } else if (next === 'readyToPlay') {
       setStatus('ready');
@@ -89,11 +89,11 @@ function Playback({ post, active, format, onError, retry }: {
         onFirstFrameRender={() => setFirstFrame(true)} />
       {!firstFrame || status === 'error' ? (
         <Image source={post.image} style={StyleSheet.absoluteFill} contentFit="cover"
-          accessibilityLabel="Illustrative sample poster (video footage may show a different scene)" />
+          accessibilityLabel={t('feedVideoPoster')} />
       ) : null}
       {status !== 'error' ? (
         <Pressable style={StyleSheet.absoluteFill} onPress={() => setPaused((value) => !value)}
-          accessibilityRole="button" accessibilityLabel={paused ? 'Play sample video' : 'Pause sample video'}>
+          accessibilityRole="button" accessibilityLabel={t(paused ? 'feedPlayVideo' : 'feedPauseVideo')}>
           {paused && firstFrame ? (
             <View style={styles.center}><Feather name="play" size={34} color="#FFF" /></View>
           ) : null}
@@ -101,25 +101,25 @@ function Playback({ post, active, format, onError, retry }: {
       ) : null}
       {status === 'loading' && !firstFrame ? (
         <View pointerEvents="none" style={styles.center}>
-          <Text style={styles.status}>Loading sample video…</Text>
+          <Text style={[styles.status, { fontFamily: font('semibold') }]}>{t('feedLoadingVideo')}</Text>
         </View>
       ) : null}
       {status === 'error' ? (
         <View style={styles.center}>
-          <Text style={styles.status}>{error}</Text>
-          <Pressable onPress={retry} accessibilityRole="button" accessibilityLabel="Retry sample video" style={styles.retry}>
-            <Text style={styles.status}>Retry video</Text>
+          <Text style={[styles.status, { fontFamily: font('semibold') }]}>{t('feedVideoError')}</Text>
+          <Pressable onPress={retry} accessibilityRole="button" accessibilityLabel={t('feedRetryVideo')} style={styles.retry}>
+            <Text style={[styles.status, { fontFamily: font('semibold') }]}>{t('feedRetryVideo')}</Text>
           </Pressable>
         </View>
       ) : null}
-      <View style={styles.controls} pointerEvents="box-none">
+      <View style={[styles.controls, { left: rtl ? 80 : 16, right: rtl ? 16 : 80, alignItems: rtl ? 'flex-end' : 'flex-start' }]} pointerEvents="box-none">
         <Pressable onPress={() => { player.muted = !muted; setMuted(!muted); }}
           disabled={!post.videoHasAudio} accessibilityRole="button"
-          accessibilityLabel={post.videoHasAudio ? (muted ? 'Unmute sample video' : 'Mute sample video') : 'This sample video has no audio'}
+          accessibilityLabel={t(post.videoHasAudio ? (muted ? 'feedUnmuteVideo' : 'feedMuteVideo') : 'feedVideoNoAudio')}
           accessibilityState={{ disabled: !post.videoHasAudio }}
-          style={styles.mute}>
+          style={[styles.mute, { flexDirection: row, maxWidth: '100%' }]}>
           <Feather name={post.videoHasAudio ? (muted ? 'volume-x' : 'volume-2') : 'volume-x'} size={17} color="#FFF" />
-          <Text style={styles.controlText}>{post.videoHasAudio ? (muted ? 'Muted' : 'Sound on') : 'No audio'}</Text>
+          <Text style={[styles.controlText, { fontFamily: font('semibold'), flexShrink: 1 }]}>{t(post.videoHasAudio ? (muted ? 'feedMuted' : 'feedSoundOn') : 'feedNoAudio')}</Text>
         </Pressable>
       </View>
     </View>

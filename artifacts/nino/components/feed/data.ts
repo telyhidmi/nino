@@ -1,6 +1,6 @@
 import type { ImageSourcePropType } from 'react-native';
 
-export type SampleComment = { id: string; author: string; flag: string; text: string; translation?: string };
+export type SampleComment = { id: string; author: string; flag: string; text: string; translation?: string; isViewer?: boolean };
 export type SamplePost = {
   id: string;
   image: ImageSourcePropType;
@@ -168,7 +168,8 @@ export const SAMPLE_POSTS: SamplePost[] = [
   },
 ];
 
-export function compact(n: number) {
+export function compact(n: number, locale?: string) {
+  if (locale) return new Intl.NumberFormat(locale, { notation: 'compact', maximumFractionDigits: 1 }).format(n);
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1000) return `${(n / 1000).toFixed(1)}K`;
   return String(n);

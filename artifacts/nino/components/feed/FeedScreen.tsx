@@ -14,6 +14,7 @@ import { DemoProfile } from '@/components/profile/DemoProfile';
 import { CreatorProfile } from '@/components/profile/CreatorProfile';
 import type { ProfileCtx } from '@/components/profile/profileCtx';
 import { useColors } from '@/hooks/useColors';
+import { useI18n } from '@/lib/i18n';
 import { compact, SampleComment, SAMPLE_POSTS, SamplePost } from './data';
 import { FeedVideo } from './FeedVideo';
 import { CreatePost } from './CreatePost';
@@ -24,7 +25,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { getListMessagingConversationsQueryKey, useListMessagingConversations } from '@workspace/api-client-react';
 import { useMessagesCopy } from '@/lib/messagesCopy';
-import { useI18n } from '@/lib/i18n';
 import { PeopleSearch } from '@/components/search/PeopleSearch';
 import { POLL_MS, useActive } from '@/lib/messaging';
 import { usePostCopy } from '@/lib/postTranslations';
@@ -42,22 +42,24 @@ export type FeedViewer = { id?: string; name?: string; imageUrl?: string | null 
 
 function Initials({ name, size }: { name?: string; size: number }) {
   const c = useColors();
+  const { font } = useI18n();
   const i = (name ?? '').trim().split(/\s+/).map((p) => p[0]).slice(0, 2).join('').toUpperCase();
   return (
     <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: c.card, alignItems: 'center', justifyContent: 'center' }}>
-      {i ? <Text style={{ color: c.accent, fontFamily: 'Poppins_600SemiBold', fontSize: size * 0.38 }}>{i}</Text> : <Feather name="user" size={size * 0.5} color={c.secondary} />}
+      {i ? <Text style={{ color: c.accent, fontFamily: font('semibold'), fontSize: size * 0.38 }}>{i}</Text> : <Feather name="user" size={size * 0.5} color={c.secondary} />}
     </View>
   );
 }
 
 function RailButton({ icon, label, onPress, active, testID, a11y, compactLayout }: { icon: keyof typeof Feather.glyphMap; label?: string; onPress: () => void; active?: boolean; testID: string; a11y: string; compactLayout?: boolean }) {
   const c = useColors();
+  const { font } = useI18n();
   return (
     <Pressable testID={testID} onPress={onPress} accessibilityRole="button" accessibilityLabel={a11y} accessibilityState={{ selected: !!active }} style={st.railItem}>
       <View style={[st.railCircle, compactLayout && st.smallRailCircle, { borderColor: active ? c.text : 'rgba(255,255,255,0.12)' }]}>
         <Feather name={icon} size={compactLayout ? 19 : 22} color={active ? c.danger : c.text} />
       </View>
-      {label ? <Text style={st.railLabel}>{label}</Text> : null}
+      {label ? <Text style={[st.railLabel, { fontFamily: font('semibold') }]}>{label}</Text> : null}
     </Pressable>
   );
 }
@@ -67,53 +69,55 @@ function PostView({ post, height, active, onOpen, onCreator, viewerComments, lik
   active: boolean; liked: boolean; following: boolean; onLike: () => void; onFollow: () => void; onCreator: () => void;
 }) {
   const c = useColors();
+  const { t, font, row, align, rtl, lang } = useI18n();
   const compactLayout = height < 600;
   const [translated, setTranslated] = useState(false);
   const share = () => {
-    Share.share({ message: `${post.author} on Nino (fictional demo post): ${post.translation}` }).catch(() => undefined);
+    Share.share({ message: t('feedShareMessage').replace('{author}', post.author).replace('{caption}', post.translation) })
+      .catch(() => Alert.alert(t('feedError'), t('feedShareError')));
   };
   return (
     <View style={{ height, width: '100%' }}>
       {post.video && active ? <FeedVideo post={post} active={active} /> :
-        <Image source={post.image} style={StyleSheet.absoluteFill} contentFit="cover" accessibilityLabel={`Illustrative sample photo for ${post.location}`} />}
+        <Image source={post.image} style={StyleSheet.absoluteFill} contentFit="cover" accessibilityLabel={t('feedSamplePhoto').replace('{location}', post.location)} />}
       <LinearGradient colors={['rgba(12,12,14,0.55)', 'transparent', 'transparent', 'rgba(12,12,14,0.92)']} locations={[0, 0.22, 0.5, 1]} style={StyleSheet.absoluteFill} pointerEvents="none" />
 
-      <View style={[st.rail, compactLayout && st.smallRail]}>
+      <View style={[st.rail, compactLayout && st.smallRail, rtl && { right: undefined, left: 10 }]}>
         <View style={st.railItem}>
-          <Pressable testID="rail-author" onPress={onCreator} accessibilityRole="button" accessibilityLabel={`View ${post.author}'s profile`} style={[st.railAvatar, compactLayout && st.smallRailAvatar, { borderColor: c.accent }]}>
+          <Pressable testID="rail-author" onPress={onCreator} accessibilityRole="button" accessibilityLabel={t('feedViewProfile').replace('{author}', post.author)} style={[st.railAvatar, compactLayout && st.smallRailAvatar, { borderColor: c.accent }]}>
             <Image source={post.image} style={{ width: compactLayout ? 40 : 50, height: compactLayout ? 40 : 50, borderRadius: 25 }} contentFit="cover" contentPosition={{ top: '32%', left: '50%' }} />
           </Pressable>
-          <Pressable testID="rail-follow" onPress={onFollow} accessibilityRole="button" accessibilityLabel={following ? `Unfollow ${post.author}` : `Follow ${post.author}`} hitSlop={4} style={[st.plus, { backgroundColor: following ? c.accent : c.danger }]}>
+          <Pressable testID="rail-follow" onPress={onFollow} accessibilityRole="button" accessibilityLabel={t(following ? 'feedUnfollowAuthor' : 'feedFollowAuthor').replace('{author}', post.author)} hitSlop={4} style={[st.plus, { backgroundColor: following ? c.accent : c.danger }]}>
             <Feather name={following ? 'check' : 'plus'} size={12} color={following ? c.onAccent : '#FFF'} />
           </Pressable>
         </View>
-        <RailButton compactLayout={compactLayout} testID="rail-like" icon="heart" active={liked} a11y={liked ? 'Unlike' : 'Like'} label={compact(post.likes + (liked ? 1 : 0))} onPress={onLike} />
-        <RailButton compactLayout={compactLayout} testID="rail-comments" icon="message-square" a11y="Comments" label={compact(post.commentCount + viewerComments)} onPress={() => onOpen('comments')} />
-        <RailButton compactLayout={compactLayout} testID="rail-share" icon="corner-up-left" a11y="Share" label={compact(post.shares)} onPress={share} />
-        <RailButton compactLayout={compactLayout} testID="rail-more" icon="more-horizontal" a11y="More options" onPress={() => onOpen('more')} />
+        <RailButton compactLayout={compactLayout} testID="rail-like" icon="heart" active={liked} a11y={t(liked ? 'feedUnlike' : 'feedLike')} label={compact(post.likes + (liked ? 1 : 0), lang)} onPress={onLike} />
+        <RailButton compactLayout={compactLayout} testID="rail-comments" icon="message-square" a11y={t('feedComments')} label={compact(post.commentCount + viewerComments, lang)} onPress={() => onOpen('comments')} />
+        <RailButton compactLayout={compactLayout} testID="rail-share" icon="corner-up-left" a11y={t('feedShare')} label={compact(post.shares, lang)} onPress={share} />
+        <RailButton compactLayout={compactLayout} testID="rail-more" icon="more-horizontal" a11y={t('feedMore')} onPress={() => onOpen('more')} />
         <View style={[st.disc, compactLayout && st.smallDisc, { borderColor: '#2A2A2E' }]}><View style={[st.discDot, { backgroundColor: c.bgTop }]} /></View>
       </View>
 
-      <View style={st.caption}>
-        <View style={st.authorRow}>
+      <View style={[st.caption, rtl && { left: 84, right: 16 }]}>
+        <View style={[st.authorRow, { flexDirection: row, flexWrap: 'wrap' }]}>
           <View style={st.cc}><Text style={{ fontSize: 11 }}>{post.flag}</Text><Text style={st.ccText}>{post.countryCode}</Text></View>
-          <Pressable testID="caption-author" onPress={onCreator} accessibilityRole="button" accessibilityLabel={`View ${post.author}'s profile`} style={{ flexShrink: 1, minHeight: 36, justifyContent: 'center' }}>
-            <Text style={st.author} numberOfLines={1}>{post.author}</Text>
+          <Pressable testID="caption-author" onPress={onCreator} accessibilityRole="button" accessibilityLabel={t('feedViewProfile').replace('{author}', post.author)} style={{ flexShrink: 1, minHeight: 36, justifyContent: 'center' }}>
+            <Text style={[st.author, { fontFamily: font('bold'), textAlign: align }]} numberOfLines={1}>{post.author}</Text>
           </Pressable>
-          <Pressable testID="caption-follow" onPress={onFollow} accessibilityRole="button" accessibilityLabel={following ? 'Following' : 'Follow'} hitSlop={8}
+          <Pressable testID="caption-follow" onPress={onFollow} accessibilityRole="button" accessibilityLabel={t(following ? 'feedFollowing' : 'feedFollow')} hitSlop={8}
             style={[st.follow, { borderColor: c.accent, backgroundColor: following ? c.accent : 'rgba(255,255,255,0.08)' }]}>
-            <Text style={{ color: following ? c.onAccent : c.accent, fontFamily: 'Poppins_600SemiBold', fontSize: 12 }}>{following ? 'Following' : 'Follow'}</Text>
+            <Text style={{ color: following ? c.onAccent : c.accent, fontFamily: font('semibold'), fontSize: 12 }}>{t(following ? 'feedFollowing' : 'feedFollow')}</Text>
           </Pressable>
         </View>
-        <View style={st.row6}><Feather name="map-pin" size={13} color={'#FFFFFF'} /><Text style={[st.loc, { color: '#FFFFFF' }]}>{post.location}</Text></View>
-        <Text style={st.captionText}>{translated ? post.translation : post.caption}</Text>
-        <Pressable testID="toggle-translation" onPress={() => setTranslated((t) => !t)} accessibilityRole="button" accessibilityLabel={translated ? 'See original' : 'See translation'} style={[st.row6, { minHeight: 32 }]}>
+        <View style={[st.row6, { flexDirection: row }]}><Feather name="map-pin" size={13} color={'#FFFFFF'} /><Text style={[st.loc, { color: '#FFFFFF', fontFamily: font('medium'), textAlign: align, flexShrink: 1 }]}>{post.location}</Text></View>
+        <Text style={[st.captionText, { fontFamily: font(), textAlign: align }]}>{translated ? post.translation : post.caption}</Text>
+        <Pressable testID="toggle-translation" onPress={() => setTranslated((t) => !t)} accessibilityRole="button" accessibilityLabel={t(translated ? 'feedSeeOriginal' : 'feedSeeTranslation')} style={[st.row6, { minHeight: 32, flexDirection: row }]}>
           <Feather name="type" size={14} color={'#FFFFFF'} />
-          <Text style={{ color: '#FFFFFF', fontFamily: 'Poppins_600SemiBold', fontSize: 13 }}>{translated ? 'See original' : 'See translation'}</Text>
+          <Text style={{ color: '#FFFFFF', fontFamily: font('semibold'), fontSize: 13, flexShrink: 1, textAlign: align }}>{t(translated ? 'feedSeeOriginal' : 'feedSeeTranslation')}</Text>
         </Pressable>
-        <View style={st.music}>
+        <View style={[st.music, { flexDirection: row, alignSelf: rtl ? 'flex-end' : 'flex-start' }]}>
           <Feather name="music" size={13} color={'#FFFFFF'} />
-          <Text style={st.musicText} numberOfLines={1}>{post.music}</Text>
+          <Text style={[st.musicText, { fontFamily: font() }]} numberOfLines={1}>{post.music}</Text>
         </View>
       </View>
     </View>
@@ -123,7 +127,7 @@ function PostView({ post, height, active, onOpen, onCreator, viewerComments, lik
 export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSection = 'home', renderProfile }: { viewer: FeedViewer; onProfile: () => void; renderProfile?: (ctx: ProfileCtx, active: boolean, postsResetToken: number) => React.ReactNode; preview?: boolean; onExitDemo?: () => void; initialSection?: 'home' | 'discover' | 'profile' }) {
   const c = useColors();
   const copy = usePostCopy();
-  const { t } = useI18n();
+  const { t, font, row, align, rtl } = useI18n();
   const discoverCopy = useDiscoverCopy();
   const queryClient = useQueryClient();
   const persisted = useListPosts({ query: { queryKey: getListPostsQueryKey(), enabled: !preview, staleTime: 30_000, refetchOnMount: 'always', retry: false } });
@@ -181,7 +185,7 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
     return SAMPLE_POSTS.filter((p) => !q || [p.author, p.location, p.caption, p.translation, ...p.tags].join(' ').toLowerCase().includes(q));
   }, [query]);
 
-  const addComment = (text: string) => setLocal((m) => ({ ...m, [current.id]: [...(m[current.id] ?? []), { id: `me-${Date.now()}`, author: viewer?.name ? `${viewer.name} (you)` : 'You', flag: '💬', text }] }));
+  const addComment = (text: string) => setLocal((m) => ({ ...m, [current.id]: [...(m[current.id] ?? []), { id: `me-${Date.now()}`, author: viewer?.name ?? '', isViewer: true, flag: '💬', text }] }));
   const changeTab = (next: Tab) => { setOpen(null); setTab(next); setIndex(0); setListStart(0); setListVersion((v) => v + 1); };
   const toggleFollow = (post: SamplePost) => {
     setFollows((old) => ({ ...old, [post.handle]: !(old[post.handle] ?? SAMPLE_POSTS.find((p) => p.handle === post.handle)?.following ?? false) }));
@@ -230,7 +234,7 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
     onAdd: () => setOpen('create'),
     onRemove: () => undefined,
     following: SAMPLE_POSTS.filter((p, i) => SAMPLE_POSTS.findIndex((other) => other.handle === p.handle) === i && isFollowing(p)).map((p) => ({ id: p.handle, name: p.author, handle: p.handle, flag: p.flag, image: p.image })),
-    liked: SAMPLE_POSTS.filter((p) => likes[p.id]).map((p) => ({ id: `liked-${p.id}`, kind: p.video ? 'video' as const : 'photo' as const, image: p.image, video: p.video, label: `${p.author} · ${p.location}`, caption: p.translation, views: p.likes + 1, tag: 'LIKED · SAMPLE' })),
+    liked: SAMPLE_POSTS.filter((p) => likes[p.id]).map((p) => ({ id: `liked-${p.id}`, kind: p.video ? 'video' as const : 'photo' as const, image: p.image, video: p.video, label: `${p.author} · ${p.location}`, caption: p.translation, views: p.likes + 1, tag: t('feedLikedSample') })),
     onUnfollow: (handle) => { setFollows((old) => ({ ...old, [handle]: false })); if (tab === 'following') { setIndex(0); setListStart(0); setListVersion((v) => v + 1); } },
   };
   const hasProfile = preview || !!renderProfile;
@@ -268,37 +272,37 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
         ) : tab === 'following' ? (
           <View style={st.emptyFollowing}>
             <Feather name="users" size={32} color={c.accent} />
-            <Text style={[st.emptyTitle, { color: c.text }]}>{preview ? 'Your demo Following feed is empty' : followingPosts.isPending ? copy.loading : followingPosts.isError ? copy.loadFailed : copy.empty}</Text>
-            {preview ? <Text style={[st.emptyBody, { color: c.secondary }]}>Follow a sample creator in For You to see their posts here.</Text> : null}
+            <Text style={[st.emptyTitle, { color: c.text, fontFamily: font('semibold') }]}>{preview ? t('feedFollowingEmpty') : followingPosts.isPending ? copy.loading : followingPosts.isError ? copy.loadFailed : copy.empty}</Text>
+            {preview ? <Text style={[st.emptyBody, { color: c.secondary, fontFamily: font() }]}>{t('feedFollowingBody')}</Text> : null}
             <Pressable onPress={() => { if (!preview && followingPosts.isError) void followingPosts.refetch(); else if (!preview) setOpen('search'); else changeTab('foryou'); }} accessibilityRole="button" style={[st.emptyButton, { borderColor: c.accent }]}>
-              <Text style={{ color: c.accent, fontFamily: 'Poppins_600SemiBold' }}>{preview ? 'Explore sample posts' : followingPosts.isError ? copy.retry : t('search')}</Text>
+              <Text style={{ color: c.accent, fontFamily: font('semibold'), textAlign: 'center' }}>{preview ? t('feedExploreSamples') : followingPosts.isError ? copy.retry : t('search')}</Text>
             </Pressable>
           </View>
         ) : null}
 
-        <View style={[st.top, { top: ins.top }]} pointerEvents="box-none">
+        <View style={[st.top, { top: ins.top, flexDirection: row }]} pointerEvents="box-none">
           <View style={st.brand} accessibilityLabel="Nino">
             <Text style={st.brandText}>Nin</Text>
             <EarthGlobe size={20} />
           </View>
-          <View style={st.tabs}>
+          <View style={[st.tabs, { flexDirection: row }]}>
             {(['foryou', 'following', 'live'] as Tab[]).map((k) => {
               const on = tab === k;
               return (
                 <Pressable key={k} testID={`tab-${k}`} onPress={() => changeTab(k)} accessibilityRole="tab" accessibilityState={{ selected: on }} style={st.tab}>
-                  <Text style={[st.tabText, { color: on ? c.text : 'rgba(255,255,255,0.65)' }]}>{k === 'foryou' ? 'For You' : k === 'live' ? 'Live' : 'Following'}</Text>
+                  <Text style={[st.tabText, { color: on ? c.text : 'rgba(255,255,255,0.65)', fontFamily: font('semibold'), textAlign: 'center' }]}>{t(k === 'foryou' ? 'feedForYou' : k === 'live' ? 'feedLive' : 'feedFollowing')}</Text>
                   <View style={[st.tabBar, { backgroundColor: on ? c.text : 'transparent' }]} />
                 </Pressable>
               );
             })}
           </View>
-          <Pressable testID="open-search" onPress={() => setOpen('search')} accessibilityRole="button" accessibilityLabel={t('search')} style={st.searchBtn}>
+          <Pressable testID="open-search" onPress={() => setOpen('search')} accessibilityRole="button" accessibilityLabel={t('feedSearchPosts')} style={st.searchBtn}>
             <Feather name="search" size={20} color={c.text} />
           </Pressable>
         </View>
-        <View style={[st.badgeRow, { top: ins.top + 52 }, !selectedPost && { display: 'none' }]} pointerEvents="none">
+        <View style={[st.badgeRow, { top: ins.top + 64, maxWidth: preview && onExitDemo ? '58%' : '90%' }, rtl && { left: undefined, right: 16 }, !selectedPost && { display: 'none' }]} pointerEvents="none">
           <View style={[st.badge, { borderColor: c.border }]}>
-            <Text style={st.badgeText}>{selectedPost && isPublished(selectedPost) ? copy.published : preview ? 'DEMO MODE · SAMPLE POSTS' : 'SAMPLE POSTS · DEMO'}</Text>
+            <Text style={[st.badgeText, { fontFamily: font('semibold'), textAlign: align, flexShrink: 1 }]}>{selectedPost && isPublished(selectedPost) ? copy.published : t(preview ? 'feedDemoSamples' : 'feedSamplePosts')}</Text>
           </View>
         </View>
         {!preview && (persisted.isError || persisted.isPending) ? <View style={{ position: 'absolute', top: ins.top + 90, left: 16, right: 16, padding: 12, backgroundColor: c.overlay, borderRadius: 12 }}>
@@ -306,18 +310,18 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
           {persisted.isError ? <Pressable testID="feed-posts-retry" onPress={() => { void persisted.refetch(); }} accessibilityRole="button" style={{ minHeight: 44, justifyContent: 'center' }}><Text style={{ color: c.accent }}>{copy.retry}</Text></Pressable> : null}
         </View> : null}
         {preview && onExitDemo ? (
-          <Pressable testID="exit-demo" onPress={onExitDemo} accessibilityRole="button" accessibilityLabel="Exit demo to welcome"
-            style={[st.exitDemo, { top: ins.top + 52, borderColor: c.border }]}>
-            <Text style={st.badgeText}>Exit demo</Text><Feather name="x" size={14} color={c.text} />
+          <Pressable testID="exit-demo" onPress={onExitDemo} accessibilityRole="button" accessibilityLabel={t('feedExitDemoWelcome')}
+            style={[st.exitDemo, { top: ins.top + 64, borderColor: c.border, flexDirection: row, maxWidth: '36%' }, rtl && { right: undefined, left: 14 }]}>
+            <Text style={[st.badgeText, { fontFamily: font('semibold'), flexShrink: 1, textAlign: align }]}>{t('feedExitDemo')}</Text><Feather name="x" size={14} color={c.text} />
           </Pressable>
         ) : null}
 
-        {tab !== 'live' && !(selectedPost && isPublished(selectedPost)) && <Pressable testID="translate-bar" onPress={() => setOpen('translate')} accessibilityRole="button" accessibilityLabel="Translate with Nino"
-          style={[st.tbar, { borderColor: c.borderStrong, bottom: 10 }]}>
+        {tab !== 'live' && !(selectedPost && isPublished(selectedPost)) && <Pressable testID="translate-bar" onPress={() => setOpen('translate')} accessibilityRole="button" accessibilityLabel={t('feedTranslate')}
+          style={[st.tbar, { borderColor: c.borderStrong, bottom: 10, flexDirection: row }]}>
           <EarthGlobe size={26} />
-          <Text style={st.tbarText}>Translate with Nino</Text>
-          <View style={[st.ai, { borderColor: c.border }]}><Text style={{ color: c.accent, fontFamily: 'Poppins_600SemiBold', fontSize: 11, letterSpacing: 0.5 }}>PREVIEW</Text></View>
-          <Feather name="chevron-right" size={18} color={c.accent} />
+          <Text style={[st.tbarText, { fontFamily: font('semibold'), textAlign: align }]}>{t('feedTranslate')}</Text>
+          <View style={[st.ai, { borderColor: c.border }]}><Text style={{ color: c.accent, fontFamily: font('semibold'), fontSize: 11, textAlign: 'center' }}>{t('feedPreview')}</Text></View>
+          <Feather name={rtl ? 'chevron-left' : 'chevron-right'} size={18} color={c.accent} />
         </Pressable>}
       </View>}
 
@@ -331,18 +335,18 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
           {preview ? <DemoProfile active={section === 'profile'} name={viewer?.name ?? 'Alex Morgan'} ctx={profileCtx} onExitDemo={onExitDemo} /> : renderProfile?.(profileCtx, section === 'profile', postsResetToken)}
         </View>
       ) : null}
-      {section !== 'creator' && <View style={[st.nav, { height: NAV_H + ins.bottom, paddingBottom: ins.bottom, borderTopColor: 'rgba(255,255,255,0.08)' }]}>
-        <NavItem testID="nav-home" icon="home" label="Home" active={section === 'home'} onPress={() => { if (section === 'home') changeTab('foryou'); else changeSection('home'); }} />
-        <NavItem testID="nav-discover" icon="globe" label="Discover" active={section === 'discover'} onPress={() => changeSection('discover')} />
-        <Pressable testID="nav-create" onPress={() => setOpen('create')} accessibilityRole="button" accessibilityLabel="Create post" style={st.navItem}>
+      {section !== 'creator' && <View style={[st.nav, { minHeight: NAV_H + ins.bottom, paddingBottom: ins.bottom, borderTopColor: 'rgba(255,255,255,0.08)', flexDirection: row }]}>
+        <NavItem testID="nav-home" icon="home" label={t('feedHome')} active={section === 'home'} onPress={() => { if (section === 'home') changeTab('foryou'); else changeSection('home'); }} />
+        <NavItem testID="nav-discover" icon="globe" label={t('feedDiscover')} active={section === 'discover'} onPress={() => changeSection('discover')} />
+        <Pressable testID="nav-create" onPress={() => setOpen('create')} accessibilityRole="button" accessibilityLabel={t('feedCreatePost')} style={st.navItem}>
           <View style={[st.create, { borderColor: c.accent, backgroundColor: c.accent }]}><Feather name="plus" size={26} color={c.onAccent} /></View>
         </Pressable>
         <MessagesNav preview={!!preview} />
-        <Pressable testID="nav-profile" onPress={hasProfile ? () => changeSection('profile') : onProfile} accessibilityRole="button" accessibilityLabel="Profile" style={st.navItem}>
+        <Pressable testID="nav-profile" onPress={hasProfile ? () => changeSection('profile') : onProfile} accessibilityRole="button" accessibilityLabel={t('feedProfile')} style={st.navItem}>
           <View style={[st.navAv, { borderColor: section === 'profile' ? c.text : c.border }]}>
             {viewer?.imageUrl ? <Image source={{ uri: viewer.imageUrl }} style={{ width: 26, height: 26, borderRadius: 13 }} /> : <Initials name={viewer?.name} size={26} />}
           </View>
-          <Text style={[st.navLabel, { color: section === 'profile' ? c.text : c.secondary }]}>Profile</Text>
+          <Text style={[st.navLabel, { color: section === 'profile' ? c.text : c.secondary, fontFamily: font('medium') }]}>{t('feedProfile')}</Text>
         </Pressable>
       </View>}
 
@@ -358,14 +362,14 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
         setListVersion((version) => version + 1);
         openOwnerPosts();
       }} />
-      <Sheet visible={open === 'more'} onClose={() => setOpen(null)} title="About this post" testID="post-info-sheet">
-        <PreviewTag text="Curated sample content" />
+      <Sheet visible={open === 'more'} onClose={() => setOpen(null)} title={t('feedAboutPost')} testID="post-info-sheet">
+        <PreviewTag text={t('feedCuratedSample')} />
         {current.videoCredit && current.videoSourceUrl ? (
-          <Pressable onPress={() => Linking.openURL(current.videoSourceUrl!)} accessibilityRole="link"
-            accessibilityLabel="Open video source and license" style={{ padding: 16, minHeight: 44 }}>
-            <Text style={{ color: c.text, fontFamily: 'Poppins_500Medium', fontSize: 14 }}>{current.videoCredit}</Text>
-            <Text style={{ color: c.secondary, marginTop: 8 }}>Adapted sample clip</Text>
-            <Text style={{ color: c.accent, marginTop: 12 }}>View source and license</Text>
+          <Pressable onPress={() => Linking.openURL(current.videoSourceUrl!).catch(() => Alert.alert(t('feedError'), t('feedSourceError')))} accessibilityRole="link"
+            accessibilityLabel={t('feedOpenSource')} style={{ padding: 16, minHeight: 44 }}>
+            <Text style={{ color: c.text, fontFamily: font('medium'), textAlign: align, fontSize: 14 }}>{current.videoCredit}</Text>
+            <Text style={{ color: c.secondary, fontFamily: font(), textAlign: align, marginTop: 8 }}>{t('feedAdaptedClip')}</Text>
+            <Text style={{ color: c.accent, fontFamily: font(), textAlign: align, marginTop: 12 }}>{t('feedViewSource')}</Text>
           </Pressable>
         ) : null}
       </Sheet>
@@ -374,27 +378,27 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
           person={{ id: publishedCreator.ownerId, displayName: publishedCreator.authorName, username: null, avatarUrl: publishedCreator.authorAvatar }}
           onBack={() => setPublishedCreator(null)} onOpened={() => setPublishedCreator(null)} /> : null}
       </Sheet>
-      <Sheet visible={open === 'search'} onClose={() => setOpen(null)} title={preview ? "Discover" : t("search")} testID="search-sheet">
+      <Sheet visible={open === 'search'} onClose={() => setOpen(null)} title={preview ? t('feedDiscover') : t("search")} testID="search-sheet">
         {!preview ? <PeopleSearch onOpened={() => setOpen(null)} /> : <>
-        <PreviewTag text="Browsing fictional sample posts" />
-        <View style={[st.searchInput, { borderColor: c.border, backgroundColor: c.cardSoft }]}>
+        <PreviewTag text={t('feedBrowsingSamples')} />
+        <View style={[st.searchInput, { borderColor: c.border, backgroundColor: c.cardSoft, flexDirection: row }]}>
           <Feather name="search" size={16} color={c.secondary} />
-          <TextInput testID="search-input" value={query} onChangeText={setQuery} placeholder="Places, people, cultures" placeholderTextColor={c.muted}
-            style={{ flex: 1, color: c.text, fontFamily: 'Poppins_400Regular', fontSize: 14, minHeight: 44 }} accessibilityLabel="Search" />
+          <TextInput testID="search-input" value={query} onChangeText={setQuery} placeholder={t('feedSearchPlaceholder')} placeholderTextColor={c.muted}
+            style={{ flex: 1, color: c.text, fontFamily: font(), textAlign: align, fontSize: 14, minHeight: 44 }} accessibilityLabel={t('feedSearch')} />
         </View>
         {results.length === 0 ? (
           <View style={{ alignItems: 'center', paddingVertical: 24, gap: 6 }}>
             <Feather name="compass" size={24} color={c.muted} />
-            <Text style={{ color: c.secondary, fontFamily: 'Poppins_400Regular', fontSize: 13 }}>No sample posts match "{query}"</Text>
+            <Text style={{ color: c.secondary, fontFamily: font(), textAlign: align, fontSize: 13 }}>{t('feedNoResults').replace('{query}', query)}</Text>
           </View>
         ) : results.map((p) => (
-          <Pressable key={p.id} testID={`result-${p.id}`} accessibilityRole="button" accessibilityLabel={`Open ${p.location}`}
+          <Pressable key={p.id} testID={`result-${p.id}`} accessibilityRole="button" accessibilityLabel={t('feedOpenLocation').replace('{location}', p.location)}
             onPress={() => openPost(p.id)}
-            style={[st.result, { borderColor: c.border }]}>
+            style={[st.result, { borderColor: c.border, flexDirection: row }]}>
             <Image source={p.image} style={{ width: 52, height: 68, borderRadius: 10 }} contentFit="cover" />
             <View style={{ flex: 1, gap: 2 }}>
-              <Text style={{ color: c.text, fontFamily: 'Poppins_600SemiBold', fontSize: 14 }}>{p.flag} {p.location}</Text>
-              <Text style={{ color: c.secondary, fontFamily: 'Poppins_400Regular', fontSize: 12 }} numberOfLines={2}>{p.translation}</Text>
+              <Text style={{ color: c.text, fontFamily: font('semibold'), textAlign: align, fontSize: 14 }}>{p.flag} {p.location}</Text>
+              <Text style={{ color: c.secondary, fontFamily: font(), textAlign: align, fontSize: 12 }} numberOfLines={2}>{p.translation}</Text>
             </View>
           </Pressable>
         ))}
@@ -406,10 +410,11 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
 
 function NavItem({ icon, label, active, onPress, testID }: { icon: keyof typeof Feather.glyphMap; label: string; active?: boolean; onPress: () => void; testID: string }) {
   const c = useColors();
+  const { font } = useI18n();
   return (
     <Pressable testID={testID} onPress={onPress} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ selected: !!active }} style={st.navItem}>
       <Feather name={icon} size={22} color={active ? c.text : c.secondary} />
-      <Text style={[st.navLabel, { color: active ? c.text : c.secondary }]}>{label}</Text>
+      <Text style={[st.navLabel, { color: active ? c.text : c.secondary, fontFamily: font('medium') }]}>{label}</Text>
     </Pressable>
   );
 }
@@ -437,17 +442,17 @@ function MessagesNav({ preview }: { preview: boolean }) {
 }
 
 const st = StyleSheet.create({
-  top: { position: 'absolute', left: 0, right: 0, height: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14 },
+  top: { position: 'absolute', left: 0, right: 0, minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 10 },
   brand: { flexDirection: 'row', alignItems: 'center', gap: 2, width: 64 },
   brandText: { color: '#FFFFFF', fontFamily: 'Poppins_700Bold', fontSize: 15 },
-  tabs: { flexDirection: 'row', gap: 2 },
-  tab: { minHeight: 44, minWidth: 44, paddingHorizontal: 6, alignItems: 'center', justifyContent: 'center' },
-  tabText: { fontFamily: 'Poppins_600SemiBold', fontSize: 15 },
+  tabs: { flex: 1, flexDirection: 'row', gap: 2 },
+  tab: { flex: 1, minHeight: 44, paddingHorizontal: 3, alignItems: 'center', justifyContent: 'center' },
+  tabText: { fontFamily: 'Poppins_600SemiBold', fontSize: 13 },
   tabBar: { height: 3, width: 26, borderRadius: 2, marginTop: 2 },
-  searchBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(12,12,14,0.55)', alignItems: 'center', justifyContent: 'center', marginLeft: 20 },
+  searchBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(12,12,14,0.55)', alignItems: 'center', justifyContent: 'center' },
   badgeRow: { position: 'absolute', left: 16, flexDirection: 'row', gap: 6 },
-  exitDemo: { position: 'absolute', right: 14, height: 26, borderRadius: 999, borderWidth: 1, paddingHorizontal: 9, backgroundColor: 'rgba(12,12,14,0.72)', flexDirection: 'row', alignItems: 'center', gap: 4 },
-  badge: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, height: 26, borderRadius: 999, backgroundColor: 'rgba(12,12,14,0.72)', borderWidth: 1 },
+  exitDemo: { position: 'absolute', right: 14, minHeight: 26, paddingVertical: 4, borderRadius: 999, borderWidth: 1, paddingHorizontal: 9, backgroundColor: 'rgba(12,12,14,0.72)', flexDirection: 'row', alignItems: 'center', gap: 4 },
+  badge: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, minHeight: 26, paddingVertical: 4, borderRadius: 999, backgroundColor: 'rgba(12,12,14,0.72)', borderWidth: 1 },
   liveDot: { width: 7, height: 7, borderRadius: 4 },
   badgeText: { color: '#FFFFFF', fontFamily: 'Poppins_600SemiBold', fontSize: 11, letterSpacing: 0.4 },
   rail: { position: 'absolute', right: 10, bottom: 150, alignItems: 'center', gap: 10 },
@@ -467,18 +472,18 @@ const st = StyleSheet.create({
   cc: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, height: 22, borderRadius: 6, backgroundColor: 'rgba(12,12,14,0.7)' },
   ccText: { color: '#FFFFFF', fontFamily: 'Poppins_600SemiBold', fontSize: 11 },
   author: { color: '#FFF', fontFamily: 'Poppins_700Bold', fontSize: 17, flexShrink: 1 },
-  follow: { paddingHorizontal: 14, height: 30, borderRadius: 999, borderWidth: 1, justifyContent: 'center' },
+  follow: { paddingHorizontal: 14, paddingVertical: 4, minHeight: 30, maxWidth: '100%', borderRadius: 999, borderWidth: 1, justifyContent: 'center' },
   row6: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   loc: { fontFamily: 'Poppins_500Medium', fontSize: 13 },
   captionText: { color: '#FFF', fontFamily: 'Poppins_400Regular', fontSize: 15, lineHeight: 22, textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 4 },
   music: { flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'flex-start', maxWidth: '100%', paddingHorizontal: 12, height: 30, borderRadius: 999, backgroundColor: 'rgba(12,12,14,0.7)' },
   musicText: { color: '#FFFFFF', fontFamily: 'Poppins_400Regular', fontSize: 12, flexShrink: 1 },
-  tbar: { position: 'absolute', left: 14, right: 14, height: 54, borderRadius: 27, borderWidth: 1, backgroundColor: 'rgba(12,12,14,0.88)', flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, shadowColor: 'rgba(255,255,255,0.5)', shadowOpacity: 0.35, shadowRadius: 12, shadowOffset: { width: 0, height: 0 } },
+  tbar: { position: 'absolute', left: 14, right: 14, minHeight: 54, paddingVertical: 8, borderRadius: 27, borderWidth: 1, backgroundColor: 'rgba(12,12,14,0.88)', flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, shadowColor: 'rgba(255,255,255,0.5)', shadowOpacity: 0.35, shadowRadius: 12, shadowOffset: { width: 0, height: 0 } },
   tbarText: { flex: 1, color: '#FFF', fontFamily: 'Poppins_600SemiBold', fontSize: 16 },
-  ai: { paddingHorizontal: 10, height: 26, borderRadius: 999, borderWidth: 1, justifyContent: 'center' },
+  ai: { paddingHorizontal: 8, minHeight: 26, paddingVertical: 4, maxWidth: '30%', borderRadius: 999, borderWidth: 1, justifyContent: 'center' },
   nav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', backgroundColor: '#0E0E10', borderTopWidth: 1 },
-  navItem: { minWidth: 56, minHeight: 48, alignItems: 'center', justifyContent: 'center', gap: 2 },
-  navLabel: { fontFamily: 'Poppins_500Medium', fontSize: 11 },
+  navItem: { flex: 1, minHeight: 48, paddingHorizontal: 2, paddingVertical: 4, alignItems: 'center', justifyContent: 'center', gap: 2 },
+  navLabel: { fontFamily: 'Poppins_500Medium', fontSize: 11, textAlign: 'center' },
   navAv: { width: 30, height: 30, borderRadius: 15, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   create: { width: 54, height: 54, borderRadius: 27, borderWidth: 0, backgroundColor: '#0E0E10', alignItems: 'center', justifyContent: 'center', shadowColor: 'rgba(255,255,255,0.5)', shadowOpacity: 0, shadowRadius: 10, shadowOffset: { width: 0, height: 0 } },
   searchInput: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderRadius: 14, paddingHorizontal: 12, marginVertical: 12 },

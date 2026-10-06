@@ -3,6 +3,10 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 import { Platform } from 'react-native';
 import { europe } from './locales/europe';
 import { asia } from './locales/asia';
+import { feedEn, feedLocales } from './locales/feed';
+import { cameraEn, cameraLocales } from './locales/camera';
+import { profileEn, profileLocales } from './locales/profile';
+import { discoverEn, discoverLocales } from './locales/discover';
 
 export type Lang = 'en' | 'ar' | 'pt' | 'es' | 'fr' | 'de' | 'it' | 'tr' | 'ru' | 'hi' | 'zh' | 'ja';
 export const LANGS: { code: Lang; native: string; english: string; flag: string; hello: string }[] = [
@@ -389,8 +393,24 @@ const es: Dict = {
   socialCallbackError: 'No se pudo reconectar con la ventana original. Cierra esta ventana e inténtalo desde Nino en otra pestaña.',
 };
 
-const DICTS: Record<Lang, Dict> = { en, ar, pt, es, ...europe, ...asia };
-export type TKey = keyof Dict;
+const BASE_DICTS: Record<Lang, Dict> = { en, ar, pt, es, ...europe, ...asia };
+type InterfaceKey = keyof typeof feedEn | keyof typeof cameraEn | keyof typeof profileEn | keyof typeof discoverEn;
+type AppDict = Dict & Record<InterfaceKey, string>;
+function dictionary(language: Lang): AppDict {
+  return {
+    ...BASE_DICTS[language],
+    ...feedLocales[language],
+    ...cameraLocales[language],
+    ...profileLocales[language],
+    ...discoverLocales[language],
+  };
+}
+const DICTS: Record<Lang, AppDict> = {
+  en: dictionary('en'), ar: dictionary('ar'), pt: dictionary('pt'), es: dictionary('es'),
+  fr: dictionary('fr'), de: dictionary('de'), it: dictionary('it'), tr: dictionary('tr'),
+  ru: dictionary('ru'), hi: dictionary('hi'), zh: dictionary('zh'), ja: dictionary('ja'),
+};
+export type TKey = keyof AppDict;
 
 const LANG_KEY = 'nino.appLanguage';
 const CHOSEN_KEY = 'nino.languageChosen';
@@ -445,7 +465,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const value = useMemo<Ctx>(() => {
-    const t = (k: TKey) => DICTS[lang][k] ?? en[k];
+    const t = (k: TKey) => DICTS[lang][k] ?? DICTS.en[k];
     const font = (w: 'regular' | 'medium' | 'semibold' | 'bold' = 'regular') => {
       if (rtl) return w === 'bold' ? 'Cairo_700Bold' : w === 'regular' ? 'Cairo_400Regular' : 'Cairo_600SemiBold';
       if (['ru', 'hi', 'zh', 'ja'].includes(lang)) return Platform.OS === 'ios' ? 'System' : 'sans-serif';

@@ -54,7 +54,7 @@ export default function Welcome() {
           <View style={{ gap: 8, width: '100%', maxWidth: 440, alignSelf: 'center' }}>
             <PillButton testID="get-started" label={t('getStarted')} icon="globe" onPress={() => router.push(languageChosen ? '/sign-up' : '/language')} />
             <PillButton testID="have-account" variant="ghost" label={t('haveAccount')} onPress={() => router.push('/sign-in')} />
-            <PillButton testID="try-demo" variant="ghost" label="Try demo · no email needed" icon="play-circle" onPress={() => router.push('/feed-preview')} />
+            <PillButton testID="try-demo" variant="ghost" label={t('feedTryDemo')} icon="play-circle" onPress={() => router.push('/feed-preview')} />
           </View>
         </Rise>
       </View>

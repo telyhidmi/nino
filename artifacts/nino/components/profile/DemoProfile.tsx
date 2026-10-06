@@ -6,8 +6,9 @@ import { Alert, Platform, Pressable, Share, Text, TextInput, View } from 'react-
 import { PreviewTag, Sheet } from '@/components/feed/Sheets';
 import { useColors } from '@/hooks/useColors';
 import { SAMPLE_POSTS } from '@/components/feed/data';
+import { useI18n } from '@/lib/i18n';
 import type { ProfileCtx } from './profileCtx';
-import { ProfileView } from './ProfileView';
+import { ProfileLanguageButton, ProfileView } from './ProfileView';
 import type { ProfileItem } from './ProfileView';
 import { usePostCopy } from '@/lib/postTranslations';
 
@@ -23,6 +24,7 @@ const SAMPLE_UPLOADS: ProfileItem[] = [
 export function DemoProfile({ name, ctx, onExitDemo, active = true }: { name: string; ctx: ProfileCtx; onExitDemo?: () => void; active?: boolean }) {
   const c = useColors();
   const copy = usePostCopy();
+  const { t, font, row, align, rtl } = useI18n();
   const [shownName, setShownName] = useState(name);
   const [bio, setBio] = useState('Exploring the world one story and one language at a time. City walks, local food, new people.');
   const [editing, setEditing] = useState(false);
@@ -31,7 +33,7 @@ export function DemoProfile({ name, ctx, onExitDemo, active = true }: { name: st
   const [draftPhoto, setDraftPhoto] = useState<string | null>(null);
   const pickPhoto = async () => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) { Alert.alert('Photo access needed', 'Allow photo library access to choose a demo profile picture.'); return; }
+    if (!perm.granted) { Alert.alert(t('profilePhotoAccess'), t('profilePhotoAccessBody')); return; }
     const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.8 });
     if (!res.canceled && res.assets[0]) setDraftPhoto(res.assets[0].uri);
   };
@@ -39,16 +41,16 @@ export function DemoProfile({ name, ctx, onExitDemo, active = true }: { name: st
   const [draftBio, setDraftBio] = useState('');
   const openEdit = () => { setDraftName(shownName); setDraftBio(bio); setDraftPhoto(photo); setEditing(true); };
   const saveEdit = () => { setShownName(draftName.trim() || name); setBio(draftBio.trim()); setPhoto(draftPhoto); setEditing(false); };
-  const input = { color: c.text, fontFamily: 'Poppins_400Regular', fontSize: 15, borderWidth: 1, borderColor: c.border, backgroundColor: c.cardSoft, borderRadius: 12, paddingHorizontal: 12, minHeight: 44, marginTop: 6 } as const;
-  const label = { color: c.secondary, fontFamily: 'Poppins_500Medium', fontSize: 12, marginTop: 14 } as const;
+  const input = { color: c.text, fontFamily: font(), textAlign: align, writingDirection: rtl ? 'rtl' : 'ltr', fontSize: 15, borderWidth: 1, borderColor: c.border, backgroundColor: c.cardSoft, borderRadius: 12, paddingHorizontal: 12, minHeight: 44, marginTop: 6 } as const;
+  const label = { color: c.secondary, fontFamily: font('medium'), textAlign: align, fontSize: 12, marginTop: 14 } as const;
 
   const share = () => {
-    Share.share({ message: `${shownName} is exploring Nino, a multilingual story app (demo profile — not a real account).` }).catch(() => undefined);
+    Share.share({ message: t('profileShareDemo').replace('{name}', shownName) }).catch(() => undefined);
   };
   const menu = () => {
     if (!onExitDemo) return;
     if (Platform.OS === 'web') { onExitDemo(); return; }
-    Alert.alert('Demo profile', 'This is a simulated account. Nothing is saved.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Exit demo', style: 'destructive', onPress: onExitDemo }]);
+    Alert.alert(t('profileDemoTitle'), t('profileDemoBody'), [{ text: t('profileCancel'), style: 'cancel' }, { text: t('profileExitDemo'), style: 'destructive', onPress: onExitDemo }]);
   };
 
   return (
@@ -56,45 +58,46 @@ export function DemoProfile({ name, ctx, onExitDemo, active = true }: { name: st
     <ProfileView
       active={active}
       testID="demo-profile"
-      name={shownName} imageUrl={photo} handle="alex.demo" flag="🇨🇦" countryCode="CAN" badge="DEMO"
-      speaks="English (native)" understands={['FR', 'ES']}
+      name={shownName} imageUrl={photo} handle="alex.demo" flag="🇨🇦" countryCode="CAN" badge={t('profileDemoBadge')}
+      speaks={t('profileEnglishNative')} understands={['FR', 'ES']}
       bio={bio}
       stats={{ following: ctx.following.length, followers: 1284, likes: 8736 }}
-      statsNote="Simulated account · followers and likes are sample numbers · Following reflects this session"
-      following={ctx.following} followingEmpty="You aren't following anyone in this demo yet. Tap Follow on a post in For You."
+      statsNote={t('profileDemoStats')}
+      following={ctx.following} followingEmpty={t('profileDemoFollowing')}
       onUnfollow={ctx.onUnfollow}
       onEdit={openEdit} onShare={share} onMenu={onExitDemo ? menu : undefined}
         onAdd={ctx.onAdd} addLabel={copy.newPost}
         uploadNote={copy.demoNotice}
       tabs={{
-          posts: { items: SAMPLE_UPLOADS, emptyTitle: '', emptyBody: '' },
-        private: { items: [], emptyTitle: 'No private posts', emptyBody: 'Private posts aren’t available in the demo.' },
-        reposts: { items: [], emptyTitle: 'No reposts yet', emptyBody: 'Reposting isn’t connected yet.' },
-        liked: { items: ctx.liked, emptyTitle: 'Nothing liked yet', emptyBody: `Posts you like in the feed this session appear here. ${SAMPLE_POSTS.length} sample posts to explore.` },
+         posts: { items: SAMPLE_UPLOADS.map((item) => ({ ...item, caption: t(item.kind === 'video' ? 'profileSampleClip' : 'profileSampleCaption') })), emptyTitle: '', emptyBody: '' },
+         private: { items: [], emptyTitle: t('profileNoPrivate'), emptyBody: t('profileDemoPrivateBody') },
+         reposts: { items: [], emptyTitle: t('profileNoReposts'), emptyBody: t('profileNoRepostsBody') },
+         liked: { items: ctx.liked, emptyTitle: t('profileNoLiked'), emptyBody: t('profileDemoLikedBody').replace('{count}', String(SAMPLE_POSTS.length)) },
       }}
     />
-    <Sheet visible={active && editing} onClose={() => setEditing(false)} title="Edit demo profile" testID="demo-edit-sheet">
-      <PreviewTag text="Local to this demo session · not saved to any account" />
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 14 }}>
+    <Sheet visible={active && editing} onClose={() => setEditing(false)} title={t('profileEditDemo')} testID="demo-edit-sheet">
+      <PreviewTag text={t('profileDemoSession')} />
+      <View style={{ paddingTop: 12 }}><ProfileLanguageButton onNavigate={() => setEditing(false)} /></View>
+      <View style={{ flexDirection: row, flexWrap: 'wrap', alignItems: 'center', gap: 14, marginTop: 14 }}>
         <View style={{ width: 64, height: 64, borderRadius: 32, borderWidth: 2, borderColor: c.accent, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', backgroundColor: c.cardSoft }}>
-          {draftPhoto ? <Image source={{ uri: draftPhoto }} style={{ width: 64, height: 64 }} contentFit="cover" accessibilityLabel="Demo profile picture" /> : <Feather name="user" size={26} color={c.secondary} />}
+          {draftPhoto ? <Image source={{ uri: draftPhoto }} style={{ width: 64, height: 64 }} contentFit="cover" accessibilityLabel={t('profileDemoPicture')} /> : <Feather name="user" size={26} color={c.secondary} />}
         </View>
-        <Pressable testID="demo-edit-photo" onPress={pickPhoto} accessibilityRole="button" style={{ minHeight: 44, paddingHorizontal: 14, borderRadius: 999, borderWidth: 1, borderColor: c.accent, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+        <Pressable testID="demo-edit-photo" onPress={pickPhoto} accessibilityRole="button" style={{ minHeight: 44, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, borderWidth: 1, borderColor: c.accent, flexDirection: row, alignItems: 'center', gap: 6, flexShrink: 1 }}>
           <Feather name="camera" size={15} color={c.accent} />
-          <Text style={{ color: c.accent, fontFamily: 'Poppins_600SemiBold', fontSize: 13 }}>Change picture</Text>
+          <Text style={{ color: c.accent, fontFamily: font('semibold'), fontSize: 13, textAlign: align, flexShrink: 1 }}>{t('profileChangePicture')}</Text>
         </Pressable>
         {draftPhoto ? (
-          <Pressable testID="demo-edit-photo-remove" onPress={() => setDraftPhoto(null)} accessibilityRole="button" accessibilityLabel="Remove picture" style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
+          <Pressable testID="demo-edit-photo-remove" onPress={() => setDraftPhoto(null)} accessibilityRole="button" accessibilityLabel={t('profileRemovePicture')} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
             <Feather name="trash-2" size={17} color={c.danger} />
           </Pressable>
         ) : null}
       </View>
-      <Text style={label}>Name</Text>
-      <TextInput testID="demo-edit-name" value={draftName} onChangeText={setDraftName} maxLength={40} style={input} placeholderTextColor={c.muted} accessibilityLabel="Name" />
-      <Text style={label}>Bio</Text>
-      <TextInput testID="demo-edit-bio" value={draftBio} onChangeText={setDraftBio} maxLength={160} multiline style={[input, { minHeight: 88, paddingTop: 10, textAlignVertical: 'top' }]} accessibilityLabel="Bio" />
-      <Pressable testID="demo-edit-save" onPress={saveEdit} accessibilityRole="button" style={{ marginTop: 18, minHeight: 48, borderRadius: 999, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center' }}>
-        <Text style={{ color: c.onAccent, fontFamily: 'Poppins_600SemiBold', fontSize: 15 }}>Save for this session</Text>
+      <Text style={label}>{t('profileName')}</Text>
+      <TextInput testID="demo-edit-name" value={draftName} onChangeText={setDraftName} maxLength={40} style={input} placeholderTextColor={c.muted} accessibilityLabel={t('profileName')} />
+      <Text style={label}>{t('profileBio')}</Text>
+      <TextInput testID="demo-edit-bio" value={draftBio} onChangeText={setDraftBio} maxLength={160} multiline style={[input, { minHeight: 88, paddingTop: 10, textAlignVertical: 'top' }]} accessibilityLabel={t('profileBio')} />
+      <Pressable testID="demo-edit-save" onPress={saveEdit} accessibilityRole="button" style={{ marginTop: 18, minHeight: 48, paddingVertical: 10, paddingHorizontal: 12, borderRadius: 999, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center' }}>
+        <Text style={{ color: c.onAccent, fontFamily: font('semibold'), fontSize: 15, textAlign: 'center' }}>{t('profileSaveSession')}</Text>
       </Pressable>
     </Sheet>
     </>

@@ -16,22 +16,23 @@ import { readUploadMedia, uploadMedia, type CapturedMedia, type ByteProgress, ty
 import { captureRecordingCountry, useRecordingLocationCopy, type RecordingLocation, type LocationNotice } from '@/lib/recordingLocation';
 import { router } from 'expo-router';
 import { useLiveCopy } from '@/lib/liveCopy';
+import { useI18n } from '@/lib/i18n';
+import type { cameraEn } from '@/lib/locales/camera';
 
 type Captured = CapturedMedia & { recordingLocation?: RecordingLocation };
 type PermissionProblem = { message: string; settings: boolean };
 type Mode = 'photo' | 600 | 60 | 30 | 15;
 
-const MODES: { id: Mode; label: string; spoken: string }[] = [
-  { id: 600, label: '10m', spoken: '10 minute video' },
-  { id: 60, label: '60s', spoken: '60 second video' },
-  { id: 30, label: '30s', spoken: '30 second video' },
-  { id: 15, label: '15s', spoken: '15 second video' },
-  { id: 'photo', label: 'Photo', spoken: 'Photo' },
+const MODES: { id: Mode; label: keyof typeof cameraEn; spoken: keyof typeof cameraEn }[] = [
+  { id: 600, label: 'camera10m', spoken: 'camera10mSpoken' },
+  { id: 60, label: 'camera60s', spoken: 'camera60sSpoken' },
+  { id: 30, label: 'camera30s', spoken: 'camera30sSpoken' },
+  { id: 15, label: 'camera15s', spoken: 'camera15sSpoken' },
+  { id: 'photo', label: 'cameraPhoto', spoken: 'cameraPhoto' },
 ];
 
 const IS_WEB = Platform.OS === 'web';
 const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
-const errText = (e: unknown) => (e instanceof Error ? e.message : 'Unknown error');
 
 function VideoPreview({ uri }: { uri: string }) {
   const player = useVideoPlayer({ uri }, (p) => { p.loop = true; });
@@ -53,6 +54,13 @@ export function CreatePost({ visible, onClose, onSave, allowPublish = true }: { 
   const [bytes, setBytes] = useState<ByteProgress | null>(null);
   const [phase, setPhase] = useState<'upload' | 'finalize' | null>(null);
   const ins = useInsets();
+  const { t, font, row, align, rtl } = useI18n();
+  const i18nError = t; // Capture translator outside the numeric session-token scopes.
+  const regular = { fontFamily: font(), writingDirection: rtl ? 'rtl' as const : 'ltr' as const };
+  const semibold = { ...regular, fontFamily: font('semibold') };
+  const prose = { ...regular, textAlign: align };
+  // Native diagnostic details are not interface copy and remain verbatim.
+  const errText = (e: unknown) => (e instanceof Error ? e.message : t('cameraUnknownError'));
   const [camPerm, requestCam] = useCameraPermissions();
   const [, requestMic] = useMicrophonePermissions();
 
@@ -134,8 +142,8 @@ export function CreatePost({ visible, onClose, onSave, allowPublish = true }: { 
     if (!visible || !camPerm || camPerm.granted || asked) return;
     if (!camPerm.canAskAgain) return;
     setAsked(true);
-    requestCam().catch((e) => { if (mounted.current) setError(`Could not request camera access: ${errText(e)}`); });
-  }, [visible, camPerm, asked, requestCam]);
+    requestCam().catch((e) => { if (mounted.current) setError(`${t('cameraAccessError')}: ${errText(e)}`); });
+  }, [visible, camPerm, asked, requestCam, t]);
 
   useEffect(() => { if (!cameraActive) markReady(false); }, [cameraActive]);
   useEffect(() => {
@@ -196,7 +204,7 @@ export function CreatePost({ visible, onClose, onSave, allowPublish = true }: { 
       const pic = await cam.takePictureAsync({ quality: 0.85 });
       if (alive(t) && pic?.uri) { setLocationNotice('unlocated'); setAsset({ uri: pic.uri, type: 'image', mimeType: 'image/jpeg', recordingLocation: undefined }); }
     } catch (e) {
-      if (alive(t)) setError(`Could not take photo: ${errText(e)}`);
+      if (alive(t)) setError(`${i18nError('cameraPhotoError')}: ${errText(e)}`);
     } finally {
       if (alive(t)) { setBusy(false); lock.current = false; }
     }
@@ -204,7 +212,7 @@ export function CreatePost({ visible, onClose, onSave, allowPublish = true }: { 
 
   const startRecording = async () => {
     if (IS_WEB) {
-      setError('Video recording is not supported in this browser preview. Use Photo, or pick a video from your library.');
+      setError(i18nError('cameraBrowserVideoError'));
       lock.current = false; return;
     }
     const t = session.current;
@@ -213,13 +221,13 @@ export function CreatePost({ visible, onClose, onSave, allowPublish = true }: { 
     try {
       mic = await requestMic();
     } catch (e) {
-      if (alive(t)) { setError(`Could not request microphone access: ${errText(e)}`); setBusy(false); lock.current = false; }
+      if (alive(t)) { setError(`${i18nError('cameraMicError')}: ${errText(e)}`); setBusy(false); lock.current = false; }
       return;
     }
     if (!alive(t)) return;
     if (!mic.granted) {
       setBusy(false);
-      setProblem({ message: `Nino needs microphone access to record video. ${mic.canAskAgain ? 'Tap record again to retry.' : 'Enable it in device settings.'}`, settings: !mic.canAskAgain });
+      setProblem({ message: `${i18nError('cameraMicNeeded')} ${i18nError(mic.canAskAgain ? 'cameraRecordRetry' : 'cameraEnableSettings')}`, settings: !mic.canAskAgain });
       lock.current = false; return;
     }
     // Permission prompts may background/remount the camera. Check after each
@@ -284,7 +292,7 @@ export function CreatePost({ visible, onClose, onSave, allowPublish = true }: { 
         if (alive(t) && fgRef.current && discardId.current !== id) setAsset({ uri: result.uri, type: 'video', recordingLocation });
       }
     } catch (e) {
-      if (alive(t) && discardId.current !== id) setError(`Recording stopped: ${errText(e)}`);
+      if (alive(t) && discardId.current !== id) setError(`${i18nError('cameraRecordingError')}: ${errText(e)}`);
     } finally {
       if (recId.current === id) { recordingRef.current = false; clearTimer(); lock.current = false; }
       if (mounted.current && recId.current === id) setRecording(false);
@@ -311,7 +319,7 @@ export function CreatePost({ visible, onClose, onSave, allowPublish = true }: { 
       if (!IS_WEB) {
         const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (!perm.granted) {
-          if (alive(t)) setProblem({ message: `Nino needs photo library access to choose media. ${perm.canAskAgain ? 'Tap again to retry.' : 'Enable it in device settings.'}`, settings: !perm.canAskAgain });
+          if (alive(t)) setProblem({ message: `${i18nError('cameraLibraryNeeded')} ${i18nError(perm.canAskAgain ? 'cameraTapRetry' : 'cameraEnableSettings')}`, settings: !perm.canAskAgain });
           return;
         }
       }
@@ -320,10 +328,10 @@ export function CreatePost({ visible, onClose, onSave, allowPublish = true }: { 
       const a = res.canceled ? null : res.assets[0];
       if (a) {
         if (a.type === 'video' || a.type === 'image') { setLocationNotice('unlocated'); setAsset({ uri: a.uri, type: a.type, mimeType: a.mimeType, file: a.file, recordingLocation: undefined }); }
-        else setError('This media format is not supported. Choose a photo or video.');
+        else setError(i18nError('cameraUnsupportedMedia'));
       }
     } catch (e) {
-      if (alive(t)) setError(`Could not open your library: ${errText(e)}`);
+      if (alive(t)) setError(`${i18nError('cameraLibraryError')}: ${errText(e)}`);
     } finally {
       if (alive(t)) { lock.current = false; setPicking(false); }
     }
@@ -383,7 +391,7 @@ export function CreatePost({ visible, onClose, onSave, allowPublish = true }: { 
   };
 
   const openSettings = async () => {
-    try { await Linking.openSettings(); } catch (e) { setError(`Could not open settings: ${errText(e)}`); }
+    try { await Linking.openSettings(); } catch (e) { setError(`${t('cameraSettingsError')}: ${errText(e)}`); }
   };
 
   const feedback = (
@@ -397,17 +405,17 @@ export function CreatePost({ visible, onClose, onSave, allowPublish = true }: { 
       ) : null}
       {problem ? (
         <View style={[styles.toast, { backgroundColor: c.overlay, borderColor: c.danger }]}>
-          <Text style={[styles.toastText, { color: c.text }]}>{problem.message}</Text>
+          <Text style={[styles.toastText, prose, { color: c.text }]}>{problem.message}</Text>
           {problem.settings && !IS_WEB ? (
-            <Pressable testID="create-settings" onPress={openSettings} accessibilityRole="button" style={styles.inlineBtn}>
-              <Feather name="settings" size={15} color={c.accent} /><Text style={[styles.inlineText, { color: c.accent }]}>Open Settings</Text>
+            <Pressable testID="create-settings" onPress={openSettings} accessibilityRole="button" style={[styles.inlineBtn, { flexDirection: row, alignSelf: rtl ? 'flex-end' : 'flex-start' }]}>
+              <Feather name="settings" size={15} color={c.accent} /><Text style={[styles.inlineText, semibold, { color: c.accent }]}>{t('cameraOpenSettings')}</Text>
             </Pressable>
           ) : null}
         </View>
       ) : null}
       {error ? (
-        <Pressable onPress={() => setError(null)} style={[styles.toast, { backgroundColor: c.overlay, borderColor: c.danger }]}>
-          <Text testID="create-error" style={[styles.toastText, { color: c.text }]}>{error}</Text>
+        <Pressable onPress={() => setError(null)} accessibilityRole="button" accessibilityLabel={t('cameraDismissError')} style={[styles.toast, { backgroundColor: c.overlay, borderColor: c.danger }]}>
+          <Text testID="create-error" style={[styles.toastText, prose, { color: c.text }]}>{error}</Text>
         </Pressable>
       ) : null}
     </>
@@ -415,46 +423,46 @@ export function CreatePost({ visible, onClose, onSave, allowPublish = true }: { 
 
   const renderPreview = (a: Captured) => (
     <View testID="create-post" style={[styles.root, { backgroundColor: c.bgTop, paddingTop: ins.top, paddingBottom: ins.bottom }]}>
-      <View style={styles.header}>
-        <Pressable testID="create-retake" onPress={retake} disabled={busy} accessibilityRole="button" accessibilityLabel="Retake" style={styles.iconButton}>
-          <Feather name="chevron-left" size={26} color={c.text} />
+      <View style={[styles.header, { flexDirection: row }]}>
+        <Pressable testID="create-retake" onPress={retake} disabled={busy} accessibilityRole="button" accessibilityLabel={t('cameraRetake')} style={styles.iconButton}>
+          <Feather name={rtl ? 'chevron-right' : 'chevron-left'} size={26} color={c.text} />
         </Pressable>
-        <Text style={[styles.heading, { color: c.text }]}>{copy.newPost}</Text>
-        <Pressable testID="create-close" onPress={close} disabled={busy} accessibilityRole="button" accessibilityLabel="Close composer" style={styles.iconButton}>
+        <Text style={[styles.heading, semibold, { color: c.text }]}>{copy.newPost}</Text>
+        <Pressable testID="create-close" onPress={close} disabled={busy} accessibilityRole="button" accessibilityLabel={t('cameraCloseComposer')} style={styles.iconButton}>
           <Feather name="x" size={24} color={c.text} />
         </Pressable>
       </View>
       <KeyboardAwareScrollViewCompat contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" bottomOffset={20}>
         <View style={[styles.media, { backgroundColor: c.card, borderColor: c.border }]}>
-          {a.type === 'video' ? <VideoPreview key={a.uri} uri={a.uri} /> : <Image source={{ uri: a.uri }} style={styles.fill} contentFit="contain" accessibilityLabel="Captured photo preview" />}
+          {a.type === 'video' ? <VideoPreview key={a.uri} uri={a.uri} /> : <Image source={{ uri: a.uri }} style={styles.fill} contentFit="contain" accessibilityLabel={t('cameraPhotoPreview')} />}
         </View>
-        <Pressable testID="create-change" onPress={retake} disabled={busy} accessibilityRole="button" style={styles.inlineBtn}>
+        <Pressable testID="create-change" onPress={retake} disabled={busy} accessibilityRole="button" style={[styles.inlineBtn, { flexDirection: row, alignSelf: rtl ? 'flex-end' : 'flex-start' }]}>
           <Feather name="rotate-ccw" size={15} color={c.accent} />
-          <Text style={[styles.inlineText, { color: c.accent }]}>Retake</Text>
+          <Text style={[styles.inlineText, semibold, { color: c.accent }]}>{t('cameraRetake')}</Text>
         </Pressable>
         <TextInput testID="create-caption" value={caption} onChangeText={setCaption} multiline maxLength={500} editable={!busy}
           placeholder={copy.caption} placeholderTextColor={c.muted} accessibilityLabel={copy.caption}
-          style={[styles.input, { color: c.text, borderColor: c.border, backgroundColor: c.cardSoft }]} />
-        <View style={[styles.notice, { backgroundColor: c.accentWash, borderColor: c.border }]}>
+          style={[styles.input, prose, { color: c.text, borderColor: c.border, backgroundColor: c.cardSoft }]} />
+        <View style={[styles.notice, { flexDirection: row, backgroundColor: c.accentWash, borderColor: c.border }]}>
           <Feather name="map-pin" size={16} color={c.accent} />
-          <Text testID="create-recording-country" style={[styles.body, { color: c.secondary, flex: 1 }]}>
+          <Text testID="create-recording-country" style={[styles.body, prose, { color: c.secondary, flex: 1 }]}>
             {a.recordingLocation ? locationCopy.countryNotice(a.recordingLocation.countryCode) : locationCopy[locationNotice ?? 'unlocated']}
           </Text>
         </View>
-        <View style={[styles.notice, { backgroundColor: c.accentWash, borderColor: c.border }]}>
+        <View style={[styles.notice, { flexDirection: row, backgroundColor: c.accentWash, borderColor: c.border }]}>
           <Feather name="smartphone" size={16} color={c.accent} />
-          <Text style={[styles.body, { color: c.secondary, flex: 1 }]}>{allowPublish && isSignedIn ? copy.notice : copy.signIn}</Text>
+          <Text style={[styles.body, prose, { color: c.secondary, flex: 1 }]}>{allowPublish && isSignedIn ? copy.notice : copy.signIn}</Text>
         </View>
         {busy && bytes ? <View accessibilityLiveRegion="polite">
           <Text testID="create-upload-progress" style={[styles.body, { color: c.secondary }]}>{phase === 'finalize' ? copy.finalizing : copy.uploading} · {Math.min(100, Math.round(bytes.sent / bytes.total * 100))}% · {(bytes.sent / 1048576).toFixed(1)} / {(bytes.total / 1048576).toFixed(1)} MB</Text>
           <View style={[styles.progressTrack, { backgroundColor: c.accentWash, width: '100%', marginTop: 8 }]}><View style={[styles.progressFill, { backgroundColor: c.accent, width: `${Math.min(100, bytes.sent / bytes.total * 100)}%` }]} /></View>
         </View> : null}
         <Pressable testID="create-save" disabled={busy} onPress={save} accessibilityRole="button"
-          style={[styles.save, { backgroundColor: c.accent, opacity: busy ? 0.5 : 1 }]}>
+          style={[styles.save, { flexDirection: row, backgroundColor: c.accent, opacity: busy ? 0.5 : 1 }]}>
           <Feather name="check" size={18} color={c.onAccent} />
-          <Text style={[styles.inlineText, { color: c.onAccent }]}>{busy ? copy.publishing : error ? `${copy.retry} · ${copy.publish}` : copy.publish}</Text>
+          <Text style={[styles.inlineText, semibold, { color: c.onAccent }]}>{busy ? copy.publishing : error ? `${copy.retry} · ${copy.publish}` : copy.publish}</Text>
         </Pressable>
-        {error ? <Text testID="create-error" style={[styles.body, { color: c.danger }]}>{error}</Text> : null}
+        {error ? <Text testID="create-error" style={[styles.body, prose, { color: c.danger }]}>{error}</Text> : null}
       </KeyboardAwareScrollViewCompat>
     </View>
   );
@@ -466,22 +474,22 @@ export function CreatePost({ visible, onClose, onSave, allowPublish = true }: { 
         <View style={[styles.permIcon, { backgroundColor: c.accentWash, borderColor: c.border }]}>
           <Feather name={denied ? 'camera-off' : 'camera'} size={30} color={c.accent} />
         </View>
-        <Text style={[styles.permTitle, { color: c.text }]}>{denied ? 'Camera access is off' : 'Opening camera…'}</Text>
+        <Text style={[styles.permTitle, semibold, { color: c.text }]}>{t(denied ? 'cameraAccessOff' : 'cameraOpening')}</Text>
         {denied ? (
           <>
-            <Text style={[styles.permBody, { color: c.secondary }]}>
-              {camPerm?.canAskAgain ? 'Allow camera access to capture photos and videos.' : 'Turn on camera access for Nino in your device settings.'}
+            <Text style={[styles.permBody, regular, { color: c.secondary }]}>
+              {t(camPerm?.canAskAgain ? 'cameraAllowBody' : 'cameraSettingsBody')}
             </Text>
             {camPerm?.canAskAgain || IS_WEB ? (
-              <Pressable testID="create-allow" onPress={() => { requestCam().catch((e) => setError(errText(e))); }} style={[styles.permBtn, { backgroundColor: c.accent }]} accessibilityRole="button">
-                <Text style={[styles.inlineText, { color: c.onAccent }]}>Allow camera</Text>
+              <Pressable testID="create-allow" onPress={() => { requestCam().catch((e) => setError(`${t('cameraAccessError')}: ${errText(e)}`)); }} style={[styles.permBtn, { flexDirection: row, backgroundColor: c.accent }]} accessibilityRole="button">
+                <Text style={[styles.inlineText, semibold, { color: c.onAccent }]}>{t('cameraAllow')}</Text>
               </Pressable>
             ) : (
-              <Pressable testID="create-settings" onPress={openSettings} style={[styles.permBtn, { backgroundColor: c.accent }]} accessibilityRole="button">
-                <Feather name="settings" size={16} color={c.onAccent} /><Text style={[styles.inlineText, { color: c.onAccent }]}>Open Settings</Text>
+              <Pressable testID="create-settings" onPress={openSettings} style={[styles.permBtn, { flexDirection: row, backgroundColor: c.accent }]} accessibilityRole="button">
+                <Feather name="settings" size={16} color={c.onAccent} /><Text style={[styles.inlineText, semibold, { color: c.onAccent }]}>{t('cameraOpenSettings')}</Text>
               </Pressable>
             )}
-            <Text style={[styles.permBody, { color: c.muted }]}>You can still pick from your library below.</Text>
+            <Text style={[styles.permBody, regular, { color: c.muted }]}>{t('cameraLibraryAlternative')}</Text>
           </>
         ) : null}
       </View>
@@ -503,29 +511,29 @@ export function CreatePost({ visible, onClose, onSave, allowPublish = true }: { 
               mode={isVideoMode ? 'video' : 'picture'}
               active={cameraActive}
               onCameraReady={() => { if (mounted.current) markReady(true); }}
-              onMountError={(e) => { if (mounted.current) setError(`Camera unavailable: ${e.message}`); }}
+              onMountError={(e) => { if (mounted.current) setError(`${t('cameraUnavailable')}: ${e.message}`); }}
             />
           ) : granted ? null : renderPermission()}
 
           {/* Top bar */}
-          <View style={[styles.topBar, { paddingTop: ins.top + 6 }]} pointerEvents="box-none">
-            <Pressable testID="create-close" onPress={close} hitSlop={8} accessibilityRole="button" accessibilityLabel="Close camera" style={[styles.glass, { backgroundColor: c.overlay }]}>
+          <View style={[styles.topBar, { flexDirection: row, paddingTop: ins.top + 6 }]} pointerEvents="box-none">
+            <Pressable testID="create-close" onPress={close} hitSlop={8} accessibilityRole="button" accessibilityLabel={t('cameraClose')} style={[styles.glass, { backgroundColor: c.overlay }]}>
               <Feather name="x" size={22} color={c.text} />
             </Pressable>
             {recording ? (
               <View style={[styles.timer, { backgroundColor: c.overlay, borderColor: c.danger }]} accessibilityLiveRegion="polite">
                 <View style={[styles.recDot, { backgroundColor: c.danger }]} />
-                <Text style={[styles.timerText, { color: c.text }]}>{fmt(elapsed)}</Text>
-                <Text style={[styles.timerMax, { color: c.secondary }]}>/ {fmt(maxSeconds)}</Text>
+                <Text style={[styles.timerText, semibold, { color: c.text, writingDirection: 'ltr' }]}>{fmt(elapsed)}</Text>
+                <Text style={[styles.timerMax, regular, { color: c.secondary, writingDirection: 'ltr' }]}>/ {fmt(maxSeconds)}</Text>
               </View>
             ) : (
-              <Pressable testID="create-live" onPress={() => { close(); router.push('/live'); }} style={[styles.livePill, { backgroundColor: c.overlay, borderColor: c.accent }]} accessibilityRole="button" accessibilityLabel={liveCopy.go}>
+              <Pressable testID="create-live" onPress={() => { close(); router.push('/live'); }} style={[styles.livePill, { flexDirection: row, backgroundColor: c.overlay, borderColor: c.accent }]} accessibilityRole="button" accessibilityLabel={liveCopy.go}>
                 <Feather name="radio" size={13} color={c.muted} />
-                <Text style={[styles.liveText, { color: c.accent }]}>{liveCopy.go}</Text>
+                <Text style={[styles.liveText, semibold, { color: c.accent, letterSpacing: rtl ? 0 : 1 }]}>{liveCopy.go}</Text>
               </Pressable>
             )}
             <Pressable testID="create-flip" onPress={() => { if (lock.current || recordingRef.current) return; markReady(false); setFacing((f) => (f === 'back' ? 'front' : 'back')); }} disabled={recording || busy || !granted}
-              hitSlop={8} accessibilityRole="button" accessibilityLabel="Flip camera"
+              hitSlop={8} accessibilityRole="button" accessibilityLabel={t('cameraFlip')}
               style={[styles.glass, { backgroundColor: c.overlay, opacity: recording || busy || !granted ? 0.35 : 1 }]}>
               <Feather name="refresh-cw" size={20} color={c.text} />
             </Pressable>
@@ -535,21 +543,21 @@ export function CreatePost({ visible, onClose, onSave, allowPublish = true }: { 
           <View style={[styles.bottom, { paddingBottom: ins.bottom + 14 }]} pointerEvents="box-none">
             <View style={styles.feedbackWrap}>{feedback}</View>
             {IS_WEB && isVideoMode && !error ? (
-              <Text style={[styles.hint, { color: c.secondary }]}>Browser can't record video · use Photo or library</Text>
+              <Text style={[styles.hint, regular, { color: c.secondary }]}>{t('cameraBrowserHint')}</Text>
             ) : null}
             {recording && elapsed > 0 ? (
               <View style={[styles.progressTrack, { backgroundColor: c.accentWash }]}>
-                <View style={[styles.progressFill, { backgroundColor: c.accent, width: `${Math.min(100, (elapsed / maxSeconds) * 100)}%` }]} />
+                <View style={[styles.progressFill, { alignSelf: rtl ? 'flex-end' : 'flex-start', backgroundColor: c.accent, width: `${Math.min(100, (elapsed / maxSeconds) * 100)}%` }]} />
               </View>
             ) : null}
-            <View style={styles.controls}>
+            <View style={[styles.controls, { flexDirection: row }]}>
               <Pressable testID="create-library" onPress={openLibrary} disabled={recording || busy}
-                accessibilityRole="button" accessibilityLabel="Choose from library"
+                accessibilityRole="button" accessibilityLabel={t('cameraChooseLibrary')}
                 style={[styles.sideBtn, { borderColor: c.borderStrong, backgroundColor: c.overlay, opacity: recording || busy ? 0.35 : 1 }]}>
                 <Feather name="image" size={22} color={c.text} />
               </Pressable>
               <Pressable testID="create-shutter" onPress={shutter} disabled={shutterDisabled}
-                accessibilityRole="button" accessibilityLabel={recording ? 'Stop recording' : isVideoMode ? 'Start recording' : 'Take photo'}
+                accessibilityRole="button" accessibilityLabel={t(recording ? 'cameraStopRecording' : isVideoMode ? 'cameraStartRecording' : 'cameraTakePhoto')}
                 style={[styles.shutterRing, { borderColor: recording ? c.danger : c.text, opacity: shutterDisabled ? 0.4 : 1 }]}>
                 <View style={[
                   recording ? styles.shutterStop : styles.shutterCore,
@@ -557,18 +565,18 @@ export function CreatePost({ visible, onClose, onSave, allowPublish = true }: { 
                 ]} />
               </Pressable>
               <View style={styles.sideBtnGhost}>
-                {!ready && cameraActive ? <Text style={[styles.readyText, { color: c.secondary }]}>warming{'\n'}up</Text> : null}
+                {!ready && cameraActive ? <Text style={[styles.readyText, regular, { color: c.secondary }]}>{t('cameraWarming')}</Text> : null}
               </View>
             </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.modes}
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={[styles.modes, { flexDirection: row }]}
               accessibilityRole="radiogroup" pointerEvents={recording ? 'none' : 'auto'} style={{ opacity: recording ? 0.3 : 1, flexGrow: 0 }}>
               {MODES.map((m) => {
                 const sel = m.id === mode;
                 return (
                   <Pressable key={String(m.id)} testID={`create-mode-${m.id}`} onPress={() => { if (!recording && !busy && !lock.current && m.id !== mode) { if (isVideoMode !== (m.id !== 'photo')) markReady(false); setMode(m.id); setError(null); } }}
-                    disabled={recording || busy} accessibilityRole="radio" accessibilityState={{ selected: sel }} accessibilityLabel={m.spoken}
+                    disabled={recording || busy} accessibilityRole="radio" accessibilityState={{ selected: sel }} accessibilityLabel={t(m.spoken)}
                     style={[styles.mode, sel && { backgroundColor: c.accent }]}>
-                    <Text style={[styles.modeText, { color: sel ? c.onAccent : c.text }]}>{m.label}</Text>
+                    <Text style={[styles.modeText, semibold, { color: sel ? c.onAccent : c.text }]}>{t(m.label)}</Text>
                   </Pressable>
                 );
               })}
@@ -589,13 +597,13 @@ const styles = StyleSheet.create({
   recDot: { width: 8, height: 8, borderRadius: 4 },
   timerText: { fontFamily: 'Poppins_600SemiBold', fontSize: 15, fontVariant: ['tabular-nums'] },
   timerMax: { fontFamily: 'Poppins_400Regular', fontSize: 12 },
-  livePill: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, height: 30, borderRadius: 15, borderWidth: 1 },
+  livePill: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 4, minHeight: 30, maxWidth: '65%', flexShrink: 1, borderRadius: 15, borderWidth: 1 },
   liveText: { fontFamily: 'Poppins_600SemiBold', fontSize: 11, letterSpacing: 1 },
   bottom: { position: 'absolute', left: 0, right: 0, bottom: 0, alignItems: 'center', gap: 14 },
   feedbackWrap: { width: '100%', paddingHorizontal: 16, gap: 8 },
   toast: { borderWidth: 1, borderRadius: 14, padding: 12, gap: 4 },
   toastText: { fontFamily: 'Poppins_400Regular', fontSize: 13, lineHeight: 19 },
-  hint: { fontFamily: 'Poppins_400Regular', fontSize: 12 },
+  hint: { fontFamily: 'Poppins_400Regular', fontSize: 12, textAlign: 'center', paddingHorizontal: 16 },
   progressTrack: { width: '70%', height: 3, borderRadius: 2, overflow: 'hidden' },
   progressFill: { height: 3 },
   controls: { width: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 36 },
@@ -606,7 +614,7 @@ const styles = StyleSheet.create({
   shutterCore: { width: 64, height: 64, borderRadius: 32 },
   shutterStop: { width: 30, height: 30, borderRadius: 8 },
   modes: { paddingHorizontal: 16, gap: 6, alignItems: 'center', flexGrow: 1, justifyContent: 'center' },
-  mode: { minWidth: 52, height: 36, paddingHorizontal: 14, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  mode: { minWidth: 52, minHeight: 36, paddingVertical: 6, paddingHorizontal: 14, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
   modeText: { fontFamily: 'Poppins_600SemiBold', fontSize: 13 },
   // Reserve space for the absolute bottom controls and location notice so the
   // permission CTA cannot be covered on compact screens.
@@ -617,13 +625,13 @@ const styles = StyleSheet.create({
   permBtn: { minHeight: 48, paddingHorizontal: 24, borderRadius: 999, flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center' },
   header: { height: 56, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   iconButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  heading: { fontFamily: 'Poppins_600SemiBold', fontSize: 18 },
+  heading: { fontFamily: 'Poppins_600SemiBold', fontSize: 18, flex: 1, textAlign: 'center' },
   content: { paddingHorizontal: 18, paddingBottom: 48, gap: 12 },
   media: { height: 360, borderRadius: 18, overflow: 'hidden', borderWidth: 1 },
   notice: { flexDirection: 'row', gap: 10, padding: 12, borderWidth: 1, borderRadius: 14, alignItems: 'center' },
   body: { fontFamily: 'Poppins_400Regular', fontSize: 12, lineHeight: 18 },
   inlineBtn: { minHeight: 40, alignSelf: 'flex-start', flexDirection: 'row', gap: 8, alignItems: 'center' },
-  inlineText: { fontFamily: 'Poppins_600SemiBold', fontSize: 14 },
+  inlineText: { fontFamily: 'Poppins_600SemiBold', fontSize: 14, flexShrink: 1 },
   input: { borderWidth: 1, borderRadius: 14, minHeight: 96, textAlignVertical: 'top', padding: 12, fontFamily: 'Poppins_400Regular', fontSize: 15 },
-  save: { minHeight: 52, borderRadius: 999, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  save: { minHeight: 52, paddingHorizontal: 18, paddingVertical: 10, borderRadius: 999, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
 });

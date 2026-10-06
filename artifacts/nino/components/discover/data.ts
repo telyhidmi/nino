@@ -100,8 +100,15 @@ export const COUNTRIES: DiscoverCountry[] = [
   },
 ];
 
-export const countryMatches = (c: DiscoverCountry, q: string) => {
+export const countryLabelKeys = {
+  brazil: 'discoverCountryBrazil', turkiye: 'discoverCountryTurkiye', japan: 'discoverCountryJapan',
+  spain: 'discoverCountrySpain', usa: 'discoverCountryUsa', france: 'discoverCountryFrance', egypt: 'discoverCountryEgypt',
+} as const;
+
+export const countryLabelKey = (c: DiscoverCountry) => countryLabelKeys[c.id as keyof typeof countryLabelKeys];
+
+export const countryMatches = (c: DiscoverCountry, q: string, localizedName = '') => {
   const s = q.trim().toLowerCase();
   if (!s) return true;
-  return [c.name, c.tagline, ...c.tags, ...c.people.map((p) => `${p.name} ${p.city}`), ...c.media.map((m) => `${m.title} ${m.place}`)].join(' ').toLowerCase().includes(s);
+  return [localizedName, c.name, c.tagline, ...c.tags, ...c.people.map((p) => `${p.name} ${p.city}`), ...c.media.map((m) => `${m.title} ${m.place}`)].join(' ').toLowerCase().includes(s);
 };
