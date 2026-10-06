@@ -350,6 +350,12 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
       <TranslateSheet key={`translate-${current.id}`} post={current} visible={open === 'translate'} onClose={() => setOpen(null)} />
       <CreatePost visible={open === 'create'} allowPublish={!preview} onClose={() => setOpen(null)} onSave={async (item) => {
         await cachePublishedPost(queryClient, item, getListPostsQueryKey(), getListMyPostsQueryKey());
+        // A new post belongs at the top of For You, not the previously viewed
+        // Following list or an old scroll offset retained behind the profile.
+        setTab('foryou');
+        setIndex(0);
+        setListStart(0);
+        setListVersion((version) => version + 1);
         openOwnerPosts();
       }} />
       <Sheet visible={open === 'more'} onClose={() => setOpen(null)} title="About this post" testID="post-info-sheet">

@@ -2,7 +2,7 @@ import { Feather } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import React, { useEffect, useState } from 'react';
-import { Alert, ImageSourcePropType, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, ImageSourcePropType, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { EarthGlobe } from '@/components/EarthGlobe';
 import { useInsets } from '@/components/ui';
 import { useColors } from '@/hooks/useColors';
@@ -67,6 +67,9 @@ export function ProfileView(props: {
   const c = useColors();
   const copy = usePostCopy();
   const ins = useInsets();
+  const { width: windowWidth } = useWindowDimensions();
+  const [gridWidth, setGridWidth] = useState(0);
+  const tileWidth = Math.max(1, ((gridWidth || windowWidth) - 4) / 3);
   const [tabState, setTabState] = useState<ProfileTabState>({ tab: 'posts', resetToken: props.postsResetToken });
   const nextTabState = resetProfileTab(tabState, props.postsResetToken);
   // Reset during render so a retained/hidden profile never flashes the old tab.
@@ -183,9 +186,11 @@ export function ProfileView(props: {
             <Text style={[s.emptyBody, { color: c.secondary }]}>{current.emptyBody}</Text>
           </View>
         ) : (
-          <View style={s.grid}>
+          <View style={s.grid} onLayout={({ nativeEvent }) => {
+            if (nativeEvent.layout.width > 0) setGridWidth(nativeEvent.layout.width);
+          }}>
             {current.items.map((it) => (
-              <Pressable key={it.id} testID={`tile-${it.id}`} onPress={() => props.onOpenItem ? props.onOpenItem(it) : setOpenItem(it)} accessibilityRole="button" accessibilityLabel={`Open ${it.label}`} style={s.tile}>
+              <Pressable key={it.id} testID={`tile-${it.id}`} onPress={() => props.onOpenItem ? props.onOpenItem(it) : setOpenItem(it)} accessibilityRole="button" accessibilityLabel={`Open ${it.label}`} style={[s.tile, { width: tileWidth, height: tileWidth / 0.72 }]}>
                 {it.image ? <Image source={it.image} style={StyleSheet.absoluteFill} contentFit="cover" /> : <View style={[StyleSheet.absoluteFill, { backgroundColor: c.card, alignItems: 'center', justifyContent: 'center' }]}><Feather name="film" size={24} color={c.accent} /></View>}
                 <View style={s.tileTop}>
                   {it.pinned ? <View style={[s.chip, { backgroundColor: c.danger }]}><Text style={s.chipText}>PINNED</Text></View> : null}
@@ -303,7 +308,7 @@ const s = StyleSheet.create({
   tab: { flex: 1, minHeight: 48, alignItems: 'center', justifyContent: 'flex-end', gap: 8 },
   tabBar: { height: 3, width: 40, borderRadius: 2 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 2, paddingTop: 2 },
-  tile: { width: '33%', aspectRatio: 0.72, overflow: 'hidden', flexGrow: 1, maxWidth: '33.2%' },
+  tile: { overflow: 'hidden', flexGrow: 0, flexShrink: 0 },
   tileTop: { position: 'absolute', top: 5, left: 5, gap: 3, alignItems: 'flex-start' },
   tileBottom: { position: 'absolute', bottom: 6, left: 6, flexDirection: 'row', alignItems: 'center', gap: 4 },
   chip: { paddingHorizontal: 5, height: 17, borderRadius: 4, justifyContent: 'center' },
