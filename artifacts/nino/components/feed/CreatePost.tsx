@@ -396,10 +396,10 @@ export function CreatePost({ visible, onClose, onSave, allowPublish = true }: { 
 
   const feedback = (
     <>
-      {isVideoMode ? (
+      {isVideoMode && (locating || locationNotice) ? (
         <View style={[styles.toast, { backgroundColor: c.overlay, borderColor: c.border }]} accessibilityLiveRegion="polite">
           <Text testID="create-location-notice" style={[styles.toastText, { color: c.secondary }]}>
-            {locating ? locationCopy.checking : locationNotice ? locationCopy[locationNotice] : locationCopy.rationale}
+            {locating ? locationCopy.checking : locationNotice ? locationCopy[locationNotice] : null}
           </Text>
         </View>
       ) : null}
