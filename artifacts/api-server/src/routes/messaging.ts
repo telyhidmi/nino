@@ -9,6 +9,7 @@ import {
   GetMessagingRelationshipParams, GetMessagingRelationshipResponse,
   SetMessagingRelationshipBody, SetMessagingRelationshipResponse,
   type MessagingProfile,
+  SetMessagingBlockBody, SetMessagingBlockResponse,
 } from "@workspace/api-zod";
 import { MessagingError, messagingService } from "../lib/messaging";
 
@@ -109,6 +110,12 @@ export function createMessagingRouter(deps = {clerkClient, service:messagingServ
     const {text,clientNonce} = parse(SendMessagingMessageBody.strict(),req.body);
     if (!text.trim()) throw new MessagingError(400,"Enter a message (1–2000 characters)");
     res.json(SendMessagingMessageResponse.parse(await (await deps.service()).send(userId,id,text,clientNonce)));
+  });
+  router.put("/messaging/conversations/:id/block", async (req,res) => {
+    const userId = deps.user(req); limit(userId,"block",30);
+    const {id} = parse(ListMessagingMessagesParams,req.params);
+    const {blocked} = parse(SetMessagingBlockBody.strict(),req.body);
+    res.json(SetMessagingBlockResponse.parse(await (await deps.service()).setBlock(userId,id,blocked)));
   });
   router.post("/messaging/conversations/:id/read", async (req,res) => {
     const userId = deps.user(req); limit(userId,"read",180);

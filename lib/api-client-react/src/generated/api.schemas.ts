@@ -36,7 +36,13 @@ export interface MessagingRelationship {
   mutual: boolean;
 }
 
+export interface MessagingBlockInput {
+  blocked: boolean;
+}
+
 export interface MessagingPermission {
+  isBlocked?: boolean;
+  blockedByMe?: boolean;
   canSend: boolean;
   /**
      * Null when unrestricted; otherwise 2 minus this sender's existing messages, floored at zero.

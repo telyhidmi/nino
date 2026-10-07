@@ -116,6 +116,8 @@ export const ListMessagingConversationsResponse = zod.object({
   "mutual": zod.boolean()
 }),
   "messagingPermission": zod.object({
+  "isBlocked": zod.boolean().optional(),
+  "blockedByMe": zod.boolean().optional(),
   "canSend": zod.boolean(),
   "remainingInitialMessages": zod.number().int().min(listMessagingConversationsResponseConversationsItemMessagingPermissionRemainingInitialMessagesMin).max(listMessagingConversationsResponseConversationsItemMessagingPermissionRemainingInitialMessagesMax).nullable().describe('Null when unrestricted; otherwise 2 minus this sender\'s existing messages, floored at zero.'),
   "awaitingReply": zod.boolean().describe('True only when the initial quota is exhausted and sending is blocked pending a peer reply or mutual follows.'),
@@ -164,6 +166,8 @@ export const CreateMessagingConversationResponse = zod.object({
   "mutual": zod.boolean()
 }),
   "messagingPermission": zod.object({
+  "isBlocked": zod.boolean().optional(),
+  "blockedByMe": zod.boolean().optional(),
   "canSend": zod.boolean(),
   "remainingInitialMessages": zod.number().int().min(createMessagingConversationResponseMessagingPermissionRemainingInitialMessagesMin).max(createMessagingConversationResponseMessagingPermissionRemainingInitialMessagesMax).nullable().describe('Null when unrestricted; otherwise 2 minus this sender\'s existing messages, floored at zero.'),
   "awaitingReply": zod.boolean().describe('True only when the initial quota is exhausted and sending is blocked pending a peer reply or mutual follows.'),
@@ -215,6 +219,8 @@ export const ListMessagingMessagesResponse = zod.object({
   "mutual": zod.boolean()
 }),
   "messagingPermission": zod.object({
+  "isBlocked": zod.boolean().optional(),
+  "blockedByMe": zod.boolean().optional(),
   "canSend": zod.boolean(),
   "remainingInitialMessages": zod.number().int().min(listMessagingMessagesResponseConversationMessagingPermissionRemainingInitialMessagesMin).max(listMessagingMessagesResponseConversationMessagingPermissionRemainingInitialMessagesMax).nullable().describe('Null when unrestricted; otherwise 2 minus this sender\'s existing messages, floored at zero.'),
   "awaitingReply": zod.boolean().describe('True only when the initial quota is exhausted and sending is blocked pending a peer reply or mutual follows.'),
@@ -258,6 +264,54 @@ export const SendMessagingMessageResponse = zod.object({
   "clientNonce": zod.string().uuid(),
   "sequence": zod.number().int(),
   "createdAt": zod.string()
+})
+
+
+export const SetMessagingBlockParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const SetMessagingBlockBody = zod.object({
+  "blocked": zod.boolean()
+})
+
+export const setMessagingBlockResponseMessagingPermissionRemainingInitialMessagesMin = 0;
+export const setMessagingBlockResponseMessagingPermissionRemainingInitialMessagesMax = 2;
+
+
+
+export const SetMessagingBlockResponse = zod.object({
+  "id": zod.string().uuid(),
+  "peer": zod.object({
+  "id": zod.string(),
+  "displayName": zod.string(),
+  "username": zod.string().nullable(),
+  "avatarUrl": zod.string().nullable()
+}),
+  "lastMessage": zod.union([zod.object({
+  "id": zod.string().uuid(),
+  "conversationId": zod.string().uuid(),
+  "senderId": zod.string(),
+  "text": zod.string(),
+  "clientNonce": zod.string().uuid(),
+  "sequence": zod.number().int(),
+  "createdAt": zod.string()
+}),zod.null()]),
+  "unreadCount": zod.number().int(),
+  "updatedAt": zod.string(),
+  "relationship": zod.object({
+  "following": zod.boolean(),
+  "followsYou": zod.boolean(),
+  "mutual": zod.boolean()
+}),
+  "messagingPermission": zod.object({
+  "isBlocked": zod.boolean().optional(),
+  "blockedByMe": zod.boolean().optional(),
+  "canSend": zod.boolean(),
+  "remainingInitialMessages": zod.number().int().min(setMessagingBlockResponseMessagingPermissionRemainingInitialMessagesMin).max(setMessagingBlockResponseMessagingPermissionRemainingInitialMessagesMax).nullable().describe('Null when unrestricted; otherwise 2 minus this sender\'s existing messages, floored at zero.'),
+  "awaitingReply": zod.boolean().describe('True only when the initial quota is exhausted and sending is blocked pending a peer reply or mutual follows.'),
+  "isMutual": zod.boolean()
+})
 })
 
 

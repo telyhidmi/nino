@@ -15,6 +15,7 @@ export * from './liveStream';
 export * from './liveStreamInput';
 export * from './liveStreamList';
 export * from './liveUnavailableResponse';
+export * from './messagingBlockInput';
 export * from './messagingConversation';
 export * from './messagingConversationInput';
 export * from './messagingFailure';

@@ -26,6 +26,8 @@ export const messagingConversations = pgTable("messaging_conversations", {
   memberHigh: text("member_high").notNull().references(() => messagingProfiles.id),
   sequence: integer("sequence").notNull().default(0),
   messagingUnlocked: boolean("messaging_unlocked").notNull().default(false),
+  blockedLow: boolean("blocked_low").notNull().default(false),
+  blockedHigh: boolean("blocked_high").notNull().default(false),
   readLow: integer("read_low").notNull().default(0),
   readHigh: integer("read_high").notNull().default(0),
   unreadLow: integer("unread_low").notNull().default(0),

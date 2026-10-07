@@ -55,7 +55,7 @@ test("PostgreSQL private messaging integration", {skip:!process.env.DATABASE_URL
     }
     const blocked = (error: unknown) => error instanceof MessagingError && error.status === 403;
     await t.test("no follows and each unilateral direction: 0/1/2 sends, retries and first reply unlock", async () => {
-      for (const direction of ["none","sender","peer"]) {
+      for (const direction of ["none"]) {
         const {a,b,id} = await pair(direction);
         if (direction !== "none") await service.setRelationship(direction === "sender" ? a:b,direction === "sender" ? b:a,true);
         const permission = async (user: string) => (await service.thread(user,id)).conversation.messagingPermission;
@@ -89,6 +89,7 @@ test("PostgreSQL private messaging integration", {skip:!process.env.DATABASE_URL
       assert.deepEqual((await service.thread(a,id)).conversation.messagingPermission,
         {canSend:true,remainingInitialMessages:null,awaitingReply:false,isMutual:true});
       await service.setRelationship(b,a,false);
+      await service.setRelationship(a,b,false);
       assert.equal((await service.thread(a,id)).conversation.messagingPermission.remainingInitialMessages,0);
       await assert.rejects(service.send(a,id,"Unfollowed, no reply yet",randomUUID()),blocked);
       await service.setRelationship(b,a,true);
@@ -97,6 +98,25 @@ test("PostgreSQL private messaging integration", {skip:!process.env.DATABASE_URL
       await service.send(a,id,"Permanent after unfollow",randomUUID());
       assert.equal((await service.thread(a,id)).conversation.messagingPermission.remainingInitialMessages,null);
       await assert.rejects(service.setRelationship(a,a,true),(error: unknown) => error instanceof MessagingError && error.status === 400);
+    });
+    await t.test("one-way followers send freely and either member can block independently", async () => {
+      for (const direction of ["sender","peer"]) {
+        const {a,b,id} = await pair(`free-${direction}`);
+        await service.setRelationship(direction === "sender" ? a : b, direction === "sender" ? b : a, true);
+        for (let i=0;i<5;i++) await service.send(a,id,`Follower ${i}`,randomUUID());
+        assert.equal((await service.thread(a,id)).conversation.messagingPermission.remainingInitialMessages,null);
+        await service.setBlock(b,id,true);
+        assert.equal((await service.thread(b,id)).conversation.messagingPermission.blockedByMe,true);
+        await assert.rejects(service.send(a,id,"Blocked",randomUUID()),blocked);
+        await assert.rejects(service.send(b,id,"Also blocked",randomUUID()),blocked);
+        await service.setBlock(a,id,true);
+        await service.setBlock(b,id,false);
+        await assert.rejects(service.send(b,id,"Other block remains",randomUUID()),blocked);
+        await assert.rejects(service.setBlock(outsider,id,false), (e: unknown) => e instanceof MessagingError && e.status === 404);
+        await service.setBlock(a,id,false);
+        await service.send(a,id,"Unblocked",randomUUID());
+        assert.equal((await service.create(a,b)).id,id);
+      }
     });
     await t.test("three simultaneous distinct sends accept only two; simultaneous retries consume one", async () => {
       const {a,b,id} = await pair("race");

@@ -8,7 +8,7 @@ import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, TextInput, Vi
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import {
   getListMessagingMessagesQueryKey, listMessagingMessages, useGetMessagingProfile, useListMessagingMessages, useMarkMessagingRead,
-  useSendMessagingMessage, type MessagingMessage, type MessagingMessageInput, type MessagingThread,
+  useSendMessagingMessage, useSetMessagingBlock, type MessagingMessage, type MessagingMessageInput, type MessagingThread,
 } from '@workspace/api-client-react';
 import { FollowButton, PersonAvatar, RelationChip } from '@/components/MessagingParts';
 import { useInsets } from '@/components/ui';
@@ -17,6 +17,8 @@ import { useI18n } from '@/lib/i18n';
 import { fill, useMessagesCopy } from '@/lib/messagesCopy';
 import { POLL_MS, invalidateInbox, invalidateThread, shortTime, useActive } from '@/lib/messaging';
 import { postError } from '@/lib/posts';
+import { useBlockCopy } from '@/lib/blockCopy';
+import { confirmAction } from '@/components/profile/ProfileView';
 
 type Pending = { nonce: string; text: string; status: 'sending' | 'failed' | 'sent'; error?: string; message?: MessagingMessage };
 type Item = { kind: 'msg'; m: MessagingMessage } | { kind: 'pending'; p: Pending };
@@ -35,6 +37,9 @@ function Thread({ id }: { id: string }) {
   const c = useColors();
   const ins = useInsets();
   const t = useMessagesCopy();
+  const blockCopy = useBlockCopy();
+  const block = useSetMessagingBlock();
+  const [blockError, setBlockError] = useState<string | null>(null);
   const { font, row, align, lang } = useI18n();
   const qc = useQueryClient();
   const active = useActive();
@@ -66,6 +71,20 @@ function Thread({ id }: { id: string }) {
   }, [older, first.data]);
   const known = useMemo(() => new Set(messages.map((m) => m.clientNonce)), [messages]);
   const perm = conv?.messagingPermission;
+  const toggleBlock = () => {
+    if (!conv || block.isPending) return;
+    const next = !perm?.blockedByMe;
+    confirmAction(next ? blockCopy.block : blockCopy.unblock, next ? blockCopy.blocked : '', next ? blockCopy.block : blockCopy.unblock, () => {
+      setBlockError(null);
+      block.mutate({ id, data: { blocked: next } }, {
+        onSuccess: (conversation) => {
+          qc.setQueryData<MessagingThread>(getListMessagingMessagesQueryKey(id), (old) => old ? { ...old, conversation } : old);
+          void invalidateThread(qc, id); void invalidateInbox(qc);
+        },
+        onError: (e) => setBlockError(postError(e)),
+      });
+    }, t.close);
+  };
   // Reservations: local sends the server list doesn't yet reflect (in flight, or accepted but not refetched).
   const reserved = pending.filter((p) => !known.has(p.nonce) && (p.status === 'sending' || p.status === 'sent')).length;
   const limited = perm ? perm.remainingInitialMessages !== null : false;
@@ -81,7 +100,7 @@ function Thread({ id }: { id: string }) {
   }, [pending, messages, known]);
 
   const deliver = useCallback((nonce: string, body: string) => {
-    if (inFlight.current.has(nonce)) return; // never two concurrent requests for one nonce
+    if (perm?.isBlocked || block.isPending || inFlight.current.has(nonce)) return;
     inFlight.current.add(nonce);
     setPending((p) => p.map((x) => (x.nonce === nonce ? { ...x, status: 'sending', error: undefined } : x)));
     const data: MessagingMessageInput = { text: body, clientNonce: nonce }; // nonce is a crypto UUID, reused verbatim on retry
@@ -91,13 +110,13 @@ function Thread({ id }: { id: string }) {
         void invalidateThread(qc, id); void invalidateInbox(qc);
       },
       onError: (e) => {
-        setPending((p) => p.map((x) => (x.nonce === nonce ? { ...x, status: 'failed', error: is403(e) ? t.blocked : postError(e) } : x)));
+        setPending((p) => p.map((x) => (x.nonce === nonce ? { ...x, status: 'failed', error: postError(e) } : x)));
         // Quota race: server is authoritative — refresh permission so the composer locks/unlocks truthfully.
         if (is403(e)) { void invalidateThread(qc, id); void invalidateInbox(qc); }
       },
       onSettled: () => { inFlight.current.delete(nonce); },
     });
-  }, [id, qc, t.blocked]);
+  }, [id, qc, perm?.isBlocked, block.isPending]);
 
   const submit = () => {
     const body = text.trim();
@@ -144,7 +163,7 @@ function Thread({ id }: { id: string }) {
     });
   }, [active, visibleTop, unread, id, qc]);
 
-  const canSubmit = !!text.trim() && !!perm && !locked;
+  const canSubmit = !!text.trim() && !!perm && !locked && !block.isPending;
   const back = () => (router.canGoBack() ? router.back() : router.replace('/messages' as never));
   const title = conv?.peer.displayName ?? '';
   const sub = conv?.peer.username ? `@${conv.peer.username}` : t.privateNote;
@@ -194,6 +213,12 @@ function Thread({ id }: { id: string }) {
         {conv ? <FollowButton peerId={conv.peer.id} name={conv.peer.displayName} rel={conv.relationship} testID="thread-follow" /> : null}
       </View>
 
+      {conv ? <View style={{ paddingHorizontal: 16, paddingVertical: 6 }}>
+        <Pressable testID="thread-block" onPress={toggleBlock} disabled={block.isPending} accessibilityRole="button" style={{ minHeight: 44, justifyContent: 'center' }}>
+          <Text style={{ color: c.danger, fontFamily: font('medium'), textAlign: align }}>{perm?.blockedByMe ? blockCopy.unblock : blockCopy.block}</Text>
+        </Pressable>
+        {blockError ? <Text style={{ color: c.danger }}>{blockError}</Text> : null}
+      </View> : null}
       <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
         {first.isPending ? (
           <View style={{ flex: 1, justifyContent: 'flex-end', padding: 16, gap: 10 }}>
@@ -230,13 +255,13 @@ function Thread({ id }: { id: string }) {
             } />
         )}
         {conv && perm ? (
-          perm.isMutual ? null : locked ? (
-            <View testID="quota-locked" accessible accessibilityLiveRegion="polite" accessibilityLabel={`${t.locked}. ${fill(t.lockedBody, title)}`}
+          perm.isBlocked ? <Text testID="thread-blocked" style={{ padding: 16, color: c.secondary, fontFamily: font('medium'), textAlign: align }}>{blockCopy.blocked}</Text> : locked ? (
+            <View testID="quota-locked" accessible accessibilityLiveRegion="polite" accessibilityLabel={`${t.locked}. ${blockCopy.requestHint}`}
               style={[s.quota, { flexDirection: row, backgroundColor: c.cardSoft, borderTopColor: c.border }]}>
               <View style={[s.quotaIcon, { backgroundColor: c.card }]}><Feather name="lock" size={14} color={c.secondary} /></View>
               <View style={{ flex: 1 }}>
                 <Text style={{ color: c.text, fontFamily: font('semibold'), fontSize: 13, textAlign: align }}>{t.locked}</Text>
-                <Text style={{ color: c.secondary, fontFamily: font('regular'), fontSize: 12, lineHeight: 17, textAlign: align }}>{fill(t.lockedBody, title)}</Text>
+                <Text style={{ color: c.secondary, fontFamily: font('regular'), fontSize: 12, lineHeight: 17, textAlign: align }}>{blockCopy.requestHint}</Text>
               </View>
             </View>
           ) : limited && left !== null ? (

@@ -141,6 +141,25 @@ paths:
               schema: {$ref: "#/components/schemas/MessagingFailure"}
         default:
           $ref: "#/components/responses/MessagingFailure"
+  /messaging/conversations/{id}/block:
+    put:
+      operationId: setMessagingBlock
+      security: [{bearerAuth: []}]
+      parameters:
+        - {in: path, name: id, required: true, schema: {type: string, format: uuid}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/MessagingBlockInput"}
+      responses:
+        "200":
+          description: Conversation with updated messaging permission
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/MessagingConversation"}
+        default:
+          $ref: "#/components/responses/MessagingFailure"
   /messaging/conversations/{id}/read:
     post:
       operationId: markMessagingRead
@@ -446,10 +465,17 @@ components:
         following: {type: boolean}
         followsYou: {type: boolean}
         mutual: {type: boolean}
+    MessagingBlockInput:
+      type: object
+      required: [blocked]
+      properties:
+        blocked: {type: boolean}
     MessagingPermission:
       type: object
       required: [canSend, remainingInitialMessages, awaitingReply, isMutual]
       properties:
+        isBlocked: {type: boolean}
+        blockedByMe: {type: boolean}
         canSend: {type: boolean}
         remainingInitialMessages:
           type: ["integer", "null"]

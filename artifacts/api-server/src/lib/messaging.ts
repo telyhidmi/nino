@@ -8,6 +8,7 @@ interface ConversationRow extends QueryResultRow {
   id: string; member_low: string; member_high: string; sequence: number;
   read_low: number; read_high: number; unread_low: number; unread_high: number; updated_at: Date;
   messaging_unlocked: boolean;
+  blocked_low: boolean; blocked_high: boolean;
 }
 interface MessageRow extends QueryResultRow {
   id: string; conversation_id: string; sender_id: string; client_nonce: string;
@@ -80,7 +81,9 @@ export class MessagingService {
   }
   private async policies(client: Pool | PoolClient, ids: string[], userId: string) {
     const result = await client.query<{id: string; own_count: number; peer_sent: boolean; messaging_unlocked: boolean;
-      following: boolean; follows_you: boolean}>(`SELECT c.id,c.messaging_unlocked,
+      following: boolean; follows_you: boolean; is_blocked: boolean; blocked_by_me: boolean}>(`SELECT c.id,c.messaging_unlocked,
+      (c.blocked_low OR c.blocked_high) AS is_blocked,
+      CASE WHEN c.member_low=$2 THEN c.blocked_low ELSE c.blocked_high END AS blocked_by_me,
       (SELECT count(*)::integer FROM messaging_messages m WHERE m.conversation_id=c.id AND m.sender_id=$2) AS own_count,
       EXISTS(SELECT 1 FROM messaging_messages m WHERE m.conversation_id=c.id
         AND m.sender_id=CASE WHEN c.member_low=$2 THEN c.member_high ELSE c.member_low END) AS peer_sent,
@@ -93,10 +96,14 @@ export class MessagingService {
       const relationship: MessagingRelationship = {following:r.following,followsYou:r.follows_you,mutual:r.following && r.follows_you};
       // Legacy conversations are unlocked from real history, not reset by migration.
       const unlocked = r.messaging_unlocked || (r.own_count > 0 && r.peer_sent);
-      const unrestricted = unlocked || relationship.mutual || r.peer_sent;
+      const unrestricted = unlocked || relationship.following || relationship.followsYou || r.peer_sent;
       const remaining = unrestricted ? null : Math.max(0,2-r.own_count);
       const permission: MessagingPermission = {canSend:remaining === null || remaining > 0,
         remainingInitialMessages:remaining,awaitingReply:remaining === 0,isMutual:relationship.mutual};
+      if (r.is_blocked) Object.assign(permission, {
+        canSend:false, isBlocked:true, blockedByMe:r.blocked_by_me,
+        awaitingReply:false, remainingInitialMessages:null,
+      });
       return [r.id,{relationship,messagingPermission:permission,peerSent:r.peer_sent}] as const;
     }));
   }
@@ -136,6 +143,15 @@ export class MessagingService {
       ON CONFLICT(member_low,member_high) DO UPDATE SET member_low=EXCLUDED.member_low RETURNING *`, [userId,peerId]);
     return (await this.summaries(this.pool, result.rows, userId))[0];
   }
+  async setBlock(userId: string, id: string, blocked: boolean) {
+    return this.transaction(async (client) => {
+      const c = await this.member(client,id,userId,true);
+      const side = c.member_low === userId ? "low" : "high";
+      const result = await client.query<ConversationRow>(
+        `UPDATE messaging_conversations SET blocked_${side}=$2 WHERE id=$1 RETURNING *`, [id,blocked]);
+      return (await this.summaries(client,result.rows,userId))[0];
+    });
+  }
   async inbox(userId: string, rawCursor?: string) {
     let timestamp: string | null = null, id: string | null = null;
     if (rawCursor) {
@@ -173,6 +189,8 @@ export class MessagingService {
   async send(userId: string, id: string, text: string, nonce: string) {
     return this.transaction(async (client) => {
       const conversation = await this.member(client,id,userId,true);
+      if (conversation.blocked_low || conversation.blocked_high)
+        throw new MessagingError(403,"Messaging is blocked for this conversation.");
       // Same sender nonce may race across different conversations: serialize per nonce as well.
       await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [`${userId}:${nonce}`]);
       const previous = await client.query<MessageRow>("SELECT * FROM messaging_messages WHERE sender_id=$1 AND client_nonce=$2", [userId,nonce]);
@@ -185,7 +203,7 @@ export class MessagingService {
       await this.lockPair(client,userId,peerId);
       const policy = (await this.policies(client,[id],userId)).get(id)!;
       if (!policy.messagingPermission.canSend)
-        throw new MessagingError(403,"You can send only two initial messages. Wait for this member to reply or follow each other.");
+        throw new MessagingError(403,"You can send only two initial messages. Wait for a reply or follow this member.");
       const sequence = conversation.sequence + 1;
       const result = await client.query<MessageRow>(`INSERT INTO messaging_messages(conversation_id,sender_id,client_nonce,text,sequence,created_at)
         VALUES($1,$2,$3,$4,$5,clock_timestamp()) RETURNING *`, [id,userId,nonce,text,sequence]);
