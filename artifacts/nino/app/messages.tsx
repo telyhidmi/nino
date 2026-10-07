@@ -111,42 +111,41 @@ function Inbox() {
         accessibilityLabel={`${cv.peer.displayName}${unread ? `, ${unread} ${t.unread}` : ''}`}
         onPress={() => router.push(threadHref(cv.id))}
         style={({ pressed }) => [s.row, { flexDirection: row, backgroundColor: pressed ? c.cardSoft : 'transparent' }]}>
-        <PersonAvatar p={cv.peer} size={52} />
-        <View style={{ flex: 1, gap: 3 }}>
-          <View style={{ flexDirection: row, alignItems: 'center', gap: 8 }}>
-            <Text numberOfLines={1} style={[txt(unread ? 'bold' : 'semibold', 15), { flexShrink: 1 }]}>{cv.peer.displayName}</Text>
+        <View style={unread ? [st.ring, { borderColor: c.accent }] : st.ringOff}><PersonAvatar p={cv.peer} size={54} /></View>
+        <View style={{ flex: 1, gap: 4 }}>
+          <View style={{ flexDirection: row, alignItems: 'center', gap: 6 }}>
+            <Text numberOfLines={1} style={[txt(unread ? 'bold' : 'semibold', 15.5), { flexShrink: 1 }]}>{cv.peer.displayName}</Text>
             <RelationChip rel={cv.relationship} testID={`conversation-relation-${cv.id}`} />
-            <View style={{ flex: 1 }} />
-            <Text style={txt('regular', 12, unread ? c.accent : c.muted)}>{shortTime(cv.updatedAt, lang)}</Text>
           </View>
-          <View style={{ flexDirection: row, alignItems: 'center', gap: 8 }}>
-            <Text numberOfLines={1} style={[txt(unread ? 'medium' : 'regular', 13, unread ? c.text : c.secondary), { flex: 1 }]}>
+          <View style={{ flexDirection: row, alignItems: 'center', gap: 4 }}>
+            <Text numberOfLines={1} style={[txt(unread ? 'semibold' : 'regular', 13.5, unread ? c.text : c.secondary), { flexShrink: 1 }]}>
               {cv.peer.username && !last ? `@${cv.peer.username}` : preview}
             </Text>
-            {unread > 0 ? <View style={[s.badge, { backgroundColor: c.accent }]}><Text style={{ color: c.onAccent, fontFamily: 'Poppins_600SemiBold', fontSize: 11 }}>{unread > 99 ? '99+' : unread}</Text></View> : null}
+            <Text style={txt('regular', 13, c.muted)}>{`· ${shortTime(cv.updatedAt, lang)}`}</Text>
           </View>
         </View>
+        {unread > 0 ? <View style={[s.badge, { backgroundColor: c.accent }]}><Text style={{ color: c.onAccent, fontFamily: 'Poppins_600SemiBold', fontSize: 11 }}>{unread > 99 ? '99+' : unread}</Text></View> : null}
       </Pressable>
     );
   };
 
   const header = (
-    <View style={{ paddingTop: ins.top + 6, paddingHorizontal: 16, paddingBottom: 10, gap: 14 }}>
+    <View style={{ paddingTop: ins.top + 6, paddingHorizontal: 16, paddingBottom: 10, gap: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.border }}>
       <View style={{ flexDirection: row, alignItems: 'center', gap: 8 }}>
         <Pressable testID="messages-back" onPress={back} accessibilityRole="button" accessibilityLabel={t.back} style={s.iconBtn} hitSlop={6}>
           <Feather name={align === 'right' ? 'chevron-right' : 'chevron-left'} size={26} color={c.text} />
         </Pressable>
-        <View style={{ flex: 1 }}>
-          <Text style={txt('bold', 24)}>{t.title}</Text>
-          <Text style={txt('regular', 12, c.muted)}>{t.privateNote}{totalUnread ? `  ·  ${totalUnread} ${t.unread}` : ''}</Text>
+        <View style={{ flex: 1, alignItems: 'center' }}>
+          <Text style={[txt('bold', 17), { textAlign: 'center' }]}>{t.title}</Text>
+          <Text style={[txt('regular', 11.5, totalUnread ? c.accent : c.muted), { textAlign: 'center' }]}>{totalUnread ? `${totalUnread} ${t.unread}` : t.privateNote}</Text>
         </View>
         <Pressable testID="new-message" onPress={() => { setSearching((v) => !v); setQ(''); setOpenErr(null); }} accessibilityRole="button"
-          accessibilityLabel={searching ? t.close : t.newChat} style={[s.newBtn, { backgroundColor: searching ? c.card : c.accent }]}>
-          <Feather name={searching ? 'x' : 'edit-3'} size={18} color={searching ? c.text : c.onAccent} />
+          accessibilityLabel={searching ? t.close : t.newChat} style={s.newBtn} hitSlop={6}>
+          <Feather name={searching ? 'x' : 'edit'} size={22} color={c.text} />
         </Pressable>
       </View>
       {searching ? (
-        <View style={[s.search, { flexDirection: row, borderColor: c.borderStrong, backgroundColor: c.cardSoft }]}>
+        <View style={[s.search, { flexDirection: row, borderColor: 'transparent', backgroundColor: c.cardSoft }]}>
           <Feather name="search" size={16} color={c.secondary} />
           <TextInput testID="messages-search" autoFocus value={q} onChangeText={setQ} placeholder={t.searchPh} placeholderTextColor={c.muted}
             autoCapitalize="none" autoCorrect={false} maxLength={80} accessibilityLabel={t.searchPh}
@@ -225,12 +224,17 @@ function Inbox() {
   );
 }
 
+const st = StyleSheet.create({
+  ring: { padding: 2, borderRadius: 32, borderWidth: 2 },
+  ringOff: { padding: 4 },
+});
+
 const s = StyleSheet.create({
-  row: { alignItems: 'center', gap: 14, paddingHorizontal: 20, paddingVertical: 11, minHeight: 72 },
+  row: { alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 8, minHeight: 76 },
   badge: { minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 6, alignItems: 'center', justifyContent: 'center' },
   iconBtn: { width: 40, height: 44, alignItems: 'center', justifyContent: 'center' },
-  newBtn: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' },
-  search: { alignItems: 'center', gap: 10, borderWidth: 1, borderRadius: 12, paddingHorizontal: 12 },
+  newBtn: { width: 40, height: 44, alignItems: 'center', justifyContent: 'center' },
+  search: { alignItems: 'center', gap: 10, borderWidth: 1, borderRadius: 8, paddingHorizontal: 12 },
   empty: { alignItems: 'center', justifyContent: 'center', gap: 14, padding: 32 },
   emptyMark: { width: 72, height: 72, borderRadius: 36, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   pill: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 18, minHeight: 40, justifyContent: 'center', alignItems: 'center' },

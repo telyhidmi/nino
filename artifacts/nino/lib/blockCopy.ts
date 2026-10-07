@@ -17,5 +17,10 @@ const copy: Record<Lang, [string, string, string, string]> = {
 export function useBlockCopy() {
   const { lang } = useI18n();
   const [block, unblock, blocked, requestHint] = copy[lang];
-  return { block, unblock, blocked, requestHint };
+  const more: Record<Lang, string> = {
+    en: 'More options', ar: 'المزيد من الخيارات', pt: 'Mais opções', es: 'Más opciones',
+    fr: 'Plus d’options', de: 'Weitere Optionen', it: 'Altre opzioni', tr: 'Diğer seçenekler',
+    ru: 'Другие действия', hi: 'और विकल्प', zh: '更多选项', ja: 'その他のオプション',
+  };
+  return { block, unblock, blocked, requestHint, more: more[lang] };
 }

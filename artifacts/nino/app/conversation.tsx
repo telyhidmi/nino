@@ -40,6 +40,7 @@ function Thread({ id }: { id: string }) {
   const blockCopy = useBlockCopy();
   const block = useSetMessagingBlock();
   const [blockError, setBlockError] = useState<string | null>(null);
+  const [menu, setMenu] = useState(false);
   const { font, row, align, lang } = useI18n();
   const qc = useQueryClient();
   const active = useActive();
@@ -168,18 +169,21 @@ function Thread({ id }: { id: string }) {
   const title = conv?.peer.displayName ?? '';
   const sub = conv?.peer.username ? `@${conv.peer.username}` : t.privateNote;
 
-  const Bubble = ({ mine, body, time, status, onRetry, error }: { mine: boolean; body: string; time?: string; status?: Pending['status']; onRetry?: () => void; error?: string }) => {
+  const Bubble = ({ mine, body, time, status, onRetry, error, showAvatar }: { showAvatar?: boolean; mine: boolean; body: string; time?: string; status?: Pending['status']; onRetry?: () => void; error?: string }) => {
     const side = mine === (align === 'left') ? 'flex-end' : 'flex-start';
     return (
-      <View style={{ alignItems: side, paddingHorizontal: 14, marginVertical: 3 }}>
+      <View style={{ alignItems: side, paddingHorizontal: 12, marginVertical: 3 }}>
+        <View style={{ flexDirection: row, alignItems: 'flex-end', gap: 8, maxWidth: '86%' }}>
+        {!mine ? (showAvatar ? <PersonAvatar p={conv?.peer} size={30} /> : <View style={{ width: 30 }} />) : null}
         <Pressable disabled={status !== 'failed'} onPress={onRetry} accessibilityRole={status === 'failed' ? 'button' : undefined}
           accessibilityLabel={status === 'failed' ? `${t.failed} ${body}` : undefined}
           style={[s.bubble, mine ? { backgroundColor: status === 'failed' ? c.dangerWash : c.accent, borderBottomRightRadius: align === 'left' ? 6 : 20, borderBottomLeftRadius: align === 'left' ? 20 : 6 }
-            : { backgroundColor: c.card, borderWidth: 1, borderColor: c.border, borderBottomLeftRadius: align === 'left' ? 6 : 20, borderBottomRightRadius: align === 'left' ? 20 : 6 },
+            : { backgroundColor: c.card, borderBottomLeftRadius: align === 'left' ? 6 : 20, borderBottomRightRadius: align === 'left' ? 20 : 6 },
             status === 'sending' && { opacity: 0.65 }]}>
           <Text selectable style={{ color: mine && status !== 'failed' ? c.onAccent : c.text, fontFamily: font('regular'), fontSize: 15, lineHeight: 21, textAlign: align }}>{body}</Text>
         </Pressable>
-        <View style={{ flexDirection: row, alignItems: 'center', gap: 5, marginTop: 3, paddingHorizontal: 4 }}>
+        </View>
+        <View style={{ flexDirection: row, alignItems: 'center', gap: 5, marginTop: 3, paddingHorizontal: mine ? 4 : 42 }}>
           {status === 'sending' ? <Text style={[s.meta, { color: c.muted, fontFamily: font('regular') }]}>{t.sending}</Text> : null}
           {status === 'failed' ? <><Feather name="alert-circle" size={12} color={c.danger} /><Text style={[s.meta, { color: c.danger, fontFamily: font('medium') }]}>{error ? `${error} · ` : ''}{t.failed}</Text></> : null}
           {time && status !== 'failed' && status !== 'sending' ? <Text style={[s.meta, { color: c.muted, fontFamily: font('regular') }]}>{time}</Text> : null}
@@ -188,8 +192,9 @@ function Thread({ id }: { id: string }) {
     );
   };
 
-  const renderItem = ({ item }: { item: Item }) => {
-    if (item.kind === 'msg') return <Bubble mine={item.m.senderId === meId} body={item.m.text} time={shortTime(item.m.createdAt, lang)} />;
+  const renderItem = ({ item, index }: { item: Item; index: number }) => {
+    const prev = items[index - 1];
+    if (item.kind === 'msg') return <Bubble showAvatar={!(prev?.kind === 'msg' && prev.m.senderId === item.m.senderId)} mine={item.m.senderId === meId} body={item.m.text} time={shortTime(item.m.createdAt, lang)} />;
     const p = item.p;
     return <Bubble mine body={p.text} status={p.status} error={p.error} time={p.message ? shortTime(p.message.createdAt, lang) : undefined}
       onRetry={() => deliver(p.nonce, p.text)} />;
@@ -211,13 +216,19 @@ function Thread({ id }: { id: string }) {
           </View>
         </View>
         {conv ? <FollowButton peerId={conv.peer.id} name={conv.peer.displayName} rel={conv.relationship} testID="thread-follow" /> : null}
+        {conv ? <Pressable testID="thread-more" onPress={() => setMenu((v) => !v)} accessibilityRole="button" accessibilityLabel={menu ? t.close : blockCopy.more}
+          accessibilityState={{ expanded: menu }} style={s.iconBtn} hitSlop={6}>
+          <Feather name={menu ? 'x' : 'more-horizontal'} size={22} color={c.text} />
+        </Pressable> : null}
       </View>
 
-      {conv ? <View style={{ paddingHorizontal: 16, paddingVertical: 6 }}>
-        <Pressable testID="thread-block" onPress={toggleBlock} disabled={block.isPending} accessibilityRole="button" style={{ minHeight: 44, justifyContent: 'center' }}>
+      {conv && (menu || blockError) ? <View style={{ paddingHorizontal: 16, paddingVertical: 6, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.border, backgroundColor: c.bgBottom }}>
+        {menu ? <Pressable testID="thread-block" onPress={() => { setMenu(false); toggleBlock(); }} disabled={block.isPending} accessibilityRole="button"
+          style={{ minHeight: 44, alignItems: 'center', gap: 10, flexDirection: row }}>
+          <Feather name={perm?.blockedByMe ? 'unlock' : 'slash'} size={16} color={c.danger} />
           <Text style={{ color: c.danger, fontFamily: font('medium'), textAlign: align }}>{perm?.blockedByMe ? blockCopy.unblock : blockCopy.block}</Text>
-        </Pressable>
-        {blockError ? <Text style={{ color: c.danger }}>{blockError}</Text> : null}
+        </Pressable> : null}
+        {blockError ? <Text style={{ color: c.danger, fontFamily: font('regular'), textAlign: align, paddingBottom: 6 }}>{blockError}</Text> : null}
       </View> : null}
       <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
         {first.isPending ? (
@@ -277,7 +288,7 @@ function Thread({ id }: { id: string }) {
         <View style={[s.composer, { flexDirection: row, paddingBottom: Math.max(ins.bottom, 10), borderTopColor: c.border, backgroundColor: c.bgBottom }]}>
           <TextInput testID="composer" value={text} onChangeText={setText} placeholder={t.composer} placeholderTextColor={c.muted} multiline maxLength={MAX}
             accessibilityLabel={t.composer} editable={!first.isPending && !(first.isError && !first.data)}
-            style={[s.input, { color: c.text, backgroundColor: c.cardSoft, borderColor: c.border, fontFamily: font('regular'), textAlign: align }]} />
+            style={[s.input, { color: c.text, backgroundColor: c.card, borderColor: 'transparent', fontFamily: font('regular'), textAlign: align }]} />
           <Pressable testID="send" onPress={submit} disabled={!canSubmit} accessibilityRole="button" accessibilityLabel={locked ? `${t.send}, ${t.locked}` : t.send}
             accessibilityState={{ disabled: !canSubmit }} style={[s.send, { backgroundColor: canSubmit ? c.accent : c.card }]}>
             <Feather name={locked ? 'lock' : 'arrow-up'} size={locked ? 17 : 20} color={canSubmit ? c.onAccent : c.muted} style={align === 'right' ? { transform: [{ scaleX: -1 }] } : undefined} />
@@ -289,15 +300,15 @@ function Thread({ id }: { id: string }) {
 }
 
 const s = StyleSheet.create({
-  header: { alignItems: 'center', gap: 10, paddingHorizontal: 10, paddingBottom: 10, borderBottomWidth: StyleSheet.hairlineWidth },
+  header: { alignItems: 'center', gap: 8, paddingHorizontal: 6, paddingBottom: 10, borderBottomWidth: StyleSheet.hairlineWidth },
   iconBtn: { width: 40, height: 44, alignItems: 'center', justifyContent: 'center' },
-  bubble: { maxWidth: '80%', paddingHorizontal: 14, paddingVertical: 9, borderRadius: 20 },
+  bubble: { flexShrink: 1, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 20 },
   meta: { fontSize: 11 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, padding: 32 },
   pill: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 18, minHeight: 40, justifyContent: 'center', alignItems: 'center' },
-  composer: { alignItems: 'flex-end', gap: 10, paddingHorizontal: 12, paddingTop: 10, borderTopWidth: StyleSheet.hairlineWidth },
+  composer: { alignItems: 'flex-end', gap: 8, paddingHorizontal: 12, paddingTop: 10, borderTopWidth: StyleSheet.hairlineWidth },
   input: { flex: 1, minHeight: 44, maxHeight: 140, borderWidth: 1, borderRadius: 22, paddingHorizontal: 16, paddingTop: 11, paddingBottom: 11, fontSize: 15 },
   quota: { alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 10, borderTopWidth: StyleSheet.hairlineWidth },
   quotaIcon: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-  send: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  send: { width: 40, height: 40, borderRadius: 20, marginBottom: 2, alignItems: 'center', justifyContent: 'center' },
 });
