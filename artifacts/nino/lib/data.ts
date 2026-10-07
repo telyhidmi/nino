@@ -71,5 +71,5 @@ export function readProfile(meta: Record<string, unknown> | undefined | null): N
 export function clerkErrorMessage(err: unknown, fallback: string): string {
   const e = err as { errors?: { longMessage?: string; message?: string }[]; longMessage?: string; message?: string } | null;
   const message = e?.errors?.[0]?.longMessage || e?.errors?.[0]?.message || e?.longMessage || e?.message || fallback;
-  return message.replace(/Passwords must be 10 characters or more\.?/g, 'Minimum 10 characters');
+  return message.replace(/Passwords must be (\d+) characters or more\.?/g, 'Minimum $1 characters');
 }
