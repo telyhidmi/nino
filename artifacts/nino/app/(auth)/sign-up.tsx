@@ -81,7 +81,7 @@ export default function SignUpScreen() {
       <SocialAuth disabled={fetchStatus === 'fetching'} onBusyChange={setSocialBusy} onFlowChange={setSocialActive} />
       <Card style={{ gap: 16 }}>
         <Field testID="email" label={t('email')} value={email} onChangeText={setEmail} autoCapitalize="none" autoComplete="email" keyboardType="email-address" placeholder={t('emailPh')} error={errors.fields.emailAddress?.message} />
-        <Field testID="password" label={t('password')} value={password} onChangeText={setPassword} secureTextEntry autoComplete="new-password" placeholder={t('passwordPh')} error={errors.fields.password?.message} />
+        <Field testID="password" label={t('password')} value={password} onChangeText={setPassword} secureTextEntry autoComplete="new-password" placeholder={t('passwordPh')} error={errors.fields.password?.message?.replace(/Passwords must be 10 characters or more\.?/g, t('passwordPh'))} />
         <Banner text={error} />
         {Platform.OS === 'web' && (
           <View style={{ gap: 8 }} testID="human-verification">
