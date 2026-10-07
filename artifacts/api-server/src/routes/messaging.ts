@@ -10,6 +10,7 @@ import {
   SetMessagingRelationshipBody, SetMessagingRelationshipResponse,
   type MessagingProfile,
   SetMessagingBlockBody, SetMessagingBlockResponse,
+  UpdatePrivacySettingsBody, DecideFollowRequestBody,
 } from "@workspace/api-zod";
 import { MessagingError, messagingService } from "../lib/messaging";
 
@@ -63,6 +64,30 @@ export function createMessagingRouter(deps = {clerkClient, service:messagingServ
     return result.data as T;
   }
   router.use("/messaging", (_req,res,next) => {res.set("Cache-Control","no-store"); next();});
+  router.use("/privacy", (_req,res,next) => {res.set("Cache-Control","no-store"); next();});
+  router.get("/privacy/settings", async (req,res) => {
+    const userId=deps.user(req); limit(userId,"privacy",60); await sync(userId);
+    res.json(await (await deps.service()).privacy(userId));
+  });
+  router.put("/privacy/settings", async (req,res) => {
+    const userId=deps.user(req); limit(userId,"privacy-save",30);
+    const settings=parse(UpdatePrivacySettingsBody.strict(),req.body); await sync(userId);
+    res.json(await (await deps.service()).updatePrivacy(userId,settings));
+  });
+  router.get("/privacy/requests", async (req,res) => {
+    const userId=deps.user(req); limit(userId,"requests",60);
+    res.json(await (await deps.service()).requests(userId));
+  });
+  router.put("/privacy/requests/:id", async (req,res) => {
+    const userId=deps.user(req); limit(userId,"approve",60);
+    const {id}=parse(GetMessagingRelationshipParams,req.params);
+    const {approve}=parse(DecideFollowRequestBody.strict(),req.body);
+    await (await deps.service()).decideRequest(userId,id,approve); res.sendStatus(204);
+  });
+  router.get("/privacy/blocked", async (req,res) => {
+    const userId=deps.user(req); limit(userId,"blocked-list",60);
+    res.json(await (await deps.service()).blockedMembers(userId));
+  });
   router.get("/messaging/profile", async (req,res) => {
     const userId = deps.user(req); limit(userId,"profile",30);
     res.json(GetMessagingProfileResponse.parse(await sync(userId)));

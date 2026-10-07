@@ -72,6 +72,59 @@ paths:
               schema: {$ref: "#/components/schemas/MessagingRelationship"}
         default:
           $ref: "#/components/responses/MessagingFailure"
+  /privacy/settings:
+    get:
+      operationId: getPrivacySettings
+      responses:
+        "200":
+          description: Current account privacy
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/PrivacySettings"}
+    put:
+      operationId: updatePrivacySettings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/PrivacySettings"}
+      responses:
+        "200":
+          description: Saved privacy
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/PrivacySettings"}
+  /privacy/requests:
+    get:
+      operationId: listFollowRequests
+      responses:
+        "200":
+          description: Pending incoming follow requests
+          content:
+            application/json:
+              schema: {type: array, items: {$ref: "#/components/schemas/MessagingProfile"}}
+  /privacy/requests/{id}:
+    put:
+      operationId: decideFollowRequest
+      parameters:
+        - {in: path, name: id, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/FollowDecision"}
+      responses:
+        "204":
+          description: Request approved or declined
+  /privacy/blocked:
+    get:
+      operationId: listBlockedMembers
+      responses:
+        "200":
+          description: Members you blocked from messaging
+          content:
+            application/json:
+              schema: {type: array, items: {$ref: "#/components/schemas/BlockedMember"}}
   /messaging/conversations:
     get:
       operationId: listMessagingConversations
@@ -465,6 +518,25 @@ components:
         following: {type: boolean}
         followsYou: {type: boolean}
         mutual: {type: boolean}
+        requested: {type: boolean}
+        isPrivate: {type: boolean}
+    PrivacySettings:
+      type: object
+      required: [privateAccount, allowMessageRequests]
+      properties:
+        privateAccount: {type: boolean}
+        allowMessageRequests: {type: boolean}
+    FollowDecision:
+      type: object
+      required: [approve]
+      properties:
+        approve: {type: boolean}
+    BlockedMember:
+      type: object
+      required: [conversationId, profile]
+      properties:
+        conversationId: {type: string}
+        profile: {$ref: "#/components/schemas/MessagingProfile"}
     MessagingBlockInput:
       type: object
       required: [blocked]

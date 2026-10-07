@@ -21,6 +21,8 @@ import type {
 
 import type {
   BadRequestResponse,
+  BlockedMember,
+  FollowDecision,
   HealthStatus,
   ListMessagingConversationsParams,
   ListMessagingMessagesParams,
@@ -47,6 +49,7 @@ import type {
   PostList,
   PostUploadRequest,
   PostUploadTicket,
+  PrivacySettings,
   PublishPostRequest,
   SearchMessagingPeopleParams,
   UnauthorizedResponse
@@ -390,6 +393,384 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       > => {
       return useMutation(getSetMessagingRelationshipMutationOptions(options));
     }
+
+export const getGetPrivacySettingsUrl = () => {
+
+
+
+
+  return `/api/privacy/settings`
+}
+
+export const getPrivacySettings = async ( options?: Parameters<typeof customFetch>[1]): Promise<PrivacySettings> => {
+
+  return customFetch<PrivacySettings>(getGetPrivacySettingsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPrivacySettingsQueryKey = () => {
+    return [
+    `/api/privacy/settings`
+    ] as const;
+    }
+
+
+export const getGetPrivacySettingsQueryOptions = <TData = Awaited<ReturnType<typeof getPrivacySettings>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPrivacySettings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPrivacySettingsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPrivacySettings>>> = ({ signal }) => getPrivacySettings({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPrivacySettings>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPrivacySettingsQueryResult = NonNullable<Awaited<ReturnType<typeof getPrivacySettings>>>
+export type GetPrivacySettingsQueryError = ErrorType<unknown>
+
+
+
+export function useGetPrivacySettings<TData = Awaited<ReturnType<typeof getPrivacySettings>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPrivacySettings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPrivacySettingsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdatePrivacySettingsUrl = () => {
+
+
+
+
+  return `/api/privacy/settings`
+}
+
+export const updatePrivacySettings = async (privacySettings: PrivacySettings, options?: Parameters<typeof customFetch>[1]): Promise<PrivacySettings> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<PrivacySettings>(getUpdatePrivacySettingsUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(privacySettings)
+  }
+);}
+
+
+
+
+
+export const getUpdatePrivacySettingsMutationKey = () => ['updatePrivacySettings'] as const;
+
+export const getUpdatePrivacySettingsMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updatePrivacySettings>>, TError,UpdatePrivacySettingsMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updatePrivacySettings>>, TError,UpdatePrivacySettingsMutationVariables, TContext> => {
+
+const mutationKey = getUpdatePrivacySettingsMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updatePrivacySettings>>, UpdatePrivacySettingsMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  updatePrivacySettings(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdatePrivacySettingsMutationResult = NonNullable<Awaited<ReturnType<typeof updatePrivacySettings>>>
+    export type UpdatePrivacySettingsMutationBody = BodyType<PrivacySettings>
+    export type UpdatePrivacySettingsMutationError = ErrorType<unknown>
+    export type UpdatePrivacySettingsMutationVariables = {data: BodyType<PrivacySettings>}
+
+    export const useUpdatePrivacySettings = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updatePrivacySettings>>, TError,UpdatePrivacySettingsMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updatePrivacySettings>>,
+        TError,
+        UpdatePrivacySettingsMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdatePrivacySettingsMutationOptions(options));
+    }
+
+export const getListFollowRequestsUrl = () => {
+
+
+
+
+  return `/api/privacy/requests`
+}
+
+export const listFollowRequests = async ( options?: Parameters<typeof customFetch>[1]): Promise<MessagingProfile[]> => {
+
+  return customFetch<MessagingProfile[]>(getListFollowRequestsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListFollowRequestsQueryKey = () => {
+    return [
+    `/api/privacy/requests`
+    ] as const;
+    }
+
+
+export const getListFollowRequestsQueryOptions = <TData = Awaited<ReturnType<typeof listFollowRequests>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listFollowRequests>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListFollowRequestsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listFollowRequests>>> = ({ signal }) => listFollowRequests({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listFollowRequests>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListFollowRequestsQueryResult = NonNullable<Awaited<ReturnType<typeof listFollowRequests>>>
+export type ListFollowRequestsQueryError = ErrorType<unknown>
+
+
+
+export function useListFollowRequests<TData = Awaited<ReturnType<typeof listFollowRequests>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listFollowRequests>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListFollowRequestsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getDecideFollowRequestUrl = (id: string,) => {
+
+
+
+
+  return `/api/privacy/requests/${id}`
+}
+
+export const decideFollowRequest = async (id: string,
+    followDecision: FollowDecision, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<void>(getDecideFollowRequestUrl(id),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(followDecision)
+  }
+);}
+
+
+
+
+
+export const getDecideFollowRequestMutationKey = () => ['decideFollowRequest'] as const;
+
+export const getDecideFollowRequestMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof decideFollowRequest>>, TError,DecideFollowRequestMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof decideFollowRequest>>, TError,DecideFollowRequestMutationVariables, TContext> => {
+
+const mutationKey = getDecideFollowRequestMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof decideFollowRequest>>, DecideFollowRequestMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  decideFollowRequest(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DecideFollowRequestMutationResult = NonNullable<Awaited<ReturnType<typeof decideFollowRequest>>>
+    export type DecideFollowRequestMutationBody = BodyType<FollowDecision>
+    export type DecideFollowRequestMutationError = ErrorType<unknown>
+    export type DecideFollowRequestMutationVariables = {id: string;data: BodyType<FollowDecision>}
+
+    export const useDecideFollowRequest = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof decideFollowRequest>>, TError,DecideFollowRequestMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof decideFollowRequest>>,
+        TError,
+        DecideFollowRequestMutationVariables,
+        TContext
+      > => {
+      return useMutation(getDecideFollowRequestMutationOptions(options));
+    }
+
+export const getListBlockedMembersUrl = () => {
+
+
+
+
+  return `/api/privacy/blocked`
+}
+
+export const listBlockedMembers = async ( options?: Parameters<typeof customFetch>[1]): Promise<BlockedMember[]> => {
+
+  return customFetch<BlockedMember[]>(getListBlockedMembersUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListBlockedMembersQueryKey = () => {
+    return [
+    `/api/privacy/blocked`
+    ] as const;
+    }
+
+
+export const getListBlockedMembersQueryOptions = <TData = Awaited<ReturnType<typeof listBlockedMembers>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listBlockedMembers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListBlockedMembersQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listBlockedMembers>>> = ({ signal }) => listBlockedMembers({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listBlockedMembers>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListBlockedMembersQueryResult = NonNullable<Awaited<ReturnType<typeof listBlockedMembers>>>
+export type ListBlockedMembersQueryError = ErrorType<unknown>
+
+
+
+export function useListBlockedMembers<TData = Awaited<ReturnType<typeof listBlockedMembers>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listBlockedMembers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListBlockedMembersQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getListMessagingConversationsUrl = (params?: ListMessagingConversationsParams,) => {
   const normalizedParams = new URLSearchParams();

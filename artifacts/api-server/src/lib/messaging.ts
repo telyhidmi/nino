@@ -63,7 +63,13 @@ export class MessagingService {
       EXISTS(SELECT 1 FROM messaging_follows WHERE follower_id=$1 AND followed_id=$2) AS following,
       EXISTS(SELECT 1 FROM messaging_follows WHERE follower_id=$2 AND followed_id=$1) AS "followsYou"`, [userId,peerId]);
     const r = result.rows[0];
-    return {...r, mutual:r.following && r.followsYou};
+    const privacy = await client.query(`SELECT private_account,
+      EXISTS(SELECT 1 FROM messaging_follow_requests WHERE requester_id=$1 AND target_id=$2) AS requested
+      FROM messaging_profiles WHERE id=$2`, [userId,peerId]);
+    const extra = privacy.rows[0];
+    return {...r, mutual:r.following && r.followsYou,
+      ...(extra?.private_account ? {isPrivate:true} : {}),
+      ...(extra?.requested ? {requested:true} : {})};
   }
   async relationship(userId: string, peerId: string) {
     if (userId === peerId) throw new MessagingError(400,"You cannot follow yourself");
@@ -73,15 +79,27 @@ export class MessagingService {
     if (userId === peerId) throw new MessagingError(400,"You cannot follow yourself");
     return this.transaction(async (client) => {
       await this.lockPair(client,userId,peerId);
-      if (following) await client.query(`INSERT INTO messaging_follows(follower_id,followed_id)
-        VALUES($1,$2) ON CONFLICT(follower_id,followed_id) DO NOTHING`, [userId,peerId]);
-      else await client.query("DELETE FROM messaging_follows WHERE follower_id=$1 AND followed_id=$2", [userId,peerId]);
+      const target = await client.query("SELECT private_account FROM messaging_profiles WHERE id=$1 FOR UPDATE", [peerId]);
+      const existing = await client.query("SELECT 1 FROM messaging_follows WHERE follower_id=$1 AND followed_id=$2", [userId,peerId]);
+      if (following && target.rows[0]?.private_account && !existing.rowCount) {
+        await client.query("INSERT INTO messaging_follow_requests(requester_id,target_id) VALUES($1,$2) ON CONFLICT DO NOTHING", [userId,peerId]);
+      } else if (following) {
+        await client.query(`INSERT INTO messaging_follows(follower_id,followed_id)
+          VALUES($1,$2) ON CONFLICT(follower_id,followed_id) DO NOTHING`, [userId,peerId]);
+      } else {
+        await client.query("DELETE FROM messaging_follows WHERE follower_id=$1 AND followed_id=$2", [userId,peerId]);
+        await client.query("DELETE FROM messaging_follow_requests WHERE requester_id=$1 AND target_id=$2", [userId,peerId]);
+      }
       return this.relationshipWith(client,userId,peerId);
     });
   }
   private async policies(client: Pool | PoolClient, ids: string[], userId: string) {
     const result = await client.query<{id: string; own_count: number; peer_sent: boolean; messaging_unlocked: boolean;
-      following: boolean; follows_you: boolean; is_blocked: boolean; blocked_by_me: boolean}>(`SELECT c.id,c.messaging_unlocked,
+      following: boolean; follows_you: boolean; requested: boolean; accepts_requests: boolean; is_blocked: boolean; blocked_by_me: boolean}>(`SELECT c.id,c.messaging_unlocked,
+      EXISTS(SELECT 1 FROM messaging_follow_requests r WHERE r.requester_id=$2
+        AND r.target_id=CASE WHEN c.member_low=$2 THEN c.member_high ELSE c.member_low END) AS requested,
+      COALESCE((SELECT p.allow_message_requests FROM messaging_profiles p WHERE p.id=
+        CASE WHEN c.member_low=$2 THEN c.member_high ELSE c.member_low END),true) AS accepts_requests,
       (c.blocked_low OR c.blocked_high) AS is_blocked,
       CASE WHEN c.member_low=$2 THEN c.blocked_low ELSE c.blocked_high END AS blocked_by_me,
       (SELECT count(*)::integer FROM messaging_messages m WHERE m.conversation_id=c.id AND m.sender_id=$2) AS own_count,
@@ -94,6 +112,7 @@ export class MessagingService {
       FROM messaging_conversations c WHERE c.id=ANY($1::uuid[])`, [ids,userId]);
     return new Map(result.rows.map((r) => {
       const relationship: MessagingRelationship = {following:r.following,followsYou:r.follows_you,mutual:r.following && r.follows_you};
+      if (r.requested) relationship.requested=true;
       // Legacy conversations are unlocked from real history, not reset by migration.
       const unlocked = r.messaging_unlocked || (r.own_count > 0 && r.peer_sent);
       const unrestricted = unlocked || relationship.following || relationship.followsYou || r.peer_sent;
@@ -103,6 +122,9 @@ export class MessagingService {
       if (r.is_blocked) Object.assign(permission, {
         canSend:false, isBlocked:true, blockedByMe:r.blocked_by_me,
         awaitingReply:false, remainingInitialMessages:null,
+      });
+      if (!unrestricted && !r.accepts_requests) Object.assign(permission, {
+        canSend:false, remainingInitialMessages:0, awaitingReply:false,
       });
       return [r.id,{relationship,messagingPermission:permission,peerSent:r.peer_sent}] as const;
     }));
@@ -151,6 +173,46 @@ export class MessagingService {
         `UPDATE messaging_conversations SET blocked_${side}=$2 WHERE id=$1 RETURNING *`, [id,blocked]);
       return (await this.summaries(client,result.rows,userId))[0];
     });
+  }
+  async privacy(userId: string) {
+    const result = await this.pool.query(`SELECT private_account AS "privateAccount",
+      allow_message_requests AS "allowMessageRequests" FROM messaging_profiles WHERE id=$1`, [userId]);
+    if (!result.rows[0]) throw new MessagingError(404,"Profile not found");
+    return result.rows[0];
+  }
+  async updatePrivacy(userId: string, settings: {privateAccount:boolean;allowMessageRequests:boolean}) {
+    await this.transaction(async (client) => {
+      await client.query("SELECT id FROM messaging_profiles WHERE id=$1 FOR UPDATE", [userId]);
+      await client.query("UPDATE messaging_profiles SET private_account=$2,allow_message_requests=$3 WHERE id=$1",
+        [userId,settings.privateAccount,settings.allowMessageRequests]);
+      if (!settings.privateAccount) {
+        await client.query(`INSERT INTO messaging_follows(follower_id,followed_id)
+          SELECT requester_id,target_id FROM messaging_follow_requests WHERE target_id=$1 ON CONFLICT DO NOTHING`,[userId]);
+        await client.query("DELETE FROM messaging_follow_requests WHERE target_id=$1",[userId]);
+      }
+    });
+    return this.privacy(userId);
+  }
+  async requests(userId: string) {
+    return (await this.pool.query(`SELECT p.id,p.display_name AS "displayName",p.username,p.avatar_url AS "avatarUrl"
+      FROM messaging_follow_requests r JOIN messaging_profiles p ON p.id=r.requester_id
+      WHERE r.target_id=$1 ORDER BY r.created_at,r.requester_id`,[userId])).rows;
+  }
+  async decideRequest(userId: string, requesterId: string, approve: boolean) {
+    await this.transaction(async (client) => {
+      await this.lockPair(client,userId,requesterId);
+      await client.query("SELECT id FROM messaging_profiles WHERE id=$1 FOR UPDATE",[userId]);
+      const removed = await client.query(`DELETE FROM messaging_follow_requests WHERE requester_id=$1 AND target_id=$2 RETURNING requester_id`,
+        [requesterId,userId]);
+      if (approve && removed.rowCount) await client.query(`INSERT INTO messaging_follows(follower_id,followed_id)
+        VALUES($1,$2) ON CONFLICT DO NOTHING`,[requesterId,userId]);
+    });
+  }
+  async blockedMembers(userId: string) {
+    const rows = await this.pool.query(`SELECT c.id AS "conversationId",p.id,p.display_name AS "displayName",p.username,p.avatar_url AS "avatarUrl"
+      FROM messaging_conversations c JOIN messaging_profiles p ON p.id=CASE WHEN c.member_low=$1 THEN c.member_high ELSE c.member_low END
+      WHERE (c.member_low=$1 AND c.blocked_low) OR (c.member_high=$1 AND c.blocked_high) ORDER BY p.display_name,c.id`,[userId]);
+    return rows.rows.map(({conversationId,...profile}) => ({conversationId,profile}));
   }
   async inbox(userId: string, rawCursor?: string) {
     let timestamp: string | null = null, id: string | null = null;

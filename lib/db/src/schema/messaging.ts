@@ -7,6 +7,8 @@ export const messagingProfiles = pgTable("messaging_profiles", {
   displayName: text("display_name").notNull(),
   username: text("username"),
   avatarUrl: text("avatar_url"),
+  privateAccount: boolean("private_account").notNull().default(false),
+  allowMessageRequests: boolean("allow_message_requests").notNull().default(true),
   syncedAt: timestamp("synced_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
   index("messaging_name_search_idx").on(sql`lower(${t.displayName}) text_pattern_ops`),
@@ -19,6 +21,15 @@ export const messagingFollows = pgTable("messaging_follows", {
 }, (t) => [
   uniqueIndex("messaging_follow_pair_idx").on(t.followerId, t.followedId),
   check("messaging_no_self_follow", sql`${t.followerId} <> ${t.followedId}`),
+]);
+export const messagingFollowRequests = pgTable("messaging_follow_requests", {
+  requesterId: text("requester_id").notNull().references(() => messagingProfiles.id),
+  targetId: text("target_id").notNull().references(() => messagingProfiles.id),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  uniqueIndex("messaging_request_pair_idx").on(t.requesterId, t.targetId),
+  index("messaging_request_target_idx").on(t.targetId),
+  check("messaging_request_no_self", sql`${t.requesterId} <> ${t.targetId}`),
 ]);
 export const messagingConversations = pgTable("messaging_conversations", {
   id: uuid("id").primaryKey().defaultRandom(),

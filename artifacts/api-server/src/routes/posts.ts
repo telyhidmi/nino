@@ -3,19 +3,20 @@ import { clerkClient } from "@clerk/express";
 import { randomUUID } from "node:crypto";
 import { pipeline } from "node:stream/promises";
 import { Readable, Transform } from "node:stream";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { db, posts, postUploads, messagingFollows, type PostRow } from "@workspace/db";
 import { RequestPostUploadBody, PublishPostBody } from "@workspace/api-zod";
 import { byteRange, checkFinalize, PostError, requireOwner, requireSessionBearer, UPLOAD_TTL_MS, validateRecordingLocation, validateTicket } from "../lib/postValidation";
 import { finalizeMedia, mediaUrl, removeMedia, uploadUrl } from "../lib/postStorage";
+import { canViewOwner, mediaAccessToken, mediaViewer } from "../lib/postPrivacy";
 
 export function createPostsRouter(dependencies = {db, clerkClient, finalizeMedia, mediaUrl, removeMedia, uploadUrl, fetchMedia: globalThis.fetch}) {
 const {db: database, clerkClient: clerk, finalizeMedia: finalize, mediaUrl: signMedia, removeMedia: remove, uploadUrl: signUpload, fetchMedia} = dependencies;
 const router: IRouter = Router();
-function serialize(post: PostRow) {
+function serialize(post: PostRow, viewerId: string) {
   return {
     id: post.id, ownerId: post.ownerId, caption: post.caption, kind: post.kind,
-    mediaUrl: `/api/posts/media/${post.id}`, createdAt: post.createdAt.toISOString(),
+    mediaUrl: `/api/posts/media/${post.id}?access=${mediaAccessToken(post.id,viewerId)}`, createdAt: post.createdAt.toISOString(),
     authorName: post.authorName, authorAvatar: post.authorAvatar,
     recordingLocation: post.countryCode && post.recordedAt
       ? {countryCode: post.countryCode, recordedAt: post.recordedAt.toISOString()}
@@ -54,6 +55,7 @@ router.get("/posts/media/:id", async (req, res) => {
   const [post] = await database.select().from(posts).where(eq(posts.id, id));
   if (controller.signal.aborted) return;
   if (!post) throw new PostError(404, "Not found");
+  if (!await canViewOwner(post.ownerId,mediaViewer(id,req.query.access))) throw new PostError(404,"Not found");
   validateTicket(post.contentType, post.size, post.kind);
   res.set({
     "Content-Type": post.contentType,
@@ -133,20 +135,27 @@ router.post("/posts/uploads", async (req, res) => {
 });
 
 router.get("/posts", async (req, res) => {
-  await user(req);
-  res.json({posts: (await database.select().from(posts).orderBy(desc(posts.createdAt), desc(posts.id))).map(serialize)});
+  const viewerId=await user(req);
+  res.set("Cache-Control","no-store");
+  const visible = sql`(${posts.ownerId} = ${viewerId} OR NOT EXISTS(
+    SELECT 1 FROM messaging_profiles p WHERE p.id=${posts.ownerId} AND p.private_account
+      AND NOT EXISTS(SELECT 1 FROM messaging_follows f WHERE f.followed_id=p.id AND f.follower_id=${viewerId})
+  ))`;
+  res.json({posts: (await database.select().from(posts).where(visible).orderBy(desc(posts.createdAt), desc(posts.id))).map(p => serialize(p,viewerId))});
 });
 router.get("/posts/following", async (req, res) => {
   const ownerId = await user(req);
+  res.set("Cache-Control","no-store");
   const followed = database.select({ id: messagingFollows.followedId })
     .from(messagingFollows).where(eq(messagingFollows.followerId, ownerId));
   res.json({ posts: (await database.select().from(posts)
     .where(inArray(posts.ownerId, followed))
-    .orderBy(desc(posts.createdAt), desc(posts.id))).map(serialize) });
+    .orderBy(desc(posts.createdAt), desc(posts.id))).map(p => serialize(p,ownerId)) });
 });
 router.get("/posts/mine", async (req, res) => {
   const ownerId = await user(req);
-  res.json({posts: (await database.select().from(posts).where(eq(posts.ownerId, ownerId)).orderBy(desc(posts.createdAt), desc(posts.id))).map(serialize)});
+  res.set("Cache-Control","no-store");
+  res.json({posts: (await database.select().from(posts).where(eq(posts.ownerId, ownerId)).orderBy(desc(posts.createdAt), desc(posts.id))).map(p => serialize(p,ownerId))});
 });
 router.post("/posts", async (req, res) => {
   const ownerId = await user(req);
@@ -181,7 +190,7 @@ router.post("/posts", async (req, res) => {
     await tx.update(postUploads).set({finalizedAt: new Date()}).where(eq(postUploads.id, uploadId));
     return created;
   });
-  res.json(serialize(post));
+  res.json(serialize(post,ownerId));
 });
 
 router.delete("/posts/:id", async (req, res) => {

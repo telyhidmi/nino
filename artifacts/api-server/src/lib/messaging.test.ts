@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { canViewOwner, mediaAccessToken, mediaViewer } from "./postPrivacy";
 import { randomUUID } from "node:crypto";
 import { once } from "node:events";
 import express, { type Request } from "express";
@@ -117,6 +118,42 @@ test("PostgreSQL private messaging integration", {skip:!process.env.DATABASE_URL
         await service.send(a,id,"Unblocked",randomUUID());
         assert.equal((await service.create(a,b)).id,id);
       }
+    });
+    await t.test("private accounts require approval, cancellation and declined requests grant nothing", async () => {
+      const {a,b,id} = await pair("privacy");
+      await service.updatePrivacy(b,{privateAccount:true,allowMessageRequests:false});
+      assert.equal(await canViewOwner(b,null),false);
+      assert.equal(await canViewOwner(b,a),false);
+      assert.equal(await canViewOwner(b,b),true);
+      const mediaToken=mediaAccessToken(id,a);
+      assert.equal(mediaViewer(id,mediaToken),a);
+      assert.equal(mediaViewer(randomUUID(),mediaToken),null);
+      assert.equal(mediaViewer(id,`${mediaToken}broken`),null);
+      assert.equal((await service.thread(a,id)).conversation.messagingPermission.canSend,false);
+      await assert.rejects(service.send(a,id,"Requests off",randomUUID()),blocked);
+      assert.equal((await service.setRelationship(a,b,true)).requested,true);
+      assert.equal((await service.relationship(a,b)).following,false);
+      assert.equal((await service.requests(b)).length,1);
+      await service.decideRequest(outsider,a,true);
+      assert.equal((await service.relationship(a,b)).following,false);
+      await service.decideRequest(b,a,false);
+      assert.equal((await service.requests(b)).length,0);
+      await service.setRelationship(a,b,true);
+      await service.setRelationship(a,b,false);
+      assert.equal((await service.requests(b)).length,0);
+      await service.setRelationship(a,b,true);
+      await service.decideRequest(b,a,true);
+      assert.equal(await canViewOwner(b,a),true);
+      assert.equal((await service.relationship(a,b)).following,true);
+      await service.send(a,id,"Approved follower",randomUUID());
+      await service.setRelationship(a,b,false);
+      assert.equal(await canViewOwner(b,a),false);
+      await service.setRelationship(a,b,true);
+      await service.updatePrivacy(b,{privateAccount:false,allowMessageRequests:true});
+      assert.equal((await service.relationship(a,b)).following,true);
+      assert.equal((await service.requests(b)).length,0);
+      await service.setBlock(b,id,true);
+      assert.equal((await service.blockedMembers(b))[0].conversationId,id);
     });
     await t.test("three simultaneous distinct sends accept only two; simultaneous retries consume one", async () => {
       const {a,b,id} = await pair("race");
@@ -317,6 +354,7 @@ test("PostgreSQL private messaging integration", {skip:!process.env.DATABASE_URL
       (SELECT id FROM messaging_conversations WHERE member_low=ANY($1::text[]) OR member_high=ANY($1::text[]))`,[profiles]);
     await pool.query("DELETE FROM messaging_conversations WHERE member_low=ANY($1::text[]) OR member_high=ANY($1::text[])",[profiles]);
     await pool.query("DELETE FROM messaging_follows WHERE follower_id=ANY($1::text[]) OR followed_id=ANY($1::text[])",[profiles]);
+    await pool.query("DELETE FROM messaging_follow_requests WHERE requester_id=ANY($1::text[]) OR target_id=ANY($1::text[])",[profiles]);
     await pool.query("DELETE FROM messaging_profiles WHERE id=ANY($1::text[])",[profiles]);
     await pool.end();
   }

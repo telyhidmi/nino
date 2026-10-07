@@ -4,6 +4,7 @@
 - [Storage stream cancellation](storage-stream-cancellation.md) — avoid GCS SDK read streams for client-cancelable media responses.
 - [Discover country attribution](discover-country-attribution.md) — country means recording location, never profile country or upload location.
 - [Native Live scope](native-live-scope.md) — the user explicitly chose installed-app broadcasting over browser-first live.
-- [Message requests](message-requests.md) — mutual followers message freely; others get two unanswered introductory messages.
+- [Message requests](message-requests.md) — one-way followers message freely; blocks override access and strangers have an introductory quota.
+- [Private-account policy](private-account-policy.md) — retain existing followers; require approval for new ones and explain public-switch consequences.
 - [Browser social sign-in](browser-social-sign-in.md) — keep browser OAuth independent of Expo popup/opener state in embedded previews.
 - [Localization boundaries](localization-boundaries.md) — translate interface text, not authored content; keep sample and unavailable-feature notices explicit.

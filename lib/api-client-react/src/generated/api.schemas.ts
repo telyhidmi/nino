@@ -34,6 +34,22 @@ export interface MessagingRelationship {
   following: boolean;
   followsYou: boolean;
   mutual: boolean;
+  requested?: boolean;
+  isPrivate?: boolean;
+}
+
+export interface PrivacySettings {
+  privateAccount: boolean;
+  allowMessageRequests: boolean;
+}
+
+export interface FollowDecision {
+  approve: boolean;
+}
+
+export interface BlockedMember {
+  conversationId: string;
+  profile: MessagingProfile;
 }
 
 export interface MessagingBlockInput {

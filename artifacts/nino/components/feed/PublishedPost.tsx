@@ -46,7 +46,7 @@ export function PublishedPost({ post, height, active, preload = false, onAuthor,
   const [imageError, setImageError] = useState<string | null>(null);
   const uri = mediaUrl(post.mediaUrl);
   const share = () => {
-    Share.share({ message: `${post.authorName} · Nino\n${post.caption}\n${uri}` }).catch((error) => setImageError(postError(error)));
+    Share.share({ message: `${post.authorName} · Nino\n${post.caption}\n${uri.split('?')[0]}` }).catch((error) => setImageError(postError(error)));
   };
   return <View testID={`published-post-${post.id}`} style={{ height, width: '100%', backgroundColor: c.bgTop }}>
     {post.kind === 'photo' ? <Image key={attempt} source={{ uri }} style={StyleSheet.absoluteFill} contentFit="cover" onError={(event) => setImageError(event.error)} accessibilityLabel={post.caption || copy.published} /> :

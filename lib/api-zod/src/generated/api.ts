@@ -51,7 +51,9 @@ export const GetMessagingRelationshipParams = zod.object({
 export const GetMessagingRelationshipResponse = zod.object({
   "following": zod.boolean(),
   "followsYou": zod.boolean(),
-  "mutual": zod.boolean()
+  "mutual": zod.boolean(),
+  "requested": zod.boolean().optional(),
+  "isPrivate": zod.boolean().optional()
 })
 
 
@@ -73,8 +75,59 @@ export const SetMessagingRelationshipBody = zod.object({
 export const SetMessagingRelationshipResponse = zod.object({
   "following": zod.boolean(),
   "followsYou": zod.boolean(),
-  "mutual": zod.boolean()
+  "mutual": zod.boolean(),
+  "requested": zod.boolean().optional(),
+  "isPrivate": zod.boolean().optional()
 })
+
+
+export const GetPrivacySettingsResponse = zod.object({
+  "privateAccount": zod.boolean(),
+  "allowMessageRequests": zod.boolean()
+})
+
+
+export const UpdatePrivacySettingsBody = zod.object({
+  "privateAccount": zod.boolean(),
+  "allowMessageRequests": zod.boolean()
+})
+
+export const UpdatePrivacySettingsResponse = zod.object({
+  "privateAccount": zod.boolean(),
+  "allowMessageRequests": zod.boolean()
+})
+
+
+export const ListFollowRequestsResponseItem = zod.object({
+  "id": zod.string(),
+  "displayName": zod.string(),
+  "username": zod.string().nullable(),
+  "avatarUrl": zod.string().nullable()
+})
+export const ListFollowRequestsResponse = zod.array(ListFollowRequestsResponseItem)
+
+
+export const DecideFollowRequestParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const DecideFollowRequestBody = zod.object({
+  "approve": zod.boolean()
+})
+
+export const DecideFollowRequestResponse = zod.void()
+
+
+export const ListBlockedMembersResponseItem = zod.object({
+  "conversationId": zod.string(),
+  "profile": zod.object({
+  "id": zod.string(),
+  "displayName": zod.string(),
+  "username": zod.string().nullable(),
+  "avatarUrl": zod.string().nullable()
+})
+})
+export const ListBlockedMembersResponse = zod.array(ListBlockedMembersResponseItem)
 
 
 export const listMessagingConversationsQueryCursorMax = 300;
@@ -113,7 +166,9 @@ export const ListMessagingConversationsResponse = zod.object({
   "relationship": zod.object({
   "following": zod.boolean(),
   "followsYou": zod.boolean(),
-  "mutual": zod.boolean()
+  "mutual": zod.boolean(),
+  "requested": zod.boolean().optional(),
+  "isPrivate": zod.boolean().optional()
 }),
   "messagingPermission": zod.object({
   "isBlocked": zod.boolean().optional(),
@@ -163,7 +218,9 @@ export const CreateMessagingConversationResponse = zod.object({
   "relationship": zod.object({
   "following": zod.boolean(),
   "followsYou": zod.boolean(),
-  "mutual": zod.boolean()
+  "mutual": zod.boolean(),
+  "requested": zod.boolean().optional(),
+  "isPrivate": zod.boolean().optional()
 }),
   "messagingPermission": zod.object({
   "isBlocked": zod.boolean().optional(),
@@ -216,7 +273,9 @@ export const ListMessagingMessagesResponse = zod.object({
   "relationship": zod.object({
   "following": zod.boolean(),
   "followsYou": zod.boolean(),
-  "mutual": zod.boolean()
+  "mutual": zod.boolean(),
+  "requested": zod.boolean().optional(),
+  "isPrivate": zod.boolean().optional()
 }),
   "messagingPermission": zod.object({
   "isBlocked": zod.boolean().optional(),
@@ -302,7 +361,9 @@ export const SetMessagingBlockResponse = zod.object({
   "relationship": zod.object({
   "following": zod.boolean(),
   "followsYou": zod.boolean(),
-  "mutual": zod.boolean()
+  "mutual": zod.boolean(),
+  "requested": zod.boolean().optional(),
+  "isPrivate": zod.boolean().optional()
 }),
   "messagingPermission": zod.object({
   "isBlocked": zod.boolean().optional(),

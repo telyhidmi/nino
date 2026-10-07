@@ -162,16 +162,17 @@ test(`HTTP ${kind} contract: auth, strict validation, recording metadata, deleti
     assert.equal(first.status, 200);
     const firstPost = await first.json() as {authorName: string; mediaUrl: string; recordingLocation: unknown};
     assert.equal(firstPost.authorName, "Nino Display Name");
-    assert.equal(firstPost.mediaUrl, `/api/posts/media/${id}`);
+    assert.equal(firstPost.mediaUrl.split("?")[0], `/api/posts/media/${id}`);
     assert.deepEqual(firstPost.recordingLocation, kind === "video" ? recordingLocation : null);
-    assert.deepEqual(await (await call("/posts", "GET", "owner")).json(), {posts: [firstPost]});
-    assert.deepEqual(await (await call("/posts/mine", "GET", "owner")).json(), {posts: [firstPost]});
+    const withoutAccess = (value: unknown) => JSON.parse(JSON.stringify(value).replace(/\?access=[^"]+/g, ""));
+    assert.deepEqual(withoutAccess(await (await call("/posts", "GET", "owner")).json()), withoutAccess({posts: [firstPost]}));
+    assert.deepEqual(withoutAccess(await (await call("/posts/mine", "GET", "owner")).json()), withoutAccess({posts: [firstPost]}));
     if (kind === "video") {
       const changed = await call("/posts", "POST", "owner", {uploadId: id, caption: "different", recordingLocation: {...recordingLocation, countryCode: "US"}});
-      assert.deepEqual(await changed.json(), firstPost, "retry cannot change the original country");
+      assert.deepEqual(withoutAccess(await changed.json()), withoutAccess(firstPost), "retry cannot change the original country");
     }
     const retry = await call("/posts", "POST", "owner", {uploadId: id, caption: "different"});
-    assert.deepEqual(await retry.json(), firstPost);
+    assert.deepEqual(withoutAccess(await retry.json()), withoutAccess(firstPost));
     assert.equal(finalizeCount, 1);
     // Rows created before the metadata columns existed serialize as explicit null.
     const original = stored;

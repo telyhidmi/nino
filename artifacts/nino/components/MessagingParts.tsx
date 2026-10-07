@@ -7,6 +7,7 @@ import type { MessagingProfile, MessagingRelationship } from '@workspace/api-cli
 import { useI18n } from '@/lib/i18n';
 import { useFollowToggle } from '@/lib/messaging';
 import { fill, useMessagesCopy } from '@/lib/messagesCopy';
+import { useSettingsCopy } from '@/lib/settingsCopy';
 import { useColors } from '@/hooks/useColors';
 
 export const threadHref = (id: string) => `/conversation?id=${encodeURIComponent(id)}` as Href;
@@ -42,21 +43,25 @@ export function RelationChip({ rel, testID }: { rel?: MessagingRelationship | nu
 export function FollowButton({ peerId, name, rel, testID = 'follow-toggle', onDark }: { peerId: string; name: string; rel?: MessagingRelationship | null; testID?: string; onDark?: boolean }) {
   const c = useColors();
   const t = useMessagesCopy();
+  const sc = useSettingsCopy();
   const { font } = useI18n();
   const { toggle, pending, error } = useFollowToggle(peerId);
   if (!rel) return <View testID={`${testID}-loading`} style={{ width: 86, height: 32, borderRadius: 16, backgroundColor: onDark ? 'rgba(255,255,255,0.12)' : c.card }} />;
-  const on = rel.following;
-  const label = on ? t.following : rel.followsYou ? t.followBack : t.follow;
+  const requested = !rel.following && !!rel.requested;
+  // A pending request is cancelled with toggle(true), same as unfollow; it never reads as an approved follow.
+  const on = rel.following || requested;
+  const label = rel.following ? t.following : requested ? sc.requested : rel.followsYou ? t.followBack : t.follow;
+  const icon = rel.following ? 'check' : requested ? 'clock' : 'user-plus';
   return (
     <View style={{ alignItems: 'flex-end', gap: 2 }}>
       <Pressable testID={testID} onPress={() => toggle(on)} disabled={pending} hitSlop={6}
         accessibilityRole="button" accessibilityState={{ selected: on, busy: pending }}
-        accessibilityLabel={fill(on ? t.unfollowA11y : t.followA11y, name)}
+        accessibilityLabel={fill(rel.following ? t.unfollowA11y : requested ? sc.cancelRequestA11y : t.followA11y, name)}
         style={({ pressed }) => ({ minWidth: 86, height: 32, paddingHorizontal: 14, borderRadius: 16, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 5,
           borderWidth: 1, borderColor: on ? (onDark ? 'rgba(255,255,255,0.4)' : c.borderStrong) : c.accent,
           backgroundColor: on ? 'transparent' : c.accent, opacity: pressed || pending ? 0.7 : 1 })}>
         {pending ? <ActivityIndicator size="small" color={on ? c.text : c.onAccent} />
-          : <><Feather name={on ? 'check' : 'user-plus'} size={13} color={on ? c.text : c.onAccent} />
+          : <><Feather name={icon} size={13} color={on ? c.text : c.onAccent} />
             <Text style={{ color: on ? c.text : c.onAccent, fontFamily: font('semibold'), fontSize: 12.5 }}>{label}</Text></>}
       </Pressable>
       {error ? <Text testID={`${testID}-error`} accessibilityLiveRegion="polite" style={{ color: c.danger, fontFamily: font('medium'), fontSize: 10.5, maxWidth: 160, textAlign: 'right' }}>{t.followFailed}</Text> : null}

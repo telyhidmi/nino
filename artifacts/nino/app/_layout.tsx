@@ -57,6 +57,8 @@ function RootNav() {
     const oldUser = previousUser.current;
     if (oldUser && oldUser !== userId) {
       queryClient.removeQueries({ queryKey: ['/api/posts/mine', oldUser] });
+      queryClient.removeQueries({ predicate: (q) => typeof q.queryKey[0] === 'string' &&
+        (q.queryKey[0].startsWith('/api/privacy/') || q.queryKey[0].startsWith('/api/posts')) });
       clearMessaging(queryClient); // private messages are account-scoped
     }
     previousUser.current = userId;
@@ -73,6 +75,7 @@ function RootNav() {
       <Stack.Screen name="live" />
       <Stack.Screen name="messages" options={{ animation: 'slide_from_right' }} />
       <Stack.Screen name="conversation" options={{ animation: 'slide_from_right' }} />
+      <Stack.Screen name="settings" options={{ animation: 'slide_from_right' }} />
     </Stack>
   );
 }

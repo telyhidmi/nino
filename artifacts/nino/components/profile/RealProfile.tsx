@@ -14,6 +14,7 @@ import { confirmAction, ProfileLanguageButton, ProfileView } from './ProfileView
 import { useQueryClient } from '@tanstack/react-query';
 import { getListMyPostsQueryKey, getListPostsQueryKey, useListMyPosts, useDeletePost, type PostList } from '@workspace/api-client-react';
 import { usePostCopy } from '@/lib/postTranslations';
+import { useSettingsCopy } from '@/lib/settingsCopy';
 import { postItem, postError } from '@/lib/posts';
 import type { ProfileItem } from './ProfileView';
 
@@ -24,6 +25,7 @@ export function RealProfile({ ctx, onBack, active = true, postsResetToken }: { c
   const c = useColors();
   const { t, font, row, align } = useI18n();
   const copy = usePostCopy();
+  const settingsCopy = useSettingsCopy();
   const queryClient = useQueryClient();
   const mineKey = [...getListMyPostsQueryKey(), user?.id];
   const mine = useListMyPosts({ query: { queryKey: mineKey, enabled: !!isSignedIn && !!user && active, staleTime: 0, refetchOnMount: 'always', retry: false } });
@@ -108,6 +110,7 @@ export function RealProfile({ ctx, onBack, active = true, postsResetToken }: { c
         <View style={{ paddingVertical: 12 }}><ProfileLanguageButton onNavigate={() => setMenu(false)} /></View>
         <Banner text={error} />
         <Item testID="menu-edit" icon="edit-2" label={t('edit')} onPress={edit} />
+        <Item testID="menu-settings" icon="settings" label={settingsCopy.settings} onPress={() => { setMenu(false); router.push('/settings'); }} />
         <Item testID="sign-out" icon="log-out" label={t('signOut')} danger onPress={() => confirmAction(t('signOutConfirm'), '', t('signOut'), doSignOut, t('profileCancel'))} />
       </Sheet>
     </>

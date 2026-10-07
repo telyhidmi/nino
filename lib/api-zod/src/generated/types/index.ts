@@ -7,6 +7,8 @@
  */
 
 export * from './badRequestResponse';
+export * from './blockedMember';
+export * from './followDecision';
 export * from './healthStatus';
 export * from './listMessagingConversationsParams';
 export * from './listMessagingMessagesParams';
@@ -38,6 +40,7 @@ export * from './postUploadRequest';
 export * from './postUploadRequestContentType';
 export * from './postUploadRequestKind';
 export * from './postUploadTicket';
+export * from './privacySettings';
 export * from './publishPostRequest';
 export * from './recordingLocation';
 export * from './recordingLocationCountryCode';

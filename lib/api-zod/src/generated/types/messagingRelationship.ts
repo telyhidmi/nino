@@ -10,4 +10,6 @@ export interface MessagingRelationship {
   following: boolean;
   followsYou: boolean;
   mutual: boolean;
+  requested?: boolean;
+  isPrivate?: boolean;
 }
