@@ -289,7 +289,7 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
             <Feather name="users" size={32} color={c.accent} />
             <Text style={[st.emptyTitle, { color: c.text, fontFamily: font('semibold') }]}>{preview ? t('feedFollowingEmpty') : followingPosts.isPending ? copy.loading : followingPosts.isError ? copy.loadFailed : copy.empty}</Text>
             {preview ? <Text style={[st.emptyBody, { color: c.secondary, fontFamily: font() }]}>{t('feedFollowingBody')}</Text> : null}
-            <Pressable onPress={() => { if (!preview && followingPosts.isError) void followingPosts.refetch(); else if (!preview) setOpen('search'); else changeTab('foryou'); }} accessibilityRole="button" style={[st.emptyButton, { borderColor: c.accent }]}>
+            <Pressable onPress={() => { if (!preview && followingPosts.isError) void followingPosts.refetch(); else if (!preview) router.push('/search'); else changeTab('foryou'); }} accessibilityRole="button" style={[st.emptyButton, { borderColor: c.accent }]}>
               <Text style={{ color: c.accent, fontFamily: font('semibold'), textAlign: 'center' }}>{preview ? t('feedExploreSamples') : followingPosts.isError ? copy.retry : t('search')}</Text>
             </Pressable>
           </View>
@@ -311,7 +311,7 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
               );
             })}
           </View>
-          <Pressable testID="open-search" onPress={() => setOpen('search')} accessibilityRole="button" accessibilityLabel={t('feedSearchPosts')} style={st.searchBtn}>
+          <Pressable testID="open-search" onPress={() => { if (preview) setOpen('search'); else router.push('/search'); }} accessibilityRole="button" accessibilityLabel={t('feedSearchPosts')} style={st.searchBtn}>
             <Feather name="search" size={20} color={c.text} />
           </Pressable>
         </View>

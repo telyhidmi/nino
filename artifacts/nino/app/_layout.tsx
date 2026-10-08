@@ -75,6 +75,7 @@ function RootNav() {
       <Stack.Screen name="live" />
       <Stack.Screen name="messages" options={{ animation: 'slide_from_right' }} />
       <Stack.Screen name="conversation" options={{ animation: 'slide_from_right' }} />
+      <Stack.Screen name="search" options={{ animation: 'slide_from_right' }} />
       <Stack.Screen name="settings" options={{ animation: 'slide_from_right' }} />
     </Stack>
   );

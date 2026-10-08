@@ -16,7 +16,7 @@ import { isSearchablePeopleQuery, normalizePeopleQuery } from '@/lib/peopleQuery
 import { postError } from '@/lib/posts';
 
 /** Real people search (display name or username, "@name" allowed). Tapping a result opens a public profile card, not a chat. */
-export function PeopleSearch({ onOpened }: { onOpened?: () => void }) {
+export function PeopleSearch({ onOpened, inlineFollow }: { onOpened?: () => void; inlineFollow?: boolean }) {
   const c = useColors();
   const t = useMessagesCopy();
   const { t: tr, font, row, align } = useI18n();
@@ -53,18 +53,7 @@ export function PeopleSearch({ onOpened }: { onOpened?: () => void }) {
   } else if (people.length === 0) {
     body = <State icon="user-x" text={t.noPeople} testID="people-empty" />;
   } else {
-    body = people.map((p) => (
-      <Pressable key={p.id} testID={`person-${p.id}`} onPress={() => setSelected(p)} accessibilityRole="button"
-        accessibilityLabel={p.username ? `${p.displayName}, @${p.username}` : p.displayName}
-        style={({ pressed }) => [s.row, { flexDirection: row, backgroundColor: pressed ? c.cardSoft : 'transparent' }]}>
-        <PersonAvatar p={p} size={44} />
-        <View style={{ flex: 1, gap: 1 }}>
-          <Text numberOfLines={1} style={txt('semibold', 14.5)}>{p.displayName}</Text>
-          {p.username ? <Text numberOfLines={1} style={txt('regular', 12.5, c.secondary)}>@{p.username}</Text> : null}
-        </View>
-        <Feather name={align === 'right' ? 'chevron-left' : 'chevron-right'} size={18} color={c.muted} />
-      </Pressable>
-    ));
+    body = people.map((p) => <PersonRow key={p.id} p={p} inlineFollow={!!inlineFollow} onSelect={() => setSelected(p)} />);
   }
 
   return (
@@ -79,6 +68,35 @@ export function PeopleSearch({ onOpened }: { onOpened?: () => void }) {
       {body}
     </View>
   );
+}
+
+function PersonRow({ p, inlineFollow, onSelect }: { p: MessagingProfile; inlineFollow: boolean; onSelect: () => void }) {
+  const c = useColors();
+  const { font, row, align } = useI18n();
+  const txt = (w: 'regular' | 'semibold', size: number, color = c.text) => ({ fontFamily: font(w), fontSize: size, color, textAlign: align });
+  return (
+    <View style={[s.row, { flexDirection: row }, inlineFollow && { paddingVertical: 10 }]}>
+    <Pressable testID={`person-${p.id}`} onPress={onSelect} accessibilityRole="button"
+      accessibilityLabel={p.username ? `${p.displayName}, @${p.username}` : p.displayName}
+      style={({ pressed }) => ({ flex: 1, minWidth: 0, alignItems: 'center', gap: 12, flexDirection: row, backgroundColor: pressed ? c.cardSoft : 'transparent' })}>
+      <PersonAvatar p={p} size={inlineFollow ? 52 : 44} />
+      <View style={{ flex: 1, gap: 1 }}>
+        <Text numberOfLines={1} style={txt('semibold', inlineFollow ? 15 : 14.5)}>{p.displayName}</Text>
+        {p.username ? <Text numberOfLines={1} style={txt('regular', 12.5, c.secondary)}>@{p.username}</Text> : null}
+      </View>
+    </Pressable>
+      {inlineFollow ? <RowFollow p={p} /> : <Feather name={align === 'right' ? 'chevron-left' : 'chevron-right'} size={18} color={c.muted} />}
+    </View>
+  );
+}
+
+/** Inline follow uses the authoritative relationship for this person (handles private Requested/cancel via FollowButton). */
+function RowFollow({ p }: { p: MessagingProfile }) {
+  const c = useColors();
+  const rel = useGetMessagingRelationship(p.id, { query: { queryKey: getGetMessagingRelationshipQueryKey(p.id), staleTime: 15_000, retry: false } });
+  if (rel.isError) return <Pressable testID={`person-${p.id}-rel-retry`} onPress={() => void rel.refetch()} hitSlop={8} accessibilityRole="button"><Feather name="rotate-cw" size={16} color={c.danger} /></Pressable>;
+  if (rel.isPending) return <View style={{ width: 84, height: 32, borderRadius: 16, backgroundColor: c.card }} />;
+  return <FollowButton peerId={p.id} name={p.displayName} rel={rel.data} testID={`person-${p.id}-follow`} />;
 }
 
 function State({ icon, text, testID }: { icon: keyof typeof Feather.glyphMap; text: string; testID: string }) {
