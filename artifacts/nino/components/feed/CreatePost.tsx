@@ -18,6 +18,7 @@ import { router } from 'expo-router';
 import { useLiveCopy } from '@/lib/liveCopy';
 import { useI18n } from '@/lib/i18n';
 import type { cameraEn } from '@/lib/locales/camera';
+import { ContentAssistant } from '@/components/feed/ContentAssistant';
 
 type Captured = CapturedMedia & { recordingLocation?: RecordingLocation };
 type PermissionProblem = { message: string; settings: boolean };
@@ -443,6 +444,7 @@ export function CreatePost({ visible, onClose, onSave, allowPublish = true }: { 
         <TextInput testID="create-caption" value={caption} onChangeText={setCaption} multiline maxLength={500} editable={!busy}
           placeholder={copy.caption} placeholderTextColor={c.muted} accessibilityLabel={copy.caption}
           style={[styles.input, prose, { color: c.text, borderColor: c.border, backgroundColor: c.cardSoft }]} />
+        {allowPublish && isSignedIn ? <ContentAssistant asset={a} caption={caption} onApply={(text) => { if (!busy && !uploading.current) setCaption(text); }} disabled={busy} /> : null}
         <View style={[styles.notice, { flexDirection: row, backgroundColor: c.accentWash, borderColor: c.border }]}>
           <Feather name="map-pin" size={16} color={c.accent} />
           <Text testID="create-recording-country" style={[styles.body, prose, { color: c.secondary, flex: 1 }]}>

@@ -8,6 +8,10 @@
 
 export * from './badRequestResponse';
 export * from './blockedMember';
+export * from './contentAssistInput';
+export * from './contentAssistInputLanguage';
+export * from './contentAssistInputMediaType';
+export * from './contentAssistResult';
 export * from './followDecision';
 export * from './healthStatus';
 export * from './listMessagingConversationsParams';

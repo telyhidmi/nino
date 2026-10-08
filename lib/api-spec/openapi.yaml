@@ -11,6 +11,23 @@ tags:
   - name: health
     description: Health operations
 paths:
+  /openai/content-assist:
+    post:
+      operationId: generateContentAssist
+      security: [{bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/ContentAssistInput"}
+      responses:
+        "200":
+          description: Editable AI suggestions, never published automatically
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/ContentAssistResult"}
+        default:
+          $ref: "#/components/responses/MessagingFailure"
   /messaging/profile:
     get:
       operationId: getMessagingProfile
@@ -487,6 +504,30 @@ components:
     NotFound:
       description: Not found or not owned by current user
   schemas:
+    ContentAssistInput:
+      type: object
+      required: [frames, mediaType, language, context]
+      properties:
+        frames:
+          type: array
+          minItems: 1
+          maxItems: 3
+          items: {type: string, maxLength: 600000, minLength: 20}
+        mediaType: {type: string, enum: [image, video]}
+        language: {type: string, enum: [en, ar, pt, es, fr, de, it, tr, ru, hi, zh, ja]}
+        context: {type: string, maxLength: 500}
+    ContentAssistResult:
+      type: object
+      required: [observations, shortCaption, storyCaption, description, hashtags]
+      properties:
+        observations: {type: string, minLength: 1, maxLength: 700}
+        shortCaption: {type: string, minLength: 1, maxLength: 280}
+        storyCaption: {type: string, minLength: 1, maxLength: 400}
+        description: {type: string, minLength: 1, maxLength: 400}
+        hashtags:
+          type: array
+          maxItems: 5
+          items: {type: string, minLength: 2, maxLength: 40}
     MessagingFailure:
       type: object
       required: [error]

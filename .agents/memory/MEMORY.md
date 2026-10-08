@@ -8,3 +8,4 @@
 - [Private-account policy](private-account-policy.md) — retain existing followers; require approval for new ones and explain public-switch consequences.
 - [Browser social sign-in](browser-social-sign-in.md) — keep browser OAuth independent of Expo popup/opener state in embedded previews.
 - [Localization boundaries](localization-boundaries.md) — translate interface text, not authored content; keep sample and unavailable-feature notices explicit.
+- [Creator AI boundaries](creator-ai-boundaries.md) — explicit media consent and sampled-frame limits; detached browser video decoding can stall.

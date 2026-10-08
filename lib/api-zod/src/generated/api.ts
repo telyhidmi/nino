@@ -8,6 +8,46 @@
 import * as zod from 'zod';
 
 
+export const generateContentAssistBodyFramesItemMin = 20;
+export const generateContentAssistBodyFramesItemMax = 600000;
+
+export const generateContentAssistBodyFramesMax = 3;
+
+export const generateContentAssistBodyContextMax = 500;
+
+
+
+export const GenerateContentAssistBody = zod.object({
+  "frames": zod.array(zod.string().min(generateContentAssistBodyFramesItemMin).max(generateContentAssistBodyFramesItemMax)).min(1).max(generateContentAssistBodyFramesMax),
+  "mediaType": zod.enum(['image', 'video']),
+  "language": zod.enum(['en', 'ar', 'pt', 'es', 'fr', 'de', 'it', 'tr', 'ru', 'hi', 'zh', 'ja']),
+  "context": zod.string().max(generateContentAssistBodyContextMax)
+})
+
+export const generateContentAssistResponseObservationsMax = 700;
+
+export const generateContentAssistResponseShortCaptionMax = 280;
+
+export const generateContentAssistResponseStoryCaptionMax = 400;
+
+export const generateContentAssistResponseDescriptionMax = 400;
+
+export const generateContentAssistResponseHashtagsItemMin = 2;
+export const generateContentAssistResponseHashtagsItemMax = 40;
+
+export const generateContentAssistResponseHashtagsMax = 5;
+
+
+
+export const GenerateContentAssistResponse = zod.object({
+  "observations": zod.string().min(1).max(generateContentAssistResponseObservationsMax),
+  "shortCaption": zod.string().min(1).max(generateContentAssistResponseShortCaptionMax),
+  "storyCaption": zod.string().min(1).max(generateContentAssistResponseStoryCaptionMax),
+  "description": zod.string().min(1).max(generateContentAssistResponseDescriptionMax),
+  "hashtags": zod.array(zod.string().min(generateContentAssistResponseHashtagsItemMin).max(generateContentAssistResponseHashtagsItemMax)).max(generateContentAssistResponseHashtagsMax)
+})
+
+
 /**
  * Sync the signed-in member's public profile for display-name discovery. Call on authenticated app entry.
  */

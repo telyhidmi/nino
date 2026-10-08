@@ -5,6 +5,75 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export type ContentAssistInputMediaType = typeof ContentAssistInputMediaType[keyof typeof ContentAssistInputMediaType];
+
+
+export const ContentAssistInputMediaType = {
+  image: 'image',
+  video: 'video',
+} as const;
+
+export type ContentAssistInputLanguage = typeof ContentAssistInputLanguage[keyof typeof ContentAssistInputLanguage];
+
+
+export const ContentAssistInputLanguage = {
+  en: 'en',
+  ar: 'ar',
+  pt: 'pt',
+  es: 'es',
+  fr: 'fr',
+  de: 'de',
+  it: 'it',
+  tr: 'tr',
+  ru: 'ru',
+  hi: 'hi',
+  zh: 'zh',
+  ja: 'ja',
+} as const;
+
+export interface ContentAssistInput {
+  /**
+     * @minItems 1
+     * @maxItems 3
+     * @items.minLength 20
+     * @items.maxLength 600000
+     */
+  frames: string[];
+  mediaType: ContentAssistInputMediaType;
+  language: ContentAssistInputLanguage;
+  /** @maxLength 500 */
+  context: string;
+}
+
+export interface ContentAssistResult {
+  /**
+     * @minLength 1
+     * @maxLength 700
+     */
+  observations: string;
+  /**
+     * @minLength 1
+     * @maxLength 280
+     */
+  shortCaption: string;
+  /**
+     * @minLength 1
+     * @maxLength 400
+     */
+  storyCaption: string;
+  /**
+     * @minLength 1
+     * @maxLength 400
+     */
+  description: string;
+  /**
+     * @maxItems 5
+     * @items.minLength 2
+     * @items.maxLength 40
+     */
+  hashtags: string[];
+}
+
 export interface MessagingFailure {
   error: string;
 }
