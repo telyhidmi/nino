@@ -9,8 +9,9 @@ import { RequestPostUploadBody, PublishPostBody } from "@workspace/api-zod";
 import { byteRange, checkFinalize, PostError, requireOwner, requireSessionBearer, UPLOAD_TTL_MS, validateRecordingLocation, validateTicket } from "../lib/postValidation";
 import { finalizeMedia, mediaUrl, removeMedia, uploadUrl } from "../lib/postStorage";
 import { canViewOwner, mediaAccessToken, mediaViewer } from "../lib/postPrivacy";
+import { preparePlayback } from "../lib/videoPlayback";
 
-export function createPostsRouter(dependencies = {db, clerkClient, finalizeMedia, mediaUrl, removeMedia, uploadUrl, fetchMedia: globalThis.fetch}) {
+export function createPostsRouter(dependencies = {db, clerkClient, finalizeMedia, mediaUrl, removeMedia, uploadUrl, fetchMedia: globalThis.fetch}, prepareVideo = preparePlayback) {
 const {db: database, clerkClient: clerk, finalizeMedia: finalize, mediaUrl: signMedia, removeMedia: remove, uploadUrl: signUpload, fetchMedia} = dependencies;
 const router: IRouter = Router();
 function serialize(post: PostRow, viewerId: string) {
@@ -57,8 +58,19 @@ router.get("/posts/media/:id", async (req, res) => {
   if (!post) throw new PostError(404, "Not found");
   if (!await canViewOwner(post.ownerId,mediaViewer(id,req.query.access))) throw new PostError(404,"Not found");
   validateTicket(post.contentType, post.size, post.kind);
+  const playback = req.query.playback;
+  if (playback !== undefined && (post.kind !== "video" || (playback !== "mp4" && playback !== "webm"))) {
+    throw new PostError(400, "Invalid playback format");
+  }
+  const media = playback ? await prepareVideo(id, post.size, playback) : post;
+  if (controller.signal.aborted) return;
+  // Conversion can take seconds; recheck deletion before serving a derivative.
+  if (playback) {
+    const [stillPublished] = await database.select().from(posts).where(eq(posts.id, id));
+    if (!stillPublished) throw new PostError(404, "Not found");
+  }
   res.set({
-    "Content-Type": post.contentType,
+    "Content-Type": media.contentType,
     "X-Content-Type-Options": "nosniff",
     "Content-Disposition": "inline",
     "Accept-Ranges": "bytes",
@@ -66,14 +78,14 @@ router.get("/posts/media/:id", async (req, res) => {
     "Cache-Control": "no-store",
   });
   let range;
-  try { range = byteRange(req.headers.range, post.size); }
+  try { range = byteRange(req.headers.range, media.size); }
   catch (error) {
-    res.set("Content-Range", `bytes */${post.size}`);
+    res.set("Content-Range", `bytes */${media.size}`);
     throw error;
   }
-  const start = range?.start ?? 0, end = range?.end ?? post.size - 1;
+  const start = range?.start ?? 0, end = range?.end ?? media.size - 1;
   const length = end - start + 1;
-  const url = await signMedia(id, controller.signal);
+  const url = await signMedia(id, controller.signal, playback);
   if (controller.signal.aborted) return;
   upstream = await fetchMedia(url, {
     signal: AbortSignal.any([controller.signal, AbortSignal.timeout(30_000)]),
@@ -85,12 +97,12 @@ router.get("/posts/media/:id", async (req, res) => {
   // Do not trust upstream headers to override the validated DB media contract.
   if (upstream.status !== (range ? 206 : 200) ||
       upstream.headers.get("content-length") !== String(length) ||
-      upstream.headers.get("content-range") !== (range ? `bytes ${start}-${end}/${post.size}` : null) ||
+      upstream.headers.get("content-range") !== (range ? `bytes ${start}-${end}/${media.size}` : null) ||
       ![null, "identity"].includes(upstream.headers.get("content-encoding")) ||
       !upstream.body) {
     throw new PostError(502, "Storage returned invalid media");
   }
-  if (range) res.status(206).set("Content-Range", `bytes ${start}-${end}/${post.size}`);
+  if (range) res.status(206).set("Content-Range", `bytes ${start}-${end}/${media.size}`);
   res.set("Content-Length", String(length));
   if (req.method === "HEAD") { res.end(); return; }
   let received = 0;

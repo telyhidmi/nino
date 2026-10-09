@@ -25,6 +25,7 @@ import type {
   ContentAssistInput,
   ContentAssistResult,
   FollowDecision,
+  GetPostMediaParams,
   HealthStatus,
   ListMessagingConversationsParams,
   ListMessagingMessagesParams,
@@ -2109,20 +2110,29 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       return useMutation(getDeletePostMutationOptions(options));
     }
 
-export const getGetPostMediaUrl = (id: string,) => {
+export const getGetPostMediaUrl = (id: string,
+    params?: GetPostMediaParams,) => {
+  const normalizedParams = new URLSearchParams();
 
+  Object.entries(params || {}).forEach(([key, value]) => {
 
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
 
+  const stringifiedParams = normalizedParams.toString();
 
-  return `/api/posts/media/${id}`
+  return stringifiedParams.length > 0 ? `/api/posts/media/${id}?${stringifiedParams}` : `/api/posts/media/${id}`
 }
 
 /**
- * Public media for published, non-deleted posts. Supports single byte ranges and HEAD.
+ * Public media for published, non-deleted posts. Supports single byte ranges and HEAD. Originals are preserved. Optional playback copies are prepared on first request (up to 10 minutes and 4K input).
  */
-export const getPostMedia = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<Blob | void> => {
+export const getPostMedia = async (id: string,
+    params?: GetPostMediaParams, options?: Parameters<typeof customFetch>[1]): Promise<Blob | void> => {
 
-  return customFetch<Blob | void>(getGetPostMediaUrl(id),
+  return customFetch<Blob | void>(getGetPostMediaUrl(id,params),
   {
     ...options,
     method: 'GET'
@@ -2135,23 +2145,25 @@ export const getPostMedia = async (id: string, options?: Parameters<typeof custo
 
 
 
-export const getGetPostMediaQueryKey = (id: string,) => {
+export const getGetPostMediaQueryKey = (id: string,
+    params?: GetPostMediaParams,) => {
     return [
-    `/api/posts/media/${id}`
+    `/api/posts/media/${id}`, ...(params ? [params] : [])
     ] as const;
     }
 
 
-export const getGetPostMediaQueryOptions = <TData = Awaited<ReturnType<typeof getPostMedia>>, TError = ErrorType<NotFoundResponse | void>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPostMedia>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getGetPostMediaQueryOptions = <TData = Awaited<ReturnType<typeof getPostMedia>>, TError = ErrorType<NotFoundResponse | void>>(id: string,
+    params?: GetPostMediaParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPostMedia>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getGetPostMediaQueryKey(id);
+  const queryKey =  queryOptions?.queryKey ?? getGetPostMediaQueryKey(id,params);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPostMedia>>> = ({ signal }) => getPostMedia(id, { signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPostMedia>>> = ({ signal }) => getPostMedia(id,params, { signal, ...requestOptions });
 
 
 
@@ -2166,11 +2178,12 @@ export type GetPostMediaQueryError = ErrorType<NotFoundResponse | void>
 
 
 export function useGetPostMedia<TData = Awaited<ReturnType<typeof getPostMedia>>, TError = ErrorType<NotFoundResponse | void>>(
- id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPostMedia>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+ id: string,
+    params?: GetPostMediaParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPostMedia>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
-  const queryOptions = getGetPostMediaQueryOptions(id,options)
+  const queryOptions = getGetPostMediaQueryOptions(id,params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

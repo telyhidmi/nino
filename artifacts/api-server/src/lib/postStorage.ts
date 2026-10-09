@@ -28,9 +28,10 @@ function location(id: string, published: boolean) {
   return {bucket, name: `${path.join("/")}/nino/${published ? "published" : "uploads"}/${id}`};
 }
 
-export function mediaFile(id: string, published = true): File {
+export type PlaybackFormat = "mp4" | "webm";
+export function mediaFile(id: string, published = true, playback?: PlaybackFormat): File {
   const {bucket, name} = location(id, published);
-  return storage.bucket(bucket).file(name);
+  return storage.bucket(bucket).file(playback ? `${name}.playback-v1.${playback}` : name);
 }
 
 export async function uploadUrl(id: string, expiresAt: Date) {
@@ -38,16 +39,16 @@ export async function uploadUrl(id: string, expiresAt: Date) {
 }
 
 // GET URLs stay server-side; browsers only receive the public DB-backed route.
-export async function mediaUrl(id: string, signal: AbortSignal) {
-  return signedObjectUrl(id, true, "GET", new Date(Date.now() + 60_000), signal);
+export async function mediaUrl(id: string, signal: AbortSignal, playback?: PlaybackFormat) {
+  return signedObjectUrl(id, true, "GET", new Date(Date.now() + 60_000), signal, playback);
 }
 
-async function signedObjectUrl(id: string, published: boolean, method: "PUT" | "GET", expiresAt: Date, signal?: AbortSignal) {
+async function signedObjectUrl(id: string, published: boolean, method: "PUT" | "GET", expiresAt: Date, signal?: AbortSignal, playback?: PlaybackFormat) {
   const {bucket, name} = location(id, published);
   const response = await fetch(`${REPLIT_SIDECAR_ENDPOINT}/object-storage/signed-object-url`, {
     method: "POST",
     headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({bucket_name: bucket, object_name: name, method, expires_at: expiresAt.toISOString()}),
+    body: JSON.stringify({bucket_name: bucket, object_name: playback ? `${name}.playback-v1.${playback}` : name, method, expires_at: expiresAt.toISOString()}),
     signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(30_000)]) : AbortSignal.timeout(30_000),
   });
   if (!response.ok) throw new Error(`Could not sign storage URL (${response.status})`);
@@ -79,4 +80,5 @@ export async function finalizeMedia(id: string, contentType: string, size: numbe
 
 export async function removeMedia(id: string) {
   await mediaFile(id).delete({ignoreNotFound: true});
+  await Promise.all((["mp4", "webm"] as const).map(format => mediaFile(id, true, format).delete({ignoreNotFound: true})));
 }

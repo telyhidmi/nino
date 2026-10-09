@@ -449,7 +449,7 @@ paths:
     get:
       operationId: getPostMedia
       tags: [posts]
-      description: Public media for published, non-deleted posts. Supports single byte ranges and HEAD.
+      description: Public media for published, non-deleted posts. Supports single byte ranges and HEAD. Originals are preserved. Optional playback copies are prepared on first request (up to 10 minutes and 4K input).
       parameters:
         - in: path
           name: id
@@ -458,6 +458,10 @@ paths:
         - in: header
           name: Range
           schema: {type: string}
+        - in: query
+          name: playback
+          description: Compatible playback copy. Omit to fetch the unmodified original.
+          schema: {type: string, enum: [mp4, webm]}
       responses:
         "200":
           description: Media bytes
@@ -468,6 +472,10 @@ paths:
           description: Requested byte range
         "416":
           description: Invalid or unsatisfiable byte range
+        "422":
+          description: Video cannot be decoded or exceeds conversion limits
+        "503":
+          description: Preparation is busy or recently failed; retry shortly
         "404":
           $ref: "#/components/responses/NotFound"
   /healthz:
@@ -766,4 +774,3 @@ components:
           type: string
       required:
         - status
-

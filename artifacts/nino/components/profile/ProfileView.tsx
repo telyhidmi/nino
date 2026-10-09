@@ -2,6 +2,7 @@ import { Feather } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useVideoPlayer, VideoView } from 'expo-video';
+import { PublishedVideo } from '@/components/PublishedVideo';
 import React, { useEffect, useState } from 'react';
 import { Alert, ImageSourcePropType, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { EarthGlobe } from '@/components/EarthGlobe';
@@ -283,7 +284,11 @@ function MediaViewer({ item, onClose, onRemove, removing, removalError }: { item
   return (
     <Modal visible={!!item} animationType="fade" onRequestClose={onClose}>
       <View testID="media-viewer" style={{ flex: 1, backgroundColor: '#0A0A0B' }}>
-        {item ? (item.kind === 'video' && item.video ? <VideoPlayer source={item.video} /> : item.image ? <Image source={item.image} style={StyleSheet.absoluteFill} contentFit="contain" /> : null) : null}
+        {item ? (item.kind === 'video' && item.video
+          ? item.published && typeof item.video === 'object'
+            ? <PublishedVideo key={item.id} uri={item.video.uri} active muted={false} contentFit="contain" />
+            : <VideoPlayer source={item.video} />
+          : item.image ? <Image source={item.image} style={StyleSheet.absoluteFill} contentFit="contain" /> : null) : null}
         <View style={[s.viewerTop, { top: ins.top + 6 }]}>
           <Pressable testID="media-close" onPress={onClose} accessibilityRole="button" accessibilityLabel={t('profileClose')} style={[s.iconBtn, { backgroundColor: 'rgba(12,12,14,0.7)' }]}><Feather name="x" size={22} color={c.text} /></Pressable>
           {onRemove ? (

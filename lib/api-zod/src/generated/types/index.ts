@@ -13,6 +13,8 @@ export * from './contentAssistInputLanguage';
 export * from './contentAssistInputMediaType';
 export * from './contentAssistResult';
 export * from './followDecision';
+export * from './getPostMediaParams';
+export * from './getPostMediaPlayback';
 export * from './healthStatus';
 export * from './listMessagingConversationsParams';
 export * from './listMessagingMessagesParams';

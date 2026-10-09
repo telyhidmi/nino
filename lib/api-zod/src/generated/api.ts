@@ -631,10 +631,14 @@ export const DeletePostResponse = zod.void()
 
 
 /**
- * Public media for published, non-deleted posts. Supports single byte ranges and HEAD.
+ * Public media for published, non-deleted posts. Supports single byte ranges and HEAD. Originals are preserved. Optional playback copies are prepared on first request (up to 10 minutes and 4K input).
  */
 export const GetPostMediaParams = zod.object({
   "id": zod.coerce.string().uuid()
+})
+
+export const GetPostMediaQueryParams = zod.object({
+  "playback": zod.enum(['mp4', 'webm']).optional().describe('Compatible playback copy. Omit to fetch the unmodified original.')
 })
 
 export const GetPostMediaHeader = zod.object({

@@ -1,42 +1,14 @@
-import { useEventListener } from 'expo';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useVideoPlayer, VideoView } from 'expo-video';
 import { Feather } from '@expo/vector-icons';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Pressable, Share, StyleSheet, Text, View } from 'react-native';
 import { getGetMessagingRelationshipQueryKey, useGetMessagingRelationship, type Post } from '@workspace/api-client-react';
 import { FollowButton, RelationChip } from '@/components/MessagingParts';
 import { useColors } from '@/hooks/useColors';
 import { mediaUrl, postError } from '@/lib/posts';
 import { usePostCopy } from '@/lib/postTranslations';
-
-function PublishedVideo({ uri, active }: { uri: string; active: boolean }) {
-  const copy = usePostCopy();
-  const [error, setError] = useState<string | null>(null);
-  const [ready, setReady] = useState(false);
-  const player = useVideoPlayer({ uri }, (p) => {
-    p.loop = true; p.muted = true; p.staysActiveInBackground = false;
-  });
-  useEventListener(player, 'statusChange', ({ status, error: problem }) => {
-    if (status === 'error') setError(problem?.message || copy.loadFailed);
-    if (status === 'readyToPlay') setReady(true);
-  });
-  useEffect(() => {
-    if (player.status === 'readyToPlay') setReady(true);
-    if (player.status === 'error') setError(copy.loadFailed);
-  }, [player, copy.loadFailed]);
-  useEffect(() => {
-    if (active && ready && !error) player.play();
-    else player.pause();
-    // useVideoPlayer owns release; do not call a released native player in cleanup.
-  }, [player, ready, error, active]);
-  return <>
-    <VideoView player={player} style={StyleSheet.absoluteFill} contentFit="cover" nativeControls playsInline />
-    {error ? <Text style={s.status}>{error}</Text> : !ready ? <Text style={s.status}>{copy.loading}</Text> : null}
-  </>;
-}
-
+import { PublishedVideo } from '@/components/PublishedVideo';
 export function PublishedPost({ post, height, active, preload = false, onAuthor, followable }: { post: Post; height: number; active: boolean; preload?: boolean; onAuthor?: () => void; followable?: boolean }) {
   // Real follow state for real authors only (never for the viewer's own posts or demo/sample content).
   const rel = useGetMessagingRelationship(post.ownerId, { query: { queryKey: getGetMessagingRelationshipQueryKey(post.ownerId), enabled: !!followable, staleTime: 15_000, retry: false } });

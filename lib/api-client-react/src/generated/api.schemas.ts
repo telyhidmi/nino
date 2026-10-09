@@ -611,3 +611,18 @@ export type ListMessagingMessagesParams = {
 cursor?: string;
 };
 
+export type GetPostMediaParams = {
+/**
+ * Compatible playback copy. Omit to fetch the unmodified original.
+ */
+playback?: GetPostMediaPlayback;
+};
+
+export type GetPostMediaPlayback = typeof GetPostMediaPlayback[keyof typeof GetPostMediaPlayback];
+
+
+export const GetPostMediaPlayback = {
+  mp4: 'mp4',
+  webm: 'webm',
+} as const;
+

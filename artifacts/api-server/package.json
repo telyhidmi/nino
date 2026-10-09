@@ -10,7 +10,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "pnpm run test:posts && pnpm run test:live && pnpm run test:messaging",
     "test:messaging": "esbuild src/lib/messaging.test.ts --bundle --platform=node --format=cjs --external:pg-native --outfile=/tmp/nino-messaging.test.cjs && node --test /tmp/nino-messaging.test.cjs",
-    "test:posts": "esbuild src/lib/posts.test.ts --bundle --platform=node --format=cjs --external:pg-native --outfile=/tmp/nino-posts.test.cjs && node --test /tmp/nino-posts.test.cjs",
+    "test:posts": "esbuild src/lib/posts.test.ts src/lib/videoPlayback.test.ts --bundle --platform=node --format=cjs --external:pg-native --outdir=/tmp/nino-post-tests && node --test /tmp/nino-post-tests/posts.test.js /tmp/nino-post-tests/videoPlayback.test.js",
     "test:live": "esbuild src/lib/live.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/nino-live.test.cjs && node --test /tmp/nino-live.test.cjs"
   },
   "dependencies": {
