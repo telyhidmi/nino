@@ -11,6 +11,7 @@ import { Banner } from '@/components/ui';
 import { useColors } from '@/hooks/useColors';
 import { clerkErrorMessage } from '@/lib/data';
 import { useI18n } from '@/lib/i18n';
+import { useSocialProviders } from '@/hooks/useSocialProviders';
 
 type Provider = 'google' | 'apple';
 
@@ -33,6 +34,7 @@ export function SocialAuth({
 }) {
   const { startSSOFlow } = useSSO();
   const clerk = useClerk();
+  const { providers, ready } = useSocialProviders();
   const { signIn } = useSignIn();
   const { signUp } = useSignUp();
   const c = useColors();
@@ -44,7 +46,7 @@ export function SocialAuth({
   const [incomplete, setIncomplete] = useState(false);
 
   const start = async (provider: Provider) => {
-    if (disabled || lock.current) return;
+    if (disabled || lock.current || incomplete || !providers.includes(provider)) return;
     if (Platform.OS === 'web' && window.self !== window.top) {
       // Providers refuse embedded browsers. Start a self-contained redirect flow
       // in a top-level tab, not an AuthSession popup tied to this iframe.
@@ -115,14 +117,18 @@ export function SocialAuth({
   };
 
   useEffect(() => {
-    if (Platform.OS !== 'web' || window.self !== window.top || disabled) return;
+    if (Platform.OS !== 'web' || window.self !== window.top || disabled || !ready) return;
     const url = new URL(window.location.href);
     const provider = url.searchParams.get('sso_provider');
     if (provider !== 'google' && provider !== 'apple') return;
     url.searchParams.delete('sso_provider');
     window.history.replaceState(window.history.state, '', url.toString());
+    if (!providers.includes(provider)) {
+      setError(t('socialError'));
+      return;
+    }
     void start(provider);
-  }, [disabled]);
+  }, [disabled, ready, providers]);
 
   const reset = async () => {
     try {
@@ -139,7 +145,7 @@ export function SocialAuth({
 
   return (
     <View style={styles.group}>
-      {(['google', 'apple'] as const).map((provider) => {
+      {providers.map((provider) => {
         const label = t(provider === 'google' ? 'continueGoogle' : 'continueApple');
         const blocked = disabled || pending !== null || incomplete;
         return (
@@ -169,11 +175,11 @@ export function SocialAuth({
       <Banner text={error} />
       <Banner text={info} tone="info" />
       {incomplete && <TextLink testID="sso-start-over" label={t('startOver')} onPress={() => void reset()} />}
-      <View style={[styles.divider, { flexDirection: row }]}>
+      {providers.length > 0 && <View style={[styles.divider, { flexDirection: row }]}>
         <View style={[styles.line, { backgroundColor: c.borderStrong }]} />
         <Text style={{ color: c.secondary, fontFamily: font('regular'), fontSize: 12 }}>{t('orEmail')}</Text>
         <View style={[styles.line, { backgroundColor: c.borderStrong }]} />
-      </View>
+      </View>}
     </View>
   );
 }
