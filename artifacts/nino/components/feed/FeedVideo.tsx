@@ -1,7 +1,7 @@
-import { Feather } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useEventListener } from 'expo';
-import { useVideoPlayer, VideoView } from 'expo-video';
+import { useVideoPlayer } from 'expo-video';
+import { VideoStage } from '@/components/video/VideoStage';
 import React, { useEffect, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { SamplePost } from './data';
@@ -38,7 +38,7 @@ export function FeedVideo({ post, active }: { post: SamplePost; active: boolean 
 function Playback({ post, active, format, onError, retry }: {
   post: SamplePost; active: boolean; format: VideoFormat; onError: () => void; retry: () => void;
 }) {
-  const { t, font, row, rtl } = useI18n();
+  const { t, font } = useI18n();
   // expo-video resolves the numeric require() asset ID to a local URI on both
   // native and web. Use the browser's codec probe before choosing the web asset.
   const player = useVideoPlayer(format === 'webm' ? post.videoWeb! : post.video!, (p) => {
@@ -48,22 +48,15 @@ function Playback({ post, active, format, onError, retry }: {
   });
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [firstFrame, setFirstFrame] = useState(false);
-  const [paused, setPaused] = useState(false);
-  const [muted, setMuted] = useState(true);
 
   useEventListener(player, 'statusChange', ({ status: next }) => {
-    if (next === 'error') {
-      setStatus('error');
-    } else if (next === 'readyToPlay') {
-      setStatus('ready');
-    } else if (next === 'loading') {
-      setStatus('loading');
-    }
+    if (next === 'error') setStatus('error');
+    else if (next === 'readyToPlay') setStatus('ready');
+    else if (next === 'loading') setStatus('loading');
   });
 
   useEffect(() => {
     // A player can become ready before the event subscription is installed.
-    // Without this check, the ready-only play effect can remain stuck forever.
     if (player.status === 'readyToPlay') setStatus('ready');
     else if (player.status === 'error') setStatus('error');
   }, [player]);
@@ -72,32 +65,12 @@ function Playback({ post, active, format, onError, retry }: {
     if (status === 'error') onError();
   }, [status, onError]);
 
-  useEffect(() => {
-    if (active && !paused && status === 'ready') {
-      player.play();
-    } else {
-      player.pause();
-    }
-    // useVideoPlayer owns disposal and stops playback on unmount.
-    // Its cleanup may release the native object before this effect's cleanup,
-    // so calling player methods during cleanup crashes on iOS.
-  }, [active, paused, player, status]);
-
   return (
-    <View style={StyleSheet.absoluteFill}>
-      <VideoView player={player} style={[StyleSheet.absoluteFill, { width: '100%', height: '100%' }]} contentFit="cover" nativeControls={false} playsInline
-        onFirstFrameRender={() => setFirstFrame(true)} />
+    <VideoStage player={player} active={active} ready={status === 'ready'} failed={status === 'error'}
+      hasAudio={!!post.videoHasAudio} onFirstFrame={() => setFirstFrame(true)}>
       {!firstFrame || status === 'error' ? (
         <Image source={post.image} style={StyleSheet.absoluteFill} contentFit="cover"
           accessibilityLabel={t('feedVideoPoster')} />
-      ) : null}
-      {status !== 'error' ? (
-        <Pressable style={StyleSheet.absoluteFill} onPress={() => setPaused((value) => !value)}
-          accessibilityRole="button" accessibilityLabel={t(paused ? 'feedPlayVideo' : 'feedPauseVideo')}>
-          {paused && firstFrame ? (
-            <View style={styles.center}><Feather name="play" size={34} color="#FFF" /></View>
-          ) : null}
-        </Pressable>
       ) : null}
       {status === 'loading' && !firstFrame ? (
         <View pointerEvents="none" style={styles.center}>
@@ -112,17 +85,7 @@ function Playback({ post, active, format, onError, retry }: {
           </Pressable>
         </View>
       ) : null}
-      <View style={[styles.controls, { left: rtl ? 80 : 16, right: rtl ? 16 : 80, alignItems: rtl ? 'flex-end' : 'flex-start' }]} pointerEvents="box-none">
-        <Pressable onPress={() => { player.muted = !muted; setMuted(!muted); }}
-          disabled={!post.videoHasAudio} accessibilityRole="button"
-          accessibilityLabel={t(post.videoHasAudio ? (muted ? 'feedUnmuteVideo' : 'feedMuteVideo') : 'feedVideoNoAudio')}
-          accessibilityState={{ disabled: !post.videoHasAudio }}
-          style={[styles.mute, { flexDirection: row, maxWidth: '100%' }]}>
-          <Feather name={post.videoHasAudio ? (muted ? 'volume-x' : 'volume-2') : 'volume-x'} size={17} color="#FFF" />
-          <Text style={[styles.controlText, { fontFamily: font('semibold'), flexShrink: 1 }]}>{t(post.videoHasAudio ? (muted ? 'feedMuted' : 'feedSoundOn') : 'feedNoAudio')}</Text>
-        </Pressable>
-      </View>
-    </View>
+    </VideoStage>
   );
 }
 
@@ -130,7 +93,4 @@ const styles = StyleSheet.create({
   center: { position: 'absolute', left: 70, right: 70, top: '42%', alignItems: 'center', justifyContent: 'center', padding: 14, borderRadius: 16, backgroundColor: 'rgba(12,12,14,0.68)', gap: 8 },
   status: { color: '#FFF', textAlign: 'center', fontFamily: 'Poppins_600SemiBold', fontSize: 13 },
   retry: { minHeight: 44, paddingHorizontal: 18, justifyContent: 'center', borderRadius: 22, borderWidth: 1, borderColor: 'rgba(255,255,255,0.5)' },
-  controls: { position: 'absolute', top: 196, left: 16, right: 80, alignItems: 'flex-start', gap: 6 },
-  mute: { minHeight: 44, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 22, backgroundColor: 'rgba(12,12,14,0.72)' },
-  controlText: { color: '#FFF', fontFamily: 'Poppins_600SemiBold', fontSize: 12 },
 });

@@ -1,5 +1,6 @@
 import { useEventListener } from 'expo';
-import { useVideoPlayer, VideoView } from 'expo-video';
+import { useVideoPlayer } from 'expo-video';
+import { VideoStage } from '@/components/video/VideoStage';
 import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { playbackFormats, playbackUri } from '@/lib/videoPlayback';
@@ -9,7 +10,7 @@ import { usePostCopy } from '@/lib/postTranslations';
 type Props = { uri: string; active: boolean; muted?: boolean; contentFit?: 'cover' | 'contain' };
 
 // Shared by feed and profile; local/sample videos intentionally use their own source.
-export function PublishedVideo({ uri, active, muted = true, contentFit = 'cover' }: Props) {
+export function PublishedVideo({ uri, active, muted, contentFit = 'cover' }: Props) {
   const copy = useVideoCopy();
   const [formats] = useState(playbackFormats);
   const [index, setIndex] = useState(0);
@@ -28,7 +29,7 @@ function PlayableVideo({ uri, active, muted, contentFit, onFailure, onRetry }: P
   const [error, setError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
   const player = useVideoPlayer({ uri }, (p) => {
-    p.loop = true; p.muted = muted ?? true; p.staysActiveInBackground = false;
+    p.loop = true; p.muted = true; p.staysActiveInBackground = false;
   });
   useEventListener(player, 'statusChange', ({ status }) => {
     if (status === 'error') {
@@ -44,20 +45,16 @@ function PlayableVideo({ uri, active, muted, contentFit, onFailure, onRetry }: P
       else setError(copy.failed);
     }
   }, [player, copy.failed, onFailure]);
-  useEffect(() => {
-    if (active && ready && !error) player.play();
-    else player.pause();
-    // useVideoPlayer owns release; never access the native player during cleanup.
-  }, [player, ready, error, active]);
-  return <>
-    <VideoView player={player} style={[StyleSheet.absoluteFill, { width: '100%', height: '100%' }]} contentFit={contentFit} nativeControls playsInline />
+  // muted={false} is an explicit viewer request (profile viewer); otherwise follow the shared sound preference.
+  return <VideoStage player={player} active={active} ready={ready} failed={!!error} contentFit={contentFit}
+    forceSound={muted === false ? true : undefined}>
     {error ? <View style={s.status}>
       <Text style={s.text}>{error}</Text>
       <Pressable onPress={onRetry} accessibilityRole="button" accessibilityLabel={postCopy.retry} style={s.retry}>
         <Text style={s.text}>{postCopy.retry}</Text>
       </Pressable>
-    </View> : !ready ? <Text style={[s.status, s.text]}>{copy.preparing}</Text> : null}
-  </>;
+    </View> : !ready ? <Text pointerEvents="none" style={[s.status, s.text]}>{copy.preparing}</Text> : null}
+  </VideoStage>;
 }
 
 const s = StyleSheet.create({

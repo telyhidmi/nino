@@ -332,7 +332,7 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
         ) : null}
 
         {tab !== 'live' && !(selectedPost && isPublished(selectedPost)) && <Pressable testID="translate-bar" onPress={() => setOpen('translate')} accessibilityRole="button" accessibilityLabel={t('feedTranslate')}
-          style={[st.tbar, { borderColor: c.borderStrong, bottom: 10, flexDirection: row }]}>
+          style={[st.tbar, { borderColor: c.borderStrong, bottom: 26, flexDirection: row }]}>
           <EarthGlobe size={26} />
           <Text style={[st.tbarText, { fontFamily: font('semibold'), textAlign: align }]}>{t('feedTranslate')}</Text>
           <View style={[st.ai, { borderColor: c.border }]}><Text style={{ color: c.accent, fontFamily: font('semibold'), fontSize: 11, textAlign: 'center' }}>{t('feedPreview')}</Text></View>
