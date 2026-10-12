@@ -3,7 +3,7 @@ import { CameraView, useCameraPermissions, useMicrophonePermissions, type Camera
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
-import { useVideoPlayer, VideoView } from 'expo-video';
+import { LocalVideo } from '@/components/video/LocalVideo';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { KeyboardAwareScrollViewCompat } from '@/components/KeyboardAwareScrollViewCompat';
@@ -35,9 +35,8 @@ const MODES: { id: Mode; label: keyof typeof cameraEn; spoken: keyof typeof came
 const IS_WEB = Platform.OS === 'web';
 const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
-function VideoPreview({ uri }: { uri: string }) {
-  const player = useVideoPlayer({ uri }, (p) => { p.loop = true; });
-  return <VideoView player={player} style={styles.fill} contentFit="contain" nativeControls />;
+function VideoPreview({ uri, active }: { uri: string; active: boolean }) {
+  return <LocalVideo source={{ uri }} active={active} compact />;
 }
 
 export function CreatePost({ visible, onClose, onSave, allowPublish = true }: { visible: boolean; onClose: () => void; onSave: (item: Post) => void | Promise<void>; allowPublish?: boolean }) {
@@ -435,7 +434,7 @@ export function CreatePost({ visible, onClose, onSave, allowPublish = true }: { 
       </View>
       <KeyboardAwareScrollViewCompat contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" bottomOffset={20}>
         <View style={[styles.media, { backgroundColor: c.card, borderColor: c.border }]}>
-          {a.type === 'video' ? <VideoPreview key={a.uri} uri={a.uri} /> : <Image source={{ uri: a.uri }} style={styles.fill} contentFit="contain" accessibilityLabel={t('cameraPhotoPreview')} />}
+          {a.type === 'video' ? <VideoPreview key={a.uri} uri={a.uri} active={visible && foreground && !busy} /> : <Image source={{ uri: a.uri }} style={styles.fill} contentFit="contain" accessibilityLabel={t('cameraPhotoPreview')} />}
         </View>
         <Pressable testID="create-change" onPress={retake} disabled={busy} accessibilityRole="button" style={[styles.inlineBtn, { flexDirection: row, alignSelf: rtl ? 'flex-end' : 'flex-start' }]}>
           <Feather name="rotate-ccw" size={15} color={c.accent} />

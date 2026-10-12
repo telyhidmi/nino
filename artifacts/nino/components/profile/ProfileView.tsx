@@ -1,7 +1,7 @@
 import { Feather } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import { useVideoPlayer, VideoView } from 'expo-video';
+import { LocalVideo } from '@/components/video/LocalVideo';
 import { PublishedVideo } from '@/components/PublishedVideo';
 import React, { useEffect, useState } from 'react';
 import { Alert, ImageSourcePropType, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
@@ -271,8 +271,7 @@ export function ProfileView(props: {
 }
 
 function VideoPlayer({ source }: { source: number | { uri: string } }) {
-  const player = useVideoPlayer(source, (p) => { p.loop = true; p.muted = false; p.play(); });
-  return <VideoView player={player} style={StyleSheet.absoluteFill} contentFit="contain" nativeControls />;
+  return <LocalVideo source={source} />;
 }
 
 function MediaViewer({ item, onClose, onRemove, removing, removalError }: { item: ProfileItem | null; onClose: () => void; onRemove?: () => void; removing?: boolean; removalError?: string | null }) {

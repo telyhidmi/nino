@@ -19,3 +19,9 @@ Do not gate an active remote player's initial play request on its ready/canplay 
 **Why:** Expo's browser player can remain at metadata preload while waiting for play; readiness-gated startup left uploaded videos displaying preparation indefinitely despite successful media responses. Requesting play during loading resolved the verified feed and return-navigation failure.
 
 **How to apply:** Keep visibility, manual pause, seeking, and failure gates, but allow active playback requests while buffering. Bound preparation with a retry state. Close test browser sessions after video checks; one retained session exhausted workspace memory and delayed otherwise healthy startup.
+
+The user repeated that play/replay should feel like TikTok, not a standard video player.
+
+**Why:** Updating only the feed left standard player controls in profile and recording previews, making the experience inconsistent.
+
+**How to apply:** Keep inline autoplay, looping, and tap-to-pause/resume consistent across viewing surfaces, including local media previews; do not reintroduce native player toolbars there.

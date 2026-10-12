@@ -27,12 +27,13 @@ type Props = {
   /** Overrides the shared preference (e.g. an explicit viewer opened by the user). */
   forceSound?: boolean;
   contentFit?: 'cover' | 'contain';
+  controlTop?: number;
   onFirstFrame?: () => void;
   /** Poster/status layers rendered beneath the controls. */
   children?: React.ReactNode;
 };
 
-export function VideoStage({ player, active: requestedActive, ready, failed, hasAudio = true, forceSound, contentFit = 'cover', onFirstFrame, children }: Props) {
+export function VideoStage({ player, active: requestedActive, ready, failed, hasAudio = true, forceSound, contentFit = 'cover', controlTop, onFirstFrame, children }: Props) {
   const [foreground, setForeground] = useState(() =>
     AppState.currentState !== 'background' && AppState.currentState !== 'inactive' &&
     (Platform.OS !== 'web' || typeof document === 'undefined' || !document.hidden));
@@ -133,7 +134,7 @@ export function VideoStage({ player, active: requestedActive, ready, failed, has
         <Pressable testID="video-sound" onPress={toggleSound} disabled={!hasAudio} hitSlop={6}
           accessibilityRole="switch" accessibilityState={{ checked: wantsSound, disabled: !hasAudio }}
           accessibilityLabel={hasAudio ? (wantsSound ? copy.turnOff : copy.turnOn) : copy.noAudio}
-          style={[s.sound, { top: ins.top + 108, flexDirection: rtl ? 'row-reverse' : 'row' }, rtl ? { right: 14 } : { left: 14 }, !hasAudio && { opacity: 0.6 }]}>
+          style={[s.sound, { top: controlTop ?? ins.top + 108, flexDirection: rtl ? 'row-reverse' : 'row' }, rtl ? { right: 14 } : { left: 14 }, !hasAudio && { opacity: 0.6 }]}>
           <Feather name={wantsSound ? 'volume-2' : 'volume-x'} size={16} color="#FFF" />
           <Text style={[s.soundText, { fontFamily: font('semibold') }]} numberOfLines={1}>{hasAudio ? (wantsSound ? copy.soundOn : copy.soundOff) : copy.noAudio}</Text>
         </Pressable>
