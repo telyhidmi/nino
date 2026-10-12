@@ -45,6 +45,13 @@ function PlayableVideo({ uri, active, muted, contentFit, onFailure, onRetry }: P
       else setError(copy.failed);
     }
   }, [player, copy.failed, onFailure]);
+  useEffect(() => {
+    if (!active || ready || error) return;
+    // Conversion may continue server-side; Retry can use the resulting cache.
+    // A missing browser error/canplay event must not leave a permanent spinner.
+    const timer = setTimeout(() => setError(copy.failed), 60000);
+    return () => clearTimeout(timer);
+  }, [active, ready, error, copy.failed]);
   // muted={false} is an explicit viewer request (profile viewer); otherwise follow the shared sound preference.
   return <VideoStage player={player} active={active} ready={ready} failed={!!error} contentFit={contentFit}
     forceSound={muted === false ? true : undefined}>

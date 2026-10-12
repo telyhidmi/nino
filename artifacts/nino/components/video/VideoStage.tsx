@@ -2,7 +2,7 @@ import { Feather } from '@expo/vector-icons';
 import { useEventListener } from 'expo';
 import { VideoView, type VideoPlayer } from 'expo-video';
 import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { PanResponder, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { AppState, PanResponder, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useInsets } from '@/components/ui';
 import { useI18n } from '@/lib/i18n';
 import { usePlaybackCopy } from '@/lib/playbackCopy';
@@ -32,7 +32,22 @@ type Props = {
   children?: React.ReactNode;
 };
 
-export function VideoStage({ player, active, ready, failed, hasAudio = true, forceSound, contentFit = 'cover', onFirstFrame, children }: Props) {
+export function VideoStage({ player, active: requestedActive, ready, failed, hasAudio = true, forceSound, contentFit = 'cover', onFirstFrame, children }: Props) {
+  const [foreground, setForeground] = useState(() =>
+    AppState.currentState !== 'background' && AppState.currentState !== 'inactive' &&
+    (Platform.OS !== 'web' || typeof document === 'undefined' || !document.hidden));
+  useEffect(() => {
+    const update = () => setForeground(
+      AppState.currentState !== 'background' && AppState.currentState !== 'inactive' &&
+      (Platform.OS !== 'web' || !document.hidden));
+    const sub = AppState.addEventListener('change', update);
+    if (Platform.OS === 'web') document.addEventListener('visibilitychange', update);
+    return () => {
+      sub.remove();
+      if (Platform.OS === 'web') document.removeEventListener('visibilitychange', update);
+    };
+  }, []);
+  const active = requestedActive && foreground;
   const copy = usePlaybackCopy();
   const { font, rtl } = useI18n();
   const ins = useInsets();
@@ -52,7 +67,9 @@ export function VideoStage({ player, active, ready, failed, hasAudio = true, for
 
   useEffect(() => {
     player.timeUpdateEventInterval = active ? 0.25 : 0;
-    if (active && !paused && ready && !failed && scrub === null) player.play();
+    // Request playback while buffering too. Waiting for canplay before calling
+    // play can strand remote media at metadata-only preload in browsers.
+    if (active && !paused && !failed && scrub === null) player.play();
     else player.pause();
     // useVideoPlayer owns release; never touch the native player during cleanup.
   }, [player, active, paused, ready, failed, scrub]);
@@ -60,7 +77,7 @@ export function VideoStage({ player, active, ready, failed, hasAudio = true, for
   // Browsers may block audible autoplay without a recent gesture. Fall back to
   // muted playback instead of a frozen frame; never promise sound autoplay.
   useEffect(() => {
-    if (Platform.OS !== 'web' || !active || paused || !ready || failed || !wantsSound || scrub !== null) return;
+    if (Platform.OS !== 'web' || !active || paused || failed || !wantsSound || scrub !== null) return;
     const id = setTimeout(() => { if (!player.playing) { setLocal(false); player.muted = true; player.play(); } }, 900);
     return () => clearTimeout(id);
   }, [player, active, paused, ready, failed, wantsSound, scrub]);

@@ -13,3 +13,9 @@ Preserve original user uploads when preparing browser-compatible playback. Tests
 **Why:** The user explicitly required preservation. Inspection of the failing uploaded clips identified HEVC in QuickTime containers, not a blanket MP4 incompatibility. Native-friendly input can still fail browser demuxing.
 
 **How to apply:** Inspect the actual codec/container before changing playback. Generate separate derivatives and test with newly created QA media. A standards-compatible output codec is not proof of playback on a physical iPhone or Android device.
+
+Do not gate an active remote player's initial play request on its ready/canplay notification.
+
+**Why:** Expo's browser player can remain at metadata preload while waiting for play; readiness-gated startup left uploaded videos displaying preparation indefinitely despite successful media responses. Requesting play during loading resolved the verified feed and return-navigation failure.
+
+**How to apply:** Keep visibility, manual pause, seeking, and failure gates, but allow active playback requests while buffering. Bound preparation with a retry state. Close test browser sessions after video checks; one retained session exhausted workspace memory and delayed otherwise healthy startup.
