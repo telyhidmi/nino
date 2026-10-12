@@ -25,3 +25,9 @@ The user repeated that play/replay should feel like TikTok, not a standard video
 **Why:** Updating only the feed left standard player controls in profile and recording previews, making the experience inconsistent.
 
 **How to apply:** Keep inline autoplay, looping, and tap-to-pause/resume consistent across viewing surfaces, including local media previews; do not reintroduce native player toolbars there.
+
+Videos should fill the available phone screen and resize for the device, rather than stay inside a fixed-size player.
+
+**Why:** The user explicitly requested full-screen, phone-dependent sizing.
+
+**How to apply:** Preserve aspect ratio with cover cropping, use available viewport dimensions, and retain the selected reel when resizing. Keep interactive controls clear of safe areas.

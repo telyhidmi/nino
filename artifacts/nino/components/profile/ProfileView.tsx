@@ -285,7 +285,7 @@ function MediaViewer({ item, onClose, onRemove, removing, removalError }: { item
       <View testID="media-viewer" style={{ flex: 1, backgroundColor: '#0A0A0B' }}>
         {item ? (item.kind === 'video' && item.video
           ? item.published && typeof item.video === 'object'
-            ? <PublishedVideo key={item.id} uri={item.video.uri} active muted={false} contentFit="contain" />
+            ? <PublishedVideo key={item.id} uri={item.video.uri} active muted={false} contentFit="cover" />
             : <VideoPlayer source={item.video} />
           : item.image ? <Image source={item.image} style={StyleSheet.absoluteFill} contentFit="contain" /> : null) : null}
         <View style={[s.viewerTop, { top: ins.top + 6 }]}>

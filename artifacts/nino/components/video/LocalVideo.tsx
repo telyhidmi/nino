@@ -35,7 +35,7 @@ function Playback({ source, active = true, compact, retry }: Props & { retry: ()
     return () => clearTimeout(timer);
   }, [active, ready, failed]);
   return <VideoStage player={player} active={active} ready={ready} failed={failed}
-    contentFit="contain" controlTop={compact ? 12 : undefined}>
+    contentFit="cover" controlTop={compact ? 12 : undefined}>
     {failed ? <View style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center', backgroundColor: '#111', padding: 20 }]}>
       <Text style={{ color: '#fff', fontFamily: font(), textAlign: 'center' }}>{t('feedVideoError')}</Text>
       <Pressable onPress={retry} accessibilityRole="button" style={{ padding: 16 }}>

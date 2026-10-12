@@ -2,7 +2,7 @@ import { Feather } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from 'expo-router';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, AppState, BackHandler, FlatList, Linking, Platform, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 import { DiscoverScreen } from '@/components/discover/DiscoverScreen';
 import { LiveList } from '@/components/LiveList';
@@ -138,6 +138,22 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
   const [open, setOpen] = useState<Open>(null);
   const [h, setH] = useState(0);
   const [index, setIndex] = useState(0);
+  const reelList = useRef<FlatList<Post | SamplePost>>(null);
+  const currentIndex = useRef(index);
+  const previousHeight = useRef(0);
+  currentIndex.current = index;
+  useEffect(() => {
+    if (!h) return;
+    const previous = previousHeight.current;
+    previousHeight.current = h;
+    if (!previous) return; // Preserve initialScrollIndex when opening a specific post.
+    const targetIndex = currentIndex.current;
+    // Keep the current reel aligned after rotation or a viewport-size change.
+    const frame = requestAnimationFrame(() => {
+      reelList.current?.scrollToOffset({ offset: targetIndex * h, animated: false });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [h]);
   const [refreshing, setRefreshing] = useState(false);
   const [listStart, setListStart] = useState(0);
   const [listVersion, setListVersion] = useState(0);
@@ -246,6 +262,7 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
       {section === 'home' && <View style={{ flex: 1 }} onLayout={(e) => { if (e.nativeEvent.layout.height > 0) setH(e.nativeEvent.layout.height); }}>
         {h > 0 && posts.length > 0 ? (
           <FlatList
+            ref={reelList}
             key={`${tab}-${listVersion}-${tab === 'following' ? posts.map((p) => p.id).join(',') : ''}`}
             data={posts}
             keyExtractor={(p) => p.id}

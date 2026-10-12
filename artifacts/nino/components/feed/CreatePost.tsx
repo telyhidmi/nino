@@ -5,7 +5,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import { LocalVideo } from '@/components/video/LocalVideo';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { AppState, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { AppState, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { KeyboardAwareScrollViewCompat } from '@/components/KeyboardAwareScrollViewCompat';
 import { useInsets } from '@/components/ui';
 import { useColors } from '@/hooks/useColors';
@@ -54,6 +54,7 @@ export function CreatePost({ visible, onClose, onSave, allowPublish = true }: { 
   const [bytes, setBytes] = useState<ByteProgress | null>(null);
   const [phase, setPhase] = useState<'upload' | 'finalize' | null>(null);
   const ins = useInsets();
+  const { height: windowHeight } = useWindowDimensions();
   const { t, font, row, align, rtl } = useI18n();
   const i18nError = t; // Capture translator outside the numeric session-token scopes.
   const regular = { fontFamily: font(), writingDirection: rtl ? 'rtl' as const : 'ltr' as const };
@@ -433,7 +434,8 @@ export function CreatePost({ visible, onClose, onSave, allowPublish = true }: { 
         </Pressable>
       </View>
       <KeyboardAwareScrollViewCompat contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" bottomOffset={20}>
-        <View style={[styles.media, { backgroundColor: c.card, borderColor: c.border }]}>
+        <View style={[styles.media, { backgroundColor: c.card, borderColor: c.border },
+          a.type === 'video' && { height: Math.max(160, windowHeight - ins.top - ins.bottom - 56), marginHorizontal: -18, borderRadius: 0, borderWidth: 0 }]}>
           {a.type === 'video' ? <VideoPreview key={a.uri} uri={a.uri} active={visible && foreground && !busy} /> : <Image source={{ uri: a.uri }} style={styles.fill} contentFit="contain" accessibilityLabel={t('cameraPhotoPreview')} />}
         </View>
         <Pressable testID="create-change" onPress={retake} disabled={busy} accessibilityRole="button" style={[styles.inlineBtn, { flexDirection: row, alignSelf: rtl ? 'flex-end' : 'flex-start' }]}>
