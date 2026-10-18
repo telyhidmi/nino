@@ -1,4 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getLocales } from 'expo-localization';
+import { preferredLanguage } from './preferredLanguage';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { Platform } from 'react-native';
 import { europe } from './locales/europe';
@@ -430,7 +432,8 @@ type Ctx = {
 const I18nContext = createContext<Ctx | null>(null);
 
 export function I18nProvider({ children }: { children: React.ReactNode }) {
-  const [lang, setLangState] = useState<Lang>('en');
+  const [lang, setLangState] = useState<Lang>(() =>
+    preferredLanguage(getLocales().map(locale => locale.languageTag), LANGS.map(l => l.code)) as Lang);
   const [languageChosen, setChosen] = useState(false);
   const [ready, setReady] = useState(false);
 

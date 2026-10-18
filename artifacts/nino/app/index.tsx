@@ -22,7 +22,7 @@ export default function Welcome() {
   const { user } = useUser();
   const c = useColors();
   const ins = useInsets();
-  const { t, font, languageChosen, rtl } = useI18n();
+  const { t, font, rtl } = useI18n();
 
   if (session?.currentTask) return <Redirect href="/sign-in" />;
 
@@ -52,7 +52,7 @@ export default function Welcome() {
         </View>
         <Rise delay={650}>
           <View style={{ gap: 8, width: '100%', maxWidth: 440, alignSelf: 'center' }}>
-            <PillButton testID="get-started" label={t('getStarted')} icon="globe" onPress={() => router.push(languageChosen ? '/sign-up' : '/language')} />
+            <PillButton testID="get-started" label={t('getStarted')} icon="globe" onPress={() => router.push('/sign-up')} />
             <PillButton testID="have-account" variant="ghost" label={t('haveAccount')} onPress={() => router.push('/sign-in')} />
             <PillButton testID="try-demo" variant="ghost" label={t('feedTryDemo')} icon="play-circle" onPress={() => router.push('/feed-preview')} />
           </View>

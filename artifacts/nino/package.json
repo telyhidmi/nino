@@ -71,6 +71,7 @@
     "@livekit/react-native-webrtc": "^144.2.0",
     "expo-camera": "~57.0.6",
     "expo-image-manipulator": "~57.0.21",
+    "expo-localization": "~57.0.2",
     "expo-video-thumbnails": "~57.0.2",
     "livekit-client": "^2.19.0"
   }
