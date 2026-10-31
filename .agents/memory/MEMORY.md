@@ -9,3 +9,4 @@
 - [Browser social sign-in](browser-social-sign-in.md) — keep browser OAuth independent of Expo popup/opener state in embedded previews.
 - [Localization boundaries](localization-boundaries.md) — translate interface text, not authored content; keep sample and unavailable-feature notices explicit.
 - [Creator AI boundaries](creator-ai-boundaries.md) — explicit media consent and sampled-frame limits; detached browser video decoding can stall.
+- [Social-account passwords](password-setup-policy.md) — verified users choose a Nino password on the same account; retain Google sign-in and never email passwords.

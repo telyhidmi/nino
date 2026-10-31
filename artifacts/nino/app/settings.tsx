@@ -18,6 +18,7 @@ import { clerkErrorMessage } from '@/lib/data';
 import { useI18n } from '@/lib/i18n';
 import { invalidateInbox, isMessagingQuery } from '@/lib/messaging';
 import { useSettingsCopy } from '@/lib/settingsCopy';
+import { usePasswordSetupCopy } from '@/lib/passwordSetupCopy';
 
 function refreshSocial(qc: QueryClient, peerId?: string) {
   void qc.invalidateQueries({ queryKey: getListFollowRequestsQueryKey() });
@@ -31,6 +32,11 @@ function SectionTitle({ label }: { label: string }) {
   const c = useColors();
   const { font, align } = useI18n();
   return <Text accessibilityRole="header" style={{ color: c.muted, fontFamily: font('semibold'), fontSize: 12, letterSpacing: 0.6, textTransform: 'uppercase', textAlign: align, paddingHorizontal: 20, paddingTop: 28, paddingBottom: 8 }}>{label}</Text>;
+}
+
+function PasswordRow() {
+  const s = usePasswordSetupCopy();
+  return <Row testID="settings-password" icon="lock" label={s.title} onPress={() => router.push('/set-password')} />;
 }
 
 function Group({ children }: { children: React.ReactNode }) {
@@ -210,6 +216,7 @@ export default function SettingsScreen() {
         <SectionTitle label={s.account} />
         <Group>
           <Row first testID="settings-edit" icon="edit-2" label={s.editProfile} body={s.editProfileBody} onPress={() => router.push('/setup?mode=edit')} />
+          <PasswordRow />
           <Row testID="settings-language" icon="globe" label={s.language} right={<LanguagePill />} />
         </Group>
 
