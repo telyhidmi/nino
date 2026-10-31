@@ -6,6 +6,7 @@ import { AppState, PanResponder, Platform, Pressable, StyleSheet, Text, View } f
 import { useInsets } from '@/components/ui';
 import { useI18n } from '@/lib/i18n';
 import { usePlaybackCopy } from '@/lib/playbackCopy';
+import { shouldPlayVideo } from '@/lib/activityPolicy';
 
 // Session-wide sound preference, like a vertical video feed: once the viewer
 // turns sound on with a tap, the next active video keeps it. Starts muted so
@@ -59,6 +60,7 @@ export function VideoStage({ player, active: requestedActive, ready, failed, has
   const [time, setTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [scrub, setScrub] = useState<number | null>(null);
+  const seeking = scrub !== null;
   const [width, setWidth] = useState(0);
 
   // Leaving the screen resets a manual pause so returning resumes immediately.
@@ -67,21 +69,22 @@ export function VideoStage({ player, active: requestedActive, ready, failed, has
   useEffect(() => { player.muted = !wantsSound; }, [player, wantsSound]);
 
   useEffect(() => {
-    player.timeUpdateEventInterval = active ? 0.25 : 0;
+    const playing = shouldPlayVideo(active, paused, failed, seeking);
+    player.timeUpdateEventInterval = playing ? 0.25 : 0;
     // Request playback while buffering too. Waiting for canplay before calling
     // play can strand remote media at metadata-only preload in browsers.
-    if (active && !paused && !failed && scrub === null) player.play();
+    if (playing) player.play();
     else player.pause();
     // useVideoPlayer owns release; never touch the native player during cleanup.
-  }, [player, active, paused, ready, failed, scrub]);
+  }, [player, active, paused, ready, failed, seeking]);
 
   // Browsers may block audible autoplay without a recent gesture. Fall back to
   // muted playback instead of a frozen frame; never promise sound autoplay.
   useEffect(() => {
-    if (Platform.OS !== 'web' || !active || paused || failed || !wantsSound || scrub !== null) return;
+    if (Platform.OS !== 'web' || !active || paused || failed || !wantsSound || seeking) return;
     const id = setTimeout(() => { if (!player.playing) { setLocal(false); player.muted = true; player.play(); } }, 900);
     return () => clearTimeout(id);
-  }, [player, active, paused, ready, failed, wantsSound, scrub]);
+  }, [player, active, paused, ready, failed, wantsSound, seeking]);
 
   useEventListener(player, 'timeUpdate', ({ currentTime }) => {
     setTime(currentTime);

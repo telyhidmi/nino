@@ -14,6 +14,7 @@ import { DemoProfile } from '@/components/profile/DemoProfile';
 import { CreatorProfile } from '@/components/profile/CreatorProfile';
 import type { ProfileCtx } from '@/components/profile/profileCtx';
 import { useColors } from '@/hooks/useColors';
+import { shouldPollFollowing } from '@/lib/activityPolicy';
 import { useI18n } from '@/lib/i18n';
 import { compact, SampleComment, SAMPLE_POSTS, SamplePost } from './data';
 import { FeedVideo } from './FeedVideo';
@@ -133,7 +134,6 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
   const persisted = useListPosts({ query: { queryKey: getListPostsQueryKey(), enabled: !preview, staleTime: 30_000, refetchOnMount: 'always', retry: false } });
   const ins = useInsets();
   const [tab, setTab] = useState<Tab>('foryou');
-  const followingPosts = useListFollowingPosts({ query: { queryKey: ['/api/posts/following'], enabled: !preview && tab === 'following', staleTime: 0, refetchInterval: 15_000, refetchIntervalInBackground: false, retry: false } });
   const [publishedCreator, setPublishedCreator] = useState<Post | null>(null);
   const [open, setOpen] = useState<Open>(null);
   const [h, setH] = useState(0);
@@ -167,6 +167,15 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
   const [section, setSection] = useState<'home' | 'discover' | 'profile' | 'creator'>(initialSection);
   const [creatorHandle, setCreatorHandle] = useState<string | null>(null);
   const [postsResetToken, setPostsResetToken] = useState(0);
+  const followingVisible = shouldPollFollowing({
+    preview: !!preview, tab, section, focused, foreground, webVisible,
+    overlayOpen: open !== null || !!publishedCreator,
+  });
+  const followingPosts = useListFollowingPosts({ query: {
+    queryKey: ['/api/posts/following'], enabled: followingVisible, staleTime: 0,
+    refetchInterval: followingVisible ? 15_000 : false,
+    refetchIntervalInBackground: false, retry: false,
+  } });
 
   useFocusEffect(useCallback(() => {
     setFocused(true);
@@ -289,7 +298,10 @@ export function FeedScreen({ viewer, onProfile, preview, onExitDemo, initialSect
             onScroll={(e) => {
               // Read the pooled native event synchronously, not in a state updater.
               const next = Math.max(0, Math.min(posts.length - 1, Math.round(e.nativeEvent.contentOffset.y / h)));
-              setIndex((previous) => previous === next ? previous : next);
+              if (currentIndex.current !== next) {
+                currentIndex.current = next;
+                setIndex(next);
+              }
             }}
             scrollEventThrottle={16}
             onMomentumScrollEnd={(e) => setIndex(Math.max(0, Math.min(posts.length - 1, Math.round(e.nativeEvent.contentOffset.y / h))))}
