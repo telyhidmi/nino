@@ -13,7 +13,7 @@
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
-    "@clerk/expo": "^4.8.0",
+    "@clerk/expo": "^4.14.5",
     "@expo-google-fonts/cairo": "^0.4.2",
     "@expo-google-fonts/inter": "^0.4.0",
     "@expo-google-fonts/poppins": "^0.4.1",
